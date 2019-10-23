@@ -15,13 +15,13 @@ db_cursor = db.cursor
 
 pdmex = PandaMex(bitmex)
 
-start_time = datetime.now() - timedelta(days=3)
-end_time = datetime.now() - timedelta(days=3) + timedelta(hours=1)
+start_time = datetime.now() - timedelta(days=7)
+end_time = datetime.now()
 
 df = pdmex.fetch_ohlcv("BTC/USD", "1m", start_time, end_time)
 ohlcv = PandaMex.to_timestamp(df)
 
-ohlcv.to_sql("ohlcv_data", db_client, if_exists="append", index=None)
+ohlcv.to_sql("ohlcv_data", db_client, if_exists="replace", index=None)
 
 print(pd.read_sql_query("SELECT * FROM ohlcv_data", db_client))
 db_client.close()
