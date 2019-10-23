@@ -8,7 +8,7 @@ class PandaMex:
     def __init__(self, bitmex):
         self.bitmex = bitmex
 
-    def fetch_ohlcv(self, symbol, timeframe="1m", since=None, count=None, params={}):
+    def fetch_ohlcv(self, symbol, timeframe="1m", start_time=None, end_time=None, count=None, reverse=True):
         # o => open price
         # h => high price
         # l => low price
@@ -18,12 +18,24 @@ class PandaMex:
         ohlcv_columns = ["timestamp", "open", "high", "low", "close", "volume"]
 
         # limit is deprecated. we need to use count
-        p = params
+        # appending optional paramaters
+        params = {"reverse": reverse}
+
+        if start_time == None:
+            raise ValueError("empty start time")
         if count != None:
-            p["count"] = count
+            params["count"] = count
+
+        filter_param = r'{"startTime":"' + start_time + r'"'
+        if end_time == None:
+            filter_param += r'}'
+        else:
+            filter_param += r',"endTime":"' + end_time + r'"}'
+
+        params["filter"] = filter_param
 
         ohlcvList = self.bitmex.fetch_ohlcv(
-            symbol, timeframe, since, params=p)
+            symbol, timeframe, params=params)
 
         return pd.DataFrame(ohlcvList, columns=ohlcv_columns)
 
