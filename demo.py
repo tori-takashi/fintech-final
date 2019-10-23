@@ -1,5 +1,6 @@
-import client.exchange_client as exchange_client
 from datetime import datetime, timedelta
+
+import client.exchange_client as exchange_client
 from lib.time_ms import TimeMS
 from lib.pandamex import PandaMex
 
