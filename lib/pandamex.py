@@ -22,15 +22,15 @@ class PandaMex:
         params = {"reverse": reverse}
 
         if start_time == None:
-            raise ValueError("empty start time")
+            raise ValueError("unset start time")
         if count != None:
             params["count"] = count
 
-        filter_param = r'{"startTime":"' + start_time + r'"'
+        filter_param = r'{"startTime":"' + str(start_time) + r'"'
         if end_time == None:
             filter_param += r'}'
         else:
-            filter_param += r',"endTime":"' + end_time + r'"}'
+            filter_param += r',"endTime":"' + str(end_time) + r'"}'
 
         params["filter"] = filter_param
 
