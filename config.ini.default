@@ -1,3 +1,7 @@
 [bitmex]
 apiKey=
 secret=
+
+[sqlite3]
+; root path is the current directory which is running .py file.
+db_path=
