@@ -6,22 +6,15 @@ import client.db_client as db_client
 from lib.time_ms import TimeMS
 from lib.pandamex import PandaMex
 
+from hypothesis_test.h_price_move_probability import HPriceMovePlobability
+
 import pandas as pd
 
 bitmex = exchange_client.ExchangeClient("bitmex").client
-db = db_client.DBClient("sqlite3")
-db_client = db.client
-db_cursor = db.cursor
 
-pdmex = PandaMex(bitmex)
-
-start_time = datetime.now() - timedelta(days=7)
+start_time = datetime.now() - timedelta(hours=2)
 end_time = datetime.now()
 
-df = pdmex.fetch_ohlcv("BTC/USD", "1m", start_time, end_time)
-ohlcv = PandaMex.to_timestamp(df)
-
-ohlcv.to_sql("ohlcv_data", db_client, if_exists="replace", index=None)
-
-print(pd.read_sql_query("SELECT * FROM ohlcv_data", db_client))
-db_client.close()
+h_price_move = HPriceMovePlobability(
+    bitmex, start_time=start_time, end_time=end_time)
+h_price_move.show_all_records()
