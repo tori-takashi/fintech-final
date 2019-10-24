@@ -19,6 +19,7 @@ class HPriceMovePlobability:
         self.db_cursor = db.cursor
 
         self.symbol = symbol
+        self.continuity_valuation_min = [1, 3]
 
         self.initialize_duration(start_time, end_time)
         self.fetch_data()
@@ -57,8 +58,7 @@ class HPriceMovePlobability:
     def setting_db(self):
         # [FIXME]  use self.symbol for timeframe to evaluate
         # default 1 min and 3 min
-        continuity_valuation_min = [1, 3]
-        adding_column_number = max(continuity_valuation_min)
+        adding_column_number = max(self.continuity_valuation_min)
 
         # create close price at n min ago columns
         for i in range(1, adding_column_number+1):
