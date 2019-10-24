@@ -12,9 +12,10 @@ import pandas as pd
 
 bitmex = exchange_client.ExchangeClient("bitmex").client
 
-start_time = datetime.now() - timedelta(hours=2)
+start_time = datetime.now() - timedelta(days=200)
 end_time = datetime.now()
 
 h_price_move = HPriceMovePlobability(
     bitmex, start_time=start_time, end_time=end_time)
-h_price_move.show_all_records()
+
+h_price_move.hypothesis_valuation()
