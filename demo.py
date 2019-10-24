@@ -18,4 +18,4 @@ end_time = datetime.now()
 h_price_move = HPriceMovePlobability(
     bitmex, start_time=start_time, end_time=end_time)
 
-h_price_move.hypothesis_valuation()
+h_price_move.h_conditional_probability()

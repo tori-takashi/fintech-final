@@ -78,7 +78,7 @@ class HPriceMovePlobability:
         self.ohlcv.to_sql(
             "ohlcv_data", self.db_client, if_exists="replace", index=None)
 
-    def hypothesis_valuation(self):
+    def h_conditional_probability(self):
         # [FIXME] adhoc codes, designating column name directly
         condition_plus_1 = (
             self.ohlcv["close_1min_ago"] > self.ohlcv["close_2min_ago"]).sum()
