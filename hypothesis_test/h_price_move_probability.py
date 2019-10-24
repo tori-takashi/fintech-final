@@ -21,8 +21,10 @@ class HPriceMovePlobability:
         self.symbol = symbol
 
         self.initialize_duration(start_time, end_time)
-        ohlcv = self.fetch_data()
-        self.setting_db(ohlcv)
+        self.fetch_data()
+        self.setting_db()
+
+        self.hypothesis_valuation()
 
     def __del__(self):
         self.db_client.close()
@@ -48,10 +50,11 @@ class HPriceMovePlobability:
 
         ohlcv_df = pdmex.fetch_ohlcv(
             "BTC/USD", self.symbol, self.start_time, self.end_time)
-        return PandaMex.to_timestamp(ohlcv_df)
 
-    def setting_db(self, ohlcv):
-        ohlcv_df = ohlcv
+        # initialize ohlcv
+        self.ohlcv = PandaMex.to_timestamp(ohlcv_df)
+
+    def setting_db(self):
         # [FIXME]  use self.symbol for timeframe to evaluate
         # default 1 min and 3 min
         continuity_valuation_min = [1, 3]
@@ -60,14 +63,17 @@ class HPriceMovePlobability:
         # create close price at n min ago columns
         for i in range(1, adding_column_number+1):
             column_name = "close_" + str(i) + "min_ago"
-            ohlcv_df[column_name] = ohlcv_df["close"].shift(i)
-            #ohlcv_df = pd.concat([ohlcv_df, ohlcv_df[column_name]])
+            self.ohlcv[column_name] = self.ohlcv["close"].shift(i)
 
         # remove including NaN records
-        ohlcv_df = ohlcv_df.drop(index=range(0, adding_column_number))
-        # overwrite with additional columns
-        ohlcv_df.to_sql(
+        self.ohlcv = self.ohlcv.drop(index=range(0, adding_column_number))
+
+        # create db
+        self.ohlcv.to_sql(
             "ohlcv_data", self.db_client, if_exists="replace", index=None)
+
+    def hypothesis_valuation(self):
+        pass
 
     def show_all_records(self):
         print(pd.read_sql_query(
