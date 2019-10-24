@@ -7,6 +7,7 @@ from . import time_ms
 
 class PandaMex:
     timeframe_sec = {"1m": 60, "5m": 60*5, "1h": 60*60, "1d": 60*60*24}
+    ohlcv_columns = ["timestamp", "open", "high", "low", "close", "volume"]
 
     def __init__(self, bitmex):
         self.bitmex = bitmex
@@ -18,13 +19,11 @@ class PandaMex:
         # c => close price
         # v => volume
 
-        ohlcv_columns = ["timestamp", "open", "high", "low", "close", "volume"]
-
         iterations = self.calc_iterations(
             timeframe, start_time, end_time, count)
         fetch_data_onetime = self.timeframe_sec[timeframe] * count
 
-        ohlcv_df = pd.DataFrame(data=None, columns=ohlcv_columns)
+        ohlcv_df = pd.DataFrame(data=None, columns=self.ohlcv_columns)
 
         for i in range(0, iterations):
             current_start = start_time.timestamp() + i * fetch_data_onetime
@@ -47,7 +46,7 @@ class PandaMex:
                 ohlcv_rawdata = self.bitmex.fetch_ohlcv(
                     symbol, timeframe, params=params)
                 ohlcv_df_part = pd.DataFrame(
-                    ohlcv_rawdata, columns=ohlcv_columns)
+                    ohlcv_rawdata, columns=self.ohlcv_columns)
                 ohlcv_df = ohlcv_df.append(ohlcv_df_part)
 
         return ohlcv_df
