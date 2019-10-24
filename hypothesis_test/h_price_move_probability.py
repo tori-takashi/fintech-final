@@ -18,6 +18,10 @@ class HPriceMovePlobability:
         self.db_client = db.client
         self.db_cursor = db.cursor
 
+        self.initialize_duration(start_time, end_time)
+        self.build_db()
+
+    def initialize_duration(self, start_time, end_time):
         # default: validation from 1 week ago to now
         if len(start_time) == 0:
             self.start_time = datetime.now() - timedelta(days=7)
@@ -28,8 +32,6 @@ class HPriceMovePlobability:
             self.end_time = datetime.now()
         else:
             self.end_time = end_time
-
-        self.build_db()
 
     def build_db(self):
         pdmex = PandaMex(self.bitmex)
