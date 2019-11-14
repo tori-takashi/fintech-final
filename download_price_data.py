@@ -9,7 +9,7 @@ from lib.pandamex import PandaMex
 bitmex = ExchangeClient("bitmex").client
 
 symbol = "1m"
-start_time = datetime.now() - timedelta(days=1)
+start_time = datetime.now() - timedelta(days=100)
 end_time = datetime.now()
 
 pdmex = PandaMex(bitmex)
