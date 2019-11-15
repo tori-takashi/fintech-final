@@ -4,6 +4,6 @@ Fintech Final Project for Group 4
 
 ## installation
 
-install packages below
+install packages like below
 
-`ccxt pandas`
+`$ pip install ccxt pandas bitmex-ws`
