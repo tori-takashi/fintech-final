@@ -2,3 +2,4 @@ config.ini
 __pycache__/
 db/
 .vscode
+.spyproject
