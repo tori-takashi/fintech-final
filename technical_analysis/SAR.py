@@ -11,31 +11,29 @@ import talib as ta
 import matplotlib.pyplot as plt
 import csv
 
-data = pd.read_csv('ohlcv_with_future.csv')
 
-high = data['high']
-low = data['low']
+class TechnicalAnalysisSAR:
+    def __init__(self, df):
+        self.df = df
+        self.high = df['high']
+        self.low = df['low']
 
-ta_SAR = ta.SAR(high, low, 0.02, 0.2)
+        self.ta_SAR = ta.SAR(self.high, self.low, 0.02, 0.2)
+        self.df["psar"] = self.ta_SAR
+        self.df["trend"] = None
+        self.df.loc[self.df["psar"] >= self.df["close"], "trend"] = "downtrend"
+        self.df.loc[~(self.df["psar"] >= self.df["close"]),
+                    "trend"] = "uptrend"
 
-plt.title('PSAR')
-plt.xlabel("Index")
-plt.ylabel("Price")
-plt.plot(data.index, high, 'blue', label="High")
-plt.plot(data.index, low, 'green', label="Low")
-plt.plot(data.index, ta_SAR, 'ro', label="SAR")
-plt.legend()
-plt.show()
+    def show_summary(self):
+        plt.title('PSAR')
+        plt.xlabel("Index")
+        plt.ylabel("Price")
+        plt.plot(self.df.index, self.high, 'blue', label="High")
+        plt.plot(self.df.index, self.low, 'green', label="Low")
+        plt.plot(self.df.index, self.ta_SAR, 'ro', label="SAR")
+        plt.legend()
+        plt.show()
 
-with open('PSAR_data.csv', 'w') as file:
-    fieldnames = ['index', 'timestamp', 'high', 'low', 'PSAR', 'trend']
-    writer = csv.DictWriter(file, fieldnames=fieldnames)
-    writer.writeheader()
-    for i in range(len(data.index)):
-        trend = ""
-        if(ta_SAR[i] >= high.iloc[i]):
-            trend = "downtrend"
-        elif(ta_SAR[i] <= low.iloc[i]):
-            trend = "uptrend"
-        writer.writerow({'index': i, 'timestamp': data['timestamp'].iloc[i],
-                         'high': high.iloc[i], 'low': low.iloc[i], 'PSAR': ta_SAR[i], 'trend': trend})
+    def get_psar_treand(self):
+        return pd.DataFrame(self.ta_SAR)
