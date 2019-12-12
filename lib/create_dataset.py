@@ -13,13 +13,15 @@ class CreateDataset:
         self.ohlcv_with_timestamp = self.download_data(
             symbol, start_time, end_time)
 
-        past_mins = [1, 5, 10]
+        before_mins = [1, 5, 10]
+        future_mins = [1, 5, 10]
 
-        self.ohlcv_with_past = self.ohlcv_with_timestamp
-        self.append_past(past_mins)
-        self.cut_empty_row(past_mins)
+        self.ohlcv_with_past_future = self.ohlcv_with_timestamp
+        self.append_past(before_mins)
+        self.append_future(future_mins)
+        self.cut_empty_row(before_mins, future_mins)
 
-        return self.ohlcv_with_past
+        return self.ohlcv_with_past_future
 
     def download_data(self, symbol, start_time, end_time):
         pdmex = PandaMex(self.bitmex)
@@ -29,18 +31,29 @@ class CreateDataset:
         # assign timestamp to ohlcv
         return PandaMex.to_timestamp(ohlcv_df)
 
-    def append_past(self, mins):
-        for min in mins:
+    def append_past(self, before_mins):
+        for min in before_mins:
             column_name = "before_" + str(min) + "min"
-            self.ohlcv_with_past[column_name] = self.ohlcv_with_past["close"].shift(
+            self.ohlcv_with_past_future[column_name] = self.ohlcv_with_past_future["close"].shift(
                 min)
 
-    def cut_empty_row(self, mins):
-        cut_index = max(mins)
-        self.ohlcv_with_past.reset_index(inplace=True, drop=True)
-        self.ohlcv_with_past.drop(
-            self.ohlcv_with_past.index[[i for i in range(cut_index)]], inplace=True)
-        self.ohlcv_with_past.reset_index(inplace=True, drop=True)
+    def append_future(self, future_mins):
+        for min in future_mins:
+            column_name = "after_" + str(min) + "min"
+            self.ohlcv_with_past_future[column_name] = self.ohlcv_with_past_future["close"].shift(
+                -min)
+
+    def cut_empty_row(self, before_mins, after_mins):
+        cut_before = max(before_mins)
+        cut_after = max(after_mins)
+
+        self.ohlcv_with_past_future.reset_index(inplace=True, drop=True)
+        self.ohlcv_with_past_future.drop(
+            self.ohlcv_with_past_future.index[[i for i in range(cut_before)]], inplace=True)
+        self.ohlcv_with_past_future.drop(
+            self.ohlcv_with_past_future.index[[-(i + 1) for i in range(cut_after)]], inplace=True)
+
+        self.ohlcv_with_past_future.reset_index(inplace=True, drop=True)
 
     def export_to_csv(self, filename):
-        self.ohlcv_with_past.to_csv(filename)
+        self.ohlcv_with_past_future.to_csv(filename)
