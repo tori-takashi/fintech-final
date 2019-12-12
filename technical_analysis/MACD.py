@@ -1,35 +1,61 @@
 import pandas as pd
 import numpy as np
 
-data = pd.read_csv("ohlcv_with_future.csv")
-patt = pd.read_csv("PSAR_data.csv")
 
+class TechnicalAnalysisMACD:
 
-def sma_close(period):
-    sma = data['close'].rolling(period).mean()
-    data['sma_' + str(period)] = sma
+    def __init__(self, df_include_psar, fast_period=12, slow_period=16, signal_period=9):
+        self.df = df_include_psar
 
+        self.fast_period = fast_period
+        self.slow_period = slow_period
+        self.signal_period = signal_period
 
-def sma_temp(period):
-    sma = data['Fast_Line'].rolling(period).mean()
-    data['Slow_Line_' + str(period)] = sma
+        self.generate_ema_macd()
 
+    def append_sma_close(self, ma_period):
+        sma = self.df['close'].rolling(ma_period).mean()
+        self.df['sma_{}'.format(ma_period)] = sma
 
-def macd(a, b, c):
-    sma_close(a)
-    sma_close(b)
-    temp = data['sma_' + str(a)] - data['sma_' + str(b)]
-    data['Fast_Line'] = temp
-    sma_temp(c)
+    def generate_sma_macd(self):
+        self.append_sma_close(self.fast_period)
+        self.append_sma_close(self.slow_period)
 
+        fast_minus_slow = self.df['sma_{}'.format(self.fast_period)] - \
+            self.df['sma_{}'.format(self.slow_period)]
 
-macd(12, 26, 9)
+        self.df['fast_line'] = fast_minus_slow
+        self.df['slow_line'] = self.df['fast_line'].rolling(
+            self.signal_period).mean()
 
-PSAR = patt['PSAR']
-trend = patt['trend']
+    def append_ema_close(self, ma_period):
+        ema_sum = self.df['close'].rolling(ma_period).sum() + self.df['close']
+        ema = ema_sum / ma_period + 1
+        self.df['ema_{}'.format(ma_period)] = ema
 
-data['PSAR'] = PSAR
-data['trend'] = trend
+    def generate_ema_macd(self):
+        self.append_ema_close(self.fast_period)
+        self.append_ema_close(self.slow_period)
 
+        fast_minus_slow = self.df['ema_{}'.format(self.fast_period)] - \
+            self.df['ema_{}'.format(self.slow_period)]
 
-data.to_csv("ohlcv_with_future.csv")
+        self.df['fast_line'] = fast_minus_slow
+        self.df['slow_line'] = self.df['fast_line'].rolling(
+            self.signal_period).mean()
+
+    def get_sma_macd(self):
+        return pd.concat([
+            self.df['sma_{}'.format(self.fast_period)],
+            self.df['sma_{}'.format(self.slow_period)],
+            self.df['fast_line'],
+            self.df['slow_line']
+        ], axis=1)
+
+    def get_ema_macd(self):
+        return pd.concat([
+            self.df['ema_{}'.format(self.fast_period)],
+            self.df['ema_{}'.format(self.slow_period)],
+            self.df['fast_line'],
+            self.df['slow_line']
+        ], axis=1)

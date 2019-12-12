@@ -8,4 +8,4 @@ class TechnicalAnalysisAD:
         self.ta_AD = ta.AD(df["high"], df["low"], df["close"], df["volume"])
 
     def get_ad(self):
-        return pd.DataFrame(self.ta_AD)
+        return pd.DataFrame(self.ta_AD, columns=["ad"])

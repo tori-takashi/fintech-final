@@ -8,4 +8,4 @@ class TechnicalAnalysisATR:
         self.ta_ATR = ta.ATR(df["high"], df["low"], df["close"])
 
     def get_atr(self):
-        return pd.DataFrame(self.ta_ATR)
+        return pd.DataFrame(self.ta_ATR, columns=["atr"])

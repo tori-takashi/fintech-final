@@ -35,5 +35,7 @@ class TechnicalAnalysisSAR:
         plt.legend()
         plt.show()
 
-    def get_psar_treand(self):
-        return pd.DataFrame(self.ta_SAR)
+    def get_psar_trend(self):
+        return pd.concat([
+            self.df["psar"],
+            self.df["trend"]], axis=1)
