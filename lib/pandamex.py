@@ -1,4 +1,5 @@
 # bitmex wrapper with pandas
+from datetime import datetime
 import time
 import pandas as pd
 
@@ -47,6 +48,9 @@ class PandaMex:
                     symbol, timeframe, params=params)
                 ohlcv_df_part = pd.DataFrame(
                     ohlcv_rawdata, columns=self.ohlcv_columns)
+                print("fetched data duration: " + str(time_ms.TimeMS.fromtimestamp(
+                    float(ohlcv_df_part.iloc[0]["timestamp"]))) + "  ~  " + str(time_ms.TimeMS.fromtimestamp(
+                        float(ohlcv_df_part.iloc[-1]["timestamp"]))))
                 ohlcv_df = ohlcv_df.append(ohlcv_df_part)
 
         return ohlcv_df
