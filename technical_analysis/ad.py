@@ -7,5 +7,5 @@ class TechnicalAnalysisAD:
         # calculate and apply AD
         self.ta_AD = ta.AD(df["high"], df["low"], df["close"], df["volume"])
 
-    def get_ta_ad(self):
+    def get_ad(self):
         return pd.DataFrame(self.ta_AD)

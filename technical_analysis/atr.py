@@ -7,5 +7,5 @@ class TechnicalAnalysisAD:
         # calculate and apply AD
         self.ta_ATR = ta.ATR(df["high"], df["low"], df["close"])
 
-    def get_ta_atr(self):
+    def get_atr(self):
         return pd.DataFrame(self.ta_ATR)
