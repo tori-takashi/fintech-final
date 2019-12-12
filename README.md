@@ -37,6 +37,10 @@ If you're using anaconda, please replace `pip` to `conda`
 `$ sudo pip install -U setuptools`
 `$ pip install ccxt pandas ta-lib`
 
+### create csv
+
+`$ python3 build_dataset.py`
+
 ## Error
 
 If you face error of talib importing, please try to reimport your bash profile which is setting the path of talib.
