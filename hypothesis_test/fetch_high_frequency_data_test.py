@@ -7,7 +7,7 @@ from pprint import pprint
 from client.exchange_ws_client import WSClient
 
 
-class SpreadCheck:
+class FetchHighFrequencyData:
     def __init__(self, bitmex_ws, duration=None):
         columns = ["last", "buy", "sell", "mid", "timestamp"]
 
