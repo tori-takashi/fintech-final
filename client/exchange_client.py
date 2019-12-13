@@ -15,15 +15,16 @@ class ExchangeClient:
     #################################################
 
     def __init__(self, name):
+        self.name = name
         self.config = SafeConfigParser()
 
         # config.ini should be same place to executing file
         self.config.read("config.ini")
-        self.client = self.establish_connection_to_exchange(name)
+        self.client = self.establish_connection_to_exchange()
 
     # append name and establish function if you added exchanges
-    def establish_connection_to_exchange(self, name):
-        if name == "bitmex":
+    def establish_connection_to_exchange(self):
+        if self.name == "bitmex":
             return self.bitmex_establish_connection()
 
     # connect to bitmex
