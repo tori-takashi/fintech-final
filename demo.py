@@ -13,15 +13,8 @@ from hypothesis_test.fetch_high_frequency_data_test import FetchHighFrequencyDat
 from hypothesis_test.h_price_move_probability import HPriceMovePlobability
 from hypothesis_test.volatility_dependent_offset_test import VolatilityDependentOffsetTest
 
-"""### test spread check ###
+from bot.bottom_trend_follower import BottomTrendFollow
 
-   bitmex_ws = WSClient().ws
-   duration = timedelta(minutes=10)
-   spread_check = SpreadCheck(bitmex_ws)
-   """
-
-# test volatility dependent offset
-
-bitmex = ExchangeClient("bitmex").client
-T = 5  # minutes
-VolatilityDependentOffsetTest(bitmex, T)
+bitmex_exchange_client = ExchangeClient("bitmex")
+bot_bot = BottomTrendFollow(bitmex_exchange_client, is_backtest=True)
+bot_bot.run()
