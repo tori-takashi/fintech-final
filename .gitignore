@@ -3,4 +3,3 @@ __pycache__/
 db/
 .vscode
 .spyproject
-*.log
