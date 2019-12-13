@@ -6,14 +6,17 @@ from technical_analysis.MACD import TechnicalAnalysisMACD
 
 class BottomTrendFollow(TradingBot):
     def __init__(self, client, is_backtest=False):
-        self.bot_name = "bottom_trend_follow"
-        super().__init__(client, is_backtest, self.bot_name)
 
         # hyper parameters
         self.timeframe = "1m"
         self.bottom_trend_tick = 180  # 12 hours * 60 min
         self.middle_trend_tick = 30
         self.top_trend_tick = 5
+
+        self.bot_name = "bottom_trend_follow_" + self.timeframe + "_" + \
+            str(self.bottom_trend_tick) + "_" + \
+            str(self.middle_trend_tick) + "_" + str(self.top_trend_tick)
+        super().__init__(client, is_backtest, self.bot_name)
 
         self.logger.info("hyper parameters")
         self.logger.info("timeframe : " + self.timeframe)
