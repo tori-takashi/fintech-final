@@ -1,4 +1,6 @@
 import ccxt
+import pandas as pd
+import logging
 from datetime import datetime, timedelta
 
 from lib.pandamex import PandaMex
@@ -11,6 +13,23 @@ class TradingBot:
         self.exchange_client = exchange_client
         self.client = exchange_client.client
 
+        # logger settings
+        self.logger = logging.getLogger("backtest")
+        self.logger.setLevel(10)
+
+        sh = logging.StreamHandler()
+        self.logger.addHandler(sh)
+
+        formatter_sh = logging.Formatter(
+            '[%(levelname)s] %(message)s')
+        sh.setFormatter(formatter_sh)
+
+        logging.basicConfig(
+            filename='./backtest.log',
+            filemode='w',  # Default is 'a'
+            level=logging.INFO
+        )
+
         self.lot = 1
         # do not close opening position after n ticks.
         self.close_condition = 0
@@ -21,8 +40,8 @@ class TradingBot:
         self.calculate_metrics()
         if self.is_backtest:
             self.calculate_sign_backtest()
-            print(self.ohlcv_df)
-            self.run_backtest()
+            self.run_backtest(close_in_do_nothing=True)
+            self.aggregate_summary()
 
     def calculate_lot(self):
         return 1
@@ -54,6 +73,18 @@ class TradingBot:
             return PandaMex.to_timestamp(ohlcv_df)
 
     def run_backtest(self, close_in_do_nothing=True):
+        record_column = [
+            "entry_timestamp",
+            "close_timestamp",
+            "status",
+            "order_type",
+            "profit_status",
+            "entry_price",
+            "close_price",
+            "lot",
+            "transaction_cost",
+            "profit_size"
+        ]
         # [close_in_do_nothing option]
         # True  => close position when the [buy/sell] signal change to the [do_nothing/opposite] signal
         # False => close position when the [buy/sell] signal change to the opposite signal
@@ -64,30 +95,41 @@ class TradingBot:
         position = None
         contain_signal_df = self.ohlcv_df
 
-        closed_positions = []
+        self.closed_positions_df = pd.DataFrame(columns=record_column)
 
         for row in contain_signal_df.itertuples():
-            print(str(row.timestamp) + " : open price: $" +
-                  str(row.open) + " close price: $" + str(row.close))
+            self.logger.info(str(row.timestamp) + " : open price: $" +
+                             str(row.open) + " close price: $" + str(row.close))
 
-            if position is not None and row.signal == "buy":
-                if position.order_type == "long":
+            if row.signal == "buy":
+                if position is not None and position.order_type == "long":
                     # still holding
                     pass
                 elif position is not None and position.order_type == "short":
                     # close position
                     position.close_position(row)
+                    self.closed_positions_df = self.closed_positions_df.append(
+                        position.set_summary_df(), ignore_index=True)
+                    self.logging_close(position)
+
                     position = None
-                else:  # do_nothing
+                else:
                     # open position
                     lot = self.calculate_lot()
                     position = OrderPosition(
                         row, "long", lot, is_backtest=True)
+                    self.logging_entry(position)
 
             elif row.signal == "sell":
                 if position is not None and position.order_type == "long":
+                    # close position
                     position.close_position(row)
+                    self.closed_positions_df = self.closed_positions_df.append(
+                        position.set_summary_df(), ignore_index=True)
+                    self.logging_close(position)
+
                     position = None
+
                 elif position is not None and position.order_type == "short":
                     # still holding
                     pass
@@ -96,17 +138,97 @@ class TradingBot:
                     lot = self.calculate_lot()
                     position = OrderPosition(
                         row, "short", lot, is_backtest=True)
+                    self.logging_entry(position)
 
             elif row.signal == "do_nothing":
                 if close_in_do_nothing:
                     if position is not None and position.order_type == "long":
                         # close position
                         position.close_position(row)
+                        self.closed_positions_df = self.closed_positions_df.append(
+                            position.set_summary_df(), ignore_index=True)
+                        self.logging_close(position)
+
                         position = None
+
                     elif position is not None and position.order_type == "short":
                         # close position
                         position.close_position(row)
+                        self.closed_positions_df = self.closed_positions_df.append(
+                            position.set_summary_df(), ignore_index=True)
+                        self.logging_close(position)
+
                         position = None
+
+    def logging_entry(self, position):
+        self.logger.info("  Entry " + position.order_type +
+                         " at $" + str(position.entry_price))
+
+    def logging_close(self, position):
+        self.logger.info("  Close " + position.order_type +
+                         " position at $" + str(position.close_price))
+        if position.profit_status == "win":
+            self.logger.info(
+                "  $" + str(abs(position.profit_size)) + " profit")
+        else:
+            self.logger.info(
+                "  $" + str(abs(position.profit_size)) + " loss")
+
+    def aggregate_summary(self):
+        order_types = ["long", "short"]
+        self.logger.info("# Stategy Backtest Result")
+
+        for order_type in order_types:
+            self.logger.info("\n## entry " + order_type + " result")
+
+            order_entries = (
+                self.closed_positions_df["order_type"] == order_type).sum()
+
+            order_winning_entries = ((self.closed_positions_df["order_type"] == order_type) & (
+                self.closed_positions_df["profit_status"] == "win")).sum()
+            order_winning_rate = (order_winning_entries / order_entries) * 100
+
+            order_return = self.closed_positions_df[self.closed_positions_df["order_type"] == order_type].profit_size.sum(
+            )
+            order_win = self.closed_positions_df[(self.closed_positions_df["order_type"] == order_type) & (
+                self.closed_positions_df["profit_status"] == "win")].profit_size.sum()
+            order_lose = self.closed_positions_df[(self.closed_positions_df["order_type"] == order_type) & (
+                self.closed_positions_df["profit_status"] == "lose")].profit_size.sum()
+
+            order_average_return = order_return / order_entries
+            self.logger.info(order_type + " order entry -> " +
+                             str(order_entries) + " times")
+            self.logger.info(order_type + " order winning rate -> " +
+                             str(round(order_winning_rate, 2)) + "%")
+            self.logger.info(
+                order_type + " order return -> $" + str(order_return))
+            self.logger.info(order_type + " order win -> $" + str(order_win))
+            self.logger.info(order_type + " order lose -> $" + str(order_lose))
+            self.logger.info(order_type + " order average return -> $" +
+                             str(round(order_average_return, 2)))
+
+        self.logger.info("\n## total record")
+        total_entries = len(self.closed_positions_df)
+
+        total_winning_entries = (
+            self.closed_positions_df["profit_status"] == "win").sum()
+        total_winning_rate = (total_winning_entries / total_entries) * 100
+
+        total_return = self.closed_positions_df.profit_size.sum()
+        total_win = self.closed_positions_df[self.closed_positions_df["profit_status"] == "win"].profit_size.sum(
+        )
+        total_lose = self.closed_positions_df[self.closed_positions_df["profit_status"] == "lose"].profit_size.sum(
+        )
+
+        total_average_return = total_return / total_entries
+        self.logger.info("total entry -> " + str(total_entries) + " times")
+        self.logger.info("total winning rate -> " +
+                         str(round(total_winning_rate, 2)) + "%")
+        self.logger.info("total return -> $" + str(total_return))
+        self.logger.info("total win -> $" + str(total_win))
+        self.logger.info("total lose -> $" + str(total_lose))
+        self.logger.info("total average return -> $" +
+                         str(round(total_average_return, 2)))
 
 
 class OrderPosition:
@@ -119,34 +241,64 @@ class OrderPosition:
         self.is_backtest = is_backtest
         self.lot = lot
 
+        # for summary
         self.entry_price = row.close
+        self.entry_timestamp = row.timestamp
         self.close_price = 0
+        # self.close_timestamp
 
         self.open_position()
 
     def open_position(self):
-        print("Entry" + self.order_type + " at $" + str(self.entry_price))
         if self.is_backtest:
             pass
 
     def close_position(self, row_execution):
+        # for summary
         self.close_price = row_execution.close
-        print("Close long at $" + str(self.close_price))
+        self.close_timestamp = row_execution.timestamp
 
-        transaction_cost = self.close_price * self.transaction_fee_by_order
+        self.transaction_cost = self.close_price * self.transaction_fee_by_order
 
         if self.order_type == "long":
-            self.profit = (self.close_price -
-                           self.entry_price) - transaction_cost
+            self.profit_size = ((self.close_price -
+                                 self.entry_price) - self.transaction_cost) * self.lot
         elif self.order_type == "short":
-            self.profit = (self.entry_price -
-                           self.close_price) - transaction_cost
+            self.profit_size = ((self.entry_price -
+                                 self.close_price) - self.transaction_cost) * self.lot
 
-        if self.profit > 0:
-            print("$" + str(self.profit) + " profit")
+        if self.profit_size > 0:
+            self.profit_status = "win"
         else:
-            print("$" + str(self.profit) + " loss")
+            self.profit_status = "lose"
 
         self.status = "closed"
         if self.is_backtest:
             pass
+
+    def set_summary_df(self):
+        record_column = [
+            "entry_timestamp",
+            "close_timestamp",
+            "status",
+            "order_type",
+            "profit_status",
+            "entry_price",
+            "close_price",
+            "lot",
+            "transaction_cost",
+            "profit_size"
+        ]
+        self.position = pd.Series([
+            self.entry_timestamp,
+            self.close_timestamp,
+            self.status,
+            self.order_type,
+            self.profit_status,
+            self.entry_price,
+            self.close_price,
+            self.lot,
+            self.transaction_cost,
+            self.profit_size
+        ], index=record_column)
+        return self.position
