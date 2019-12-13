@@ -25,7 +25,7 @@ class TradingBot:
         sh.setFormatter(formatter_sh)
 
         logging.basicConfig(
-            filename='./backtest.log',
+            filename='./log/backtest.log',
             filemode='w',  # Default is 'a'
             level=logging.INFO
         )
@@ -35,8 +35,15 @@ class TradingBot:
         self.close_condition = 0
         self.timeframe = "1m"
 
-    def run(self):
-        self.ohlcv_df = self.init_ohlcv_data()
+    def run(self, duration_days=None):
+        if duration is not None:
+            start_time = datetime.now() - duration_days
+            end_time = datetime.now()
+            self.ohlcv_df = self.init_ohlcv_data(
+                start_time=start_time, end_time=end_time)
+        else:
+            self.ohlcv_df = self.init_ohlcv_data()
+
         self.calculate_metrics()
         if self.is_backtest:
             self.calculate_sign_backtest()
