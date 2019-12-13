@@ -7,14 +7,33 @@ from lib.pandamex import PandaMex
 
 
 class TradingBot:
-    def __init__(self, exchange_client, is_backtest=False, bot_name="trading_bot"):
+    def __init__(self, exchange_client, is_backtest=False, bot_name="trading_bot",
+                 timeframe="1m", close_in_do_nothing=True, inverse_trading=False):
+        # default hyperparameter
+        self.timeframe = timeframe
+        self.close_in_do_nothing = close_in_do_nothing
+        self.inverse_trading = inverse_trading
+        self.lot = 1
+
+        if close_in_do_nothing:
+            do_nothing_option = "_do_nothing"
+        else:
+            do_nothing_option = ""
+
+        if inverse_trading:
+            inverse_trading_option = "_inverse"
+        else:
+            inverse_trading_option = ""
+
+        self.bot_name = bot_name + do_nothing_option + inverse_trading_option
+
         self.is_backtest = is_backtest
 
         self.exchange_client = exchange_client
         self.client = exchange_client.client
 
         # logger settings
-        self.logger = logging.getLogger(bot_name)
+        self.logger = logging.getLogger(self.bot_name)
         self.logger.setLevel(10)
 
         sh = logging.StreamHandler()
@@ -25,15 +44,17 @@ class TradingBot:
         sh.setFormatter(formatter_sh)
 
         logging.basicConfig(
-            filename="./log/" + bot_name + ".log",
+            filename="./log/" + self.bot_name + ".log",
             filemode='a',
             level=logging.INFO
         )
 
-        self.lot = 1
-        # do not close opening position after n ticks.
-        self.close_condition = 0
-        self.timeframe = "1m"
+        self.logger.info("default hyper parameters")
+        self.logger.info("close_in_do_nothing : " +
+                         str(self.close_in_do_nothing))
+        self.logger.info("inverse_trading : " +
+                         str(self.inverse_trading))
+        self.logger.info("lot size : " + str(self.lot))
 
     def run(self, duration_days=None):
         if duration_days is not None:
@@ -47,7 +68,7 @@ class TradingBot:
         self.calculate_metrics()
         if self.is_backtest:
             self.calculate_sign_backtest()
-            self.run_backtest(close_in_do_nothing=True)
+            self.run_backtest()
             self.aggregate_summary()
 
     def calculate_lot(self):
@@ -79,7 +100,7 @@ class TradingBot:
             # fetch ohlcv data
             return PandaMex.to_timestamp(ohlcv_df)
 
-    def run_backtest(self, close_in_do_nothing=True):
+    def run_backtest(self):
         record_column = [
             "entry_timestamp",
             "close_timestamp",
@@ -113,7 +134,6 @@ class TradingBot:
                     # still holding
                     pass
                 elif position is not None and position.order_type == "short":
-                    # close position
                     position.close_position(row)
                     self.closed_positions_df = self.closed_positions_df.append(
                         position.set_summary_df(), ignore_index=True)
@@ -121,10 +141,15 @@ class TradingBot:
 
                     position = None
                 else:
-                    # open position
                     lot = self.calculate_lot()
-                    position = OrderPosition(
-                        row, "long", lot, is_backtest=True)
+                    # inverse => open short position
+                    if self.inverse_trading:
+                        position = OrderPosition(
+                            row, "short", lot, is_backtest=True)
+                    else:
+                        # normal => open long position
+                        position = OrderPosition(
+                            row, "long", lot, is_backtest=True)
                     self.logging_entry(position)
 
             elif row.signal == "sell":
@@ -141,14 +166,19 @@ class TradingBot:
                     # still holding
                     pass
                 else:
-                    # open position
                     lot = self.calculate_lot()
-                    position = OrderPosition(
-                        row, "short", lot, is_backtest=True)
+                    # inverse => open long position
+                    if self.inverse_trading:
+                        position = OrderPosition(
+                            row, "long", lot, is_backtest=True)
+                    else:
+                        # normal => open short position
+                        position = OrderPosition(
+                            row, "short", lot, is_backtest=True)
                     self.logging_entry(position)
 
             elif row.signal == "do_nothing":
-                if close_in_do_nothing:
+                if self.close_in_do_nothing:
                     if position is not None and position.order_type == "long":
                         # close position
                         position.close_position(row)

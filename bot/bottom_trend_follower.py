@@ -9,14 +9,23 @@ class BottomTrendFollow(TradingBot):
 
         # hyper parameters
         self.timeframe = "1m"
-        self.bottom_trend_tick = 180  # 12 hours * 60 min
+        self.bottom_trend_tick = 180
         self.middle_trend_tick = 30
         self.top_trend_tick = 5
+        close_in_do_nothing = True
+        inverse_trading = True
 
         self.bot_name = "bottom_trend_follow_" + self.timeframe + "_" + \
             str(self.bottom_trend_tick) + "_" + \
             str(self.middle_trend_tick) + "_" + str(self.top_trend_tick)
-        super().__init__(client, is_backtest, self.bot_name)
+        super().__init__(
+            client,
+            is_backtest,
+            self.bot_name,
+            self.timeframe,
+            close_in_do_nothing=close_in_do_nothing,
+            inverse_trading=inverse_trading
+        )
 
         self.logger.info("hyper parameters")
         self.logger.info("timeframe : " + self.timeframe)
