@@ -29,7 +29,7 @@ class TechnicalAnalysisMACD:
 
     def append_ema_close(self, ma_period):
         ema_sum = self.df['close'].rolling(ma_period).sum() + self.df['close']
-        ema = ema_sum / ma_period + 1
+        ema = ema_sum / (ma_period + 1)
         self.df['ema_{}'.format(ma_period)] = ema
         return self.df['ema_{}'.format(ma_period)]
 
