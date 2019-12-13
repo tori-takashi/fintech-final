@@ -7,14 +7,14 @@ from lib.pandamex import PandaMex
 
 
 class TradingBot:
-    def __init__(self, exchange_client, is_backtest=False):
+    def __init__(self, exchange_client, is_backtest=False, bot_name="trading_bot"):
         self.is_backtest = is_backtest
 
         self.exchange_client = exchange_client
         self.client = exchange_client.client
 
         # logger settings
-        self.logger = logging.getLogger("backtest")
+        self.logger = logging.getLogger(bot_name)
         self.logger.setLevel(10)
 
         sh = logging.StreamHandler()
@@ -25,8 +25,8 @@ class TradingBot:
         sh.setFormatter(formatter_sh)
 
         logging.basicConfig(
-            filename='./log/backtest.log',
-            filemode='w',  # Default is 'a'
+            filename="./log/" + bot_name + ".log",
+            filemode='a',
             level=logging.INFO
         )
 

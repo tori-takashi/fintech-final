@@ -6,22 +6,30 @@ from technical_analysis.MACD import TechnicalAnalysisMACD
 
 class BottomTrendFollow(TradingBot):
     def __init__(self, client, is_backtest=False):
-        super().__init__(client, is_backtest)
+        self.bot_name = "bottom_trend_follow"
+        super().__init__(client, is_backtest, self.bot_name)
 
-        self.timeframe = "1h"
+        # hyper parameters
+        self.timeframe = "1m"
+        self.bottom_trend_tick = 180  # 12 hours * 60 min
+        self.middle_trend_tick = 30
+        self.top_trend_tick = 5
+
+        self.logger.info("hyper parameters")
+        self.logger.info("timeframe : " + self.timeframe)
+        self.logger.info("bottom_trend_tick : " + str(self.bottom_trend_tick))
+        self.logger.info("middle_trend_tick : " + str(self.middle_trend_tick))
+        self.logger.info("top_trend_tick : " + str(self.top_trend_tick))
+
         # for EMA and columns
-
-        self.bottom_trend_tick = 12  # 12 hours * 60 min
         self.bottom_col = "ema_" + str(self.bottom_trend_tick)
         self.bottom_diff_col = self.bottom_col + "_diff"
         self.bottom_trend_col = self.bottom_col + "_trend"
 
-        self.middle_trend_tick = 6
         self.middle_col = "ema_" + str(self.middle_trend_tick)
         self.middle_diff_col = self.middle_col + "_diff"
         self.middle_trend_col = self.middle_col + "_trend"
 
-        self.top_trend_tick = 3
         self.top_col = "ema_" + str(self.top_trend_tick)
         self.top_diff_col = self.top_col + "_diff"
         self.top_trend_col = self.top_col + "_trend"
