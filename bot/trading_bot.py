@@ -36,8 +36,8 @@ class TradingBot:
         self.timeframe = "1m"
 
     def run(self, duration_days=None):
-        if duration is not None:
-            start_time = datetime.now() - duration_days
+        if duration_days is not None:
+            start_time = datetime.now() - timedelta(days=duration_days)
             end_time = datetime.now()
             self.ohlcv_df = self.init_ohlcv_data(
                 start_time=start_time, end_time=end_time)
