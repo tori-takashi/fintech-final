@@ -13,7 +13,7 @@ class PandaMex:
     def __init__(self, bitmex):
         self.bitmex = bitmex
 
-    def fetch_ohlcv(self, symbol, timeframe="1m", start_time=None, end_time=None, count=500, reverse=True):
+    def fetch_ohlcv(self, symbol="BTC/USD", timeframe="1m", start_time=None, end_time=None, count=500, reverse=True):
         # o => open price
         # h => high price
         # l => low price
