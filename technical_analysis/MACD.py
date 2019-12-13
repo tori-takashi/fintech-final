@@ -4,8 +4,8 @@ import numpy as np
 
 class TechnicalAnalysisMACD:
 
-    def __init__(self, df_include_psar, fast_period=12, slow_period=16, signal_period=9):
-        self.df = df_include_psar
+    def __init__(self, df, fast_period=12, slow_period=16, signal_period=9):
+        self.df = df
 
         self.fast_period = fast_period
         self.slow_period = slow_period
