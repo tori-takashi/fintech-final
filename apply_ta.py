@@ -20,6 +20,7 @@ def get_technical_indicators(df):
     sar_df = ta_sar.get_psar_trend()
 
     ta_macd = TechnicalAnalysisMACD(df)
+    ta_macd.generate_ema_macd()
     macd_df = ta_macd.get_ema_macd()
 
     ta_applied = pd.concat([df, ad_df, atr_df, sar_df, macd_df], axis=1)

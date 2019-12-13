@@ -11,11 +11,10 @@ class TechnicalAnalysisMACD:
         self.slow_period = slow_period
         self.signal_period = signal_period
 
-        self.generate_ema_macd()
-
     def append_sma_close(self, ma_period):
         sma = self.df['close'].rolling(ma_period).mean()
         self.df['sma_{}'.format(ma_period)] = sma
+        return self.df['sma_{}'.format(ma_period)]
 
     def generate_sma_macd(self):
         self.append_sma_close(self.fast_period)
@@ -32,6 +31,7 @@ class TechnicalAnalysisMACD:
         ema_sum = self.df['close'].rolling(ma_period).sum() + self.df['close']
         ema = ema_sum / ma_period + 1
         self.df['ema_{}'.format(ma_period)] = ema
+        return self.df['ema_{}'.format(ma_period)]
 
     def generate_ema_macd(self):
         self.append_ema_close(self.fast_period)
