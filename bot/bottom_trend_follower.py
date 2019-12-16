@@ -8,10 +8,10 @@ class BottomTrendFollow(TradingBot):
     def __init__(self, client, is_backtest=False):
 
         # hyper parameters
-        self.timeframe = "1m"
-        self.bottom_trend_tick = 180
-        self.middle_trend_tick = 30
-        self.top_trend_tick = 5
+        self.timeframe = "1h"
+        self.bottom_trend_tick = 12
+        self.middle_trend_tick = 6
+        self.top_trend_tick = 3
         close_in_do_nothing = True
         inverse_trading = True
 

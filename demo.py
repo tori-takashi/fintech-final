@@ -17,4 +17,4 @@ from bot.bottom_trend_follower import BottomTrendFollow
 
 bitmex_exchange_client = ExchangeClient("bitmex")
 bot_bot = BottomTrendFollow(bitmex_exchange_client, is_backtest=True)
-bot_bot.run(duration_days=30)
+bot_bot.run(duration_days=90)
