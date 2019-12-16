@@ -7,32 +7,74 @@ from lib.pandamex import PandaMex
 
 
 class TradingBot:
-    def __init__(self, exchange_client, is_backtest=False, bot_name="trading_bot",
-                 timeframe="1m", close_in_do_nothing=True, inverse_trading=False):
-        # default hyperparameter
-        self.timeframe = timeframe
-        self.close_in_do_nothing = close_in_do_nothing
-        self.inverse_trading = inverse_trading
-        self.lot = 1
-
-        if close_in_do_nothing:
-            do_nothing_option = "_do_nothing"
-        else:
-            do_nothing_option = ""
-
-        if inverse_trading:
-            inverse_trading_option = "_inverse"
-        else:
-            inverse_trading_option = ""
-
-        self.bot_name = bot_name + do_nothing_option + inverse_trading_option
-
+    def __init__(self, exchange_client, default_params, bot_params, is_backtest=False):
+        # initialize status and settings of bot
         self.is_backtest = is_backtest
 
         self.exchange_client = exchange_client
         self.client = exchange_client.client
 
-        # logger settings
+        self.default_params = default_params
+        self.extract_default_params(self.default_params)
+
+        self.bot_params = bot_params
+
+        self.bot_name_with_option = self.build_bot_name(
+            self.default_params, self.bot_params)
+
+        self.set_logger()
+
+    def extract_default_params(self, default_params):
+        # default_params = {
+        #    "bot_name" : bot_name, # used in bot name builder for log
+        #    "timeframe": timeframe,
+        #    "close_in_do_nothing": close_in_do_nothing,
+        #    "inverse_trading": inverse_trading
+        # }
+        self.bot_name = default_params["bot_name"]
+        self.timeframe = default_params["timeframe"]
+        self.close_in_do_nothing = default_params["close_in_do_nothing"]
+        self.inverse_trading = default_params["inverse_trading"]
+
+    def run(self, duration_days=30):
+        start_time = datetime.now() - timedelta(days=duration_days)
+        end_time = datetime.now()
+
+        self.ohlcv_df = self.init_ohlcv_data(
+            start_time=start_time, end_time=end_time)
+
+        self.calculate_metrics()
+        if self.is_backtest:
+            filename = str(duration_days) + "days_" + self.bot_name_with_option
+            self.set_log_output_target(filename)
+
+            self.log_params()
+
+            self.calculate_sign_backtest()
+            self.run_backtest(csv_output=True, filename=filename)
+            self.aggregate_summary()
+
+    def build_bot_name(self, default_params, bot_params):
+        # default params
+        if self.close_in_do_nothing:
+            do_nothing_option = "_do_nothing"
+        else:
+            do_nothing_option = ""
+
+        if self.inverse_trading:
+            inverse_trading_option = "_inverse"
+        else:
+            inverse_trading_option = ""
+
+        # bot params
+        bot_params_option = ""
+        for param in list(bot_params.values()):
+            bot_params_option += "_" + str(param)
+
+        return default_params["bot_name"] + "_" + default_params["timeframe"] + \
+            bot_params_option + do_nothing_option + inverse_trading_option
+
+    def set_logger(self):
         self.logger = logging.getLogger(self.bot_name)
         self.logger.setLevel(10)
 
@@ -43,36 +85,38 @@ class TradingBot:
             '[%(levelname)s] %(message)s')
         sh.setFormatter(formatter_sh)
 
+    def set_log_output_target(self, filename):
         logging.basicConfig(
-            filename="./log/" + self.bot_name + ".log",
+            filename="./log/" + filename + ".log",
             filemode='a',
             level=logging.INFO
         )
 
-        self.logger.info("default hyper parameters")
-        self.logger.info("close_in_do_nothing : " +
-                         str(self.close_in_do_nothing))
-        self.logger.info("inverse_trading : " +
-                         str(self.inverse_trading))
-        self.logger.info("lot size : " + str(self.lot))
+    def log_params(self):
+        self.logger.info("\n# hyper parameters")
+        self.logger.info("default hyperparameters")
+        for k, v in self.default_params.items():
+            self.logger.info(k + " => " + str(v))
 
-    def run(self, duration_days=None):
-        if duration_days is not None:
-            start_time = datetime.now() - timedelta(days=duration_days)
-            end_time = datetime.now()
-            self.ohlcv_df = self.init_ohlcv_data(
-                start_time=start_time, end_time=end_time)
-        else:
-            self.ohlcv_df = self.init_ohlcv_data()
+        self.logger.info("bot hyperparameters")
+        for k, v in self.bot_params.items():
+            self.logger.info(k + " => " + str(v))
 
-        self.calculate_metrics()
-        if self.is_backtest:
-            self.calculate_sign_backtest()
-            self.run_backtest()
-            self.aggregate_summary()
+    def init_ohlcv_data(self, start_time=datetime.now() - timedelta(days=30), end_time=datetime.now()):
+        self.start_time = start_time
+        self.end_time = end_time
+
+        self.stock_duration = end_time - start_time
+
+        if self.exchange_client.name == "bitmex":
+            ohlcv_df = PandaMex(self.client).fetch_ohlcv(
+                timeframe=self.timeframe, start_time=self.start_time, end_time=self.end_time)
+            # fetch ohlcv data
+            return PandaMex.to_timestamp(ohlcv_df)
 
     def calculate_lot(self):
         return 1
+        # if you need, you can override
 
     def calculate_metrics(self):
         pass
@@ -88,19 +132,7 @@ class TradingBot:
         # need to override
         # return dataframe with ["buy", "sell", "do_nothing"]
 
-    def init_ohlcv_data(self, start_time=datetime.now() - timedelta(days=30), end_time=datetime.now()):
-        self.start_time = start_time
-        self.end_time = end_time
-
-        self.stock_duration = end_time - start_time
-
-        if self.exchange_client.name == "bitmex":
-            ohlcv_df = PandaMex(self.client).fetch_ohlcv(
-                timeframe=self.timeframe, start_time=self.start_time, end_time=self.end_time)
-            # fetch ohlcv data
-            return PandaMex.to_timestamp(ohlcv_df)
-
-    def run_backtest(self):
+    def run_backtest(self, csv_output=False, filename=""):
         record_column = [
             "entry_timestamp",
             "close_timestamp",
@@ -198,6 +230,10 @@ class TradingBot:
 
                         position = None
 
+        if csv_output:
+            self.closed_positions_df.to_csv(
+                "log/transaction_log_" + filename + ".csv")
+
     def logging_entry(self, position):
         self.logger.info("  Entry " + position.order_type +
                          " at $" + str(position.entry_price))
@@ -215,6 +251,7 @@ class TradingBot:
     def aggregate_summary(self):
         order_types = ["long", "short"]
         self.logger.info("# Stategy Backtest Result")
+        self.log_params()
 
         for order_type in order_types:
             self.logger.info("\n## entry " + order_type + " result")
@@ -275,7 +312,8 @@ class TradingBot:
                          str(round(total_average_return, 2)))
         self.logger.info("total average return percentage -> " +
                          str(round(total_average_return_percentage, 2)) + "%")
-        self.logger.info("transaction fee -> $" + str(total_transaction_cost))
+        self.logger.info("total transaction cost -> $" +
+                         str(total_transaction_cost))
 
 
 class OrderPosition:
