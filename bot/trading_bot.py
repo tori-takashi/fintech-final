@@ -250,70 +250,100 @@ class TradingBot:
 
     def aggregate_summary(self):
         order_types = ["long", "short"]
-        self.logger.info("# Stategy Backtest Result")
+        profit_statuses = ["win", "lose"]
+        
+        self.logger.info("# Stategy Backtest Result")        
         self.log_params()
 
-        for order_type in order_types:
-            self.logger.info("\n## entry " + order_type + " result")
+        self.logger.info("\n## total result")
 
-            order_entries = (
-                self.closed_positions_df["order_type"] == order_type).sum()
-
-            order_winning_entries = ((self.closed_positions_df["order_type"] == order_type) & (
-                self.closed_positions_df["profit_status"] == "win")).sum()
-            order_winning_rate = (order_winning_entries / order_entries) * 100
-
-            order_return = self.closed_positions_df[self.closed_positions_df["order_type"] == order_type].profit_size.sum(
-            )
-            order_win = self.closed_positions_df[(self.closed_positions_df["order_type"] == order_type) & (
-                self.closed_positions_df["profit_status"] == "win")].profit_size.sum()
-            order_lose = self.closed_positions_df[(self.closed_positions_df["order_type"] == order_type) & (
-                self.closed_positions_df["profit_status"] == "lose")].profit_size.sum()
-
-            order_average_return = order_return / order_entries
-            order_average_return_percentage = self.closed_positions_df[(
-                self.closed_positions_df["order_type"] == order_type)].profit_percentage.mean()
-            self.logger.info(order_type + " order entry -> " +
-                             str(order_entries) + " times")
-            self.logger.info(order_type + " order winning rate -> " +
-                             str(round(order_winning_rate, 2)) + "%")
-            self.logger.info(
-                order_type + " order return -> $" + str(order_return))
-            self.logger.info(order_type + " order win -> $" + str(order_win))
-            self.logger.info(order_type + " order lose -> $" + str(order_lose))
-            self.logger.info(order_type + " order average return -> $" +
-                             str(round(order_average_return, 2)))
-            self.logger.info(
-                order_type + " order average return percentage -> " + str(round(order_average_return_percentage, 2)) + "%")
-
-        self.logger.info("\n## total record")
         total_entries = len(self.closed_positions_df)
 
-        total_winning_entries = (
-            self.closed_positions_df["profit_status"] == "win").sum()
-        total_winning_rate = (total_winning_entries / total_entries) * 100
+        total_sum  = self.closed_positions_df.profit_size.sum()
+        total_mean = self.closed_positions_df.profit_size.mean()
+        total_std  = self.closed_positions_df.profit_size.std()
 
-        total_return = self.closed_positions_df.profit_size.sum()
-        total_win = self.closed_positions_df[self.closed_positions_df["profit_status"] == "win"].profit_size.sum(
-        )
-        total_lose = self.closed_positions_df[self.closed_positions_df["profit_status"] == "lose"].profit_size.sum(
-        )
-
-        total_average_return = total_return / total_entries
         total_average_return_percentage = self.closed_positions_df.profit_percentage.mean()
+
         total_transaction_cost = self.closed_positions_df.transaction_cost.sum()
+        
         self.logger.info("total entry -> " + str(total_entries) + " times")
-        self.logger.info("total winning rate -> " +
-                         str(round(total_winning_rate, 2)) + "%")
-        self.logger.info("total return -> $" + str(total_return))
-        self.logger.info("total win -> $" + str(total_win))
-        self.logger.info("total lose -> $" + str(total_lose))
-        self.logger.info("total average return -> $" +
-                         str(round(total_average_return, 2)))
-        self.logger.info("total average return percentage -> " +
-                         str(round(total_average_return_percentage, 2)) + "%")
-        self.logger.info("total transaction cost -> $" +
-                         str(total_transaction_cost))
+        self.logger.info("total sum -> $" + str(round(total_sum, 2)))
+        self.logger.info("total average -> $" + str(round(total_mean, 2)))
+        self.logger.info("total standard deviation -> $" + str(round(total_std, 2)))
+
+        self.logger.info("total average return percentage -> " + str(round(total_average_return_percentage, 2)) + "%")
+
+        self.logger.info("total transaction cost -> $" + str(round(total_transaction_cost, 2)))
+
+        for profit_status in profit_statuses:
+            self.logger.info("\n## "+ profit_status + " result")
+
+            entries = len(self.closed_positions_df)
+            win_lose_entries = (self.closed_positions_df["profit_status"] == profit_status)
+            win_lose_entries_size = win_lose_entries.sum()
+            win_lose_col = self.closed_positions_df[(win_lose_entries)]
+
+            # index
+            win_lose_rate = (win_lose_entries_size / entries) * 100
+
+            win_lose_sum  = win_lose_col.profit_size.sum()
+            win_lose_mean = win_lose_col.profit_size.mean()
+            win_lose_std  = win_lose_col.profit_size.std()
+                
+            win_lose_mean_percentage = win_lose_col.profit_percentage.mean()
+            
+            self.logger.info(profit_status + " entry -> " + str(win_lose_entries_size) + " times")
+            self.logger.info(profit_status + " rate -> " + str(round(win_lose_rate, 2)) + "%")
+            self.logger.info(profit_status + " sum -> $" + str(round(win_lose_sum, 2)))
+            self.logger.info(profit_status + " average -> $" + str(round(win_lose_mean, 2)))
+            self.logger.info(profit_status + " standard deviation -> $" + str(round(win_lose_std, 2)))
+            self.logger.info(profit_status + " average return percentage -> " + str(round(win_lose_mean_percentage, 2)) + "%")
+
+
+        for order_type in order_types:
+            self.logger.info("\n## "+ order_type + " result")
+
+            order = (self.closed_positions_df["order_type"] == order_type)
+            order_col = self.closed_positions_df[order]
+            
+            # index
+            order_entries = order.sum()
+
+            order_sum  = order_col.profit_size.sum()
+            order_mean = order_col.profit_size.mean()
+            order_std = order_col.profit_size.std()
+            
+            order_average_return_percentage = order_col.profit_percentage.mean()
+
+            self.logger.info(order_type + " entry -> " + str(order_entries) + " times")
+            self.logger.info(order_type + " sum -> $" + str(round(order_sum, 2)))
+            self.logger.info(order_type + " average -> $" + str(round(order_mean, 2)))
+            self.logger.info(order_type + " standard deviation -> $" + str(round(order_std, 2)))
+            self.logger.info(order_type + " average return percentage -> " + str(round(order_average_return_percentage, 2)) + "%")
+
+            for profit_status in profit_statuses:
+                self.logger.info("\n### " + order_type+ " & " + profit_status + " result")
+
+                win_lose_entries = (self.closed_positions_df["profit_status"] == profit_status)
+                order_win_lose_col = self.closed_positions_df[(order) & (win_lose_entries)]
+
+                # index
+                order_win_lose_entries = ((order) & (win_lose_entries)).sum()
+                order_win_lose_rate = (order_win_lose_entries / order_entries) * 100
+
+                order_win_lose_sum  = order_win_lose_col.profit_size.sum()
+                order_win_lose_mean = order_win_lose_col.profit_size.mean()
+                order_win_lose_std  = order_win_lose_col.profit_size.std()
+                
+                order_win_lose_mean_percentage = order_win_lose_col.profit_percentage.mean()
+            
+                self.logger.info(order_type + " " + profit_status + " entry -> " + str(order_win_lose_entries) + " times")
+                self.logger.info(order_type + " " + profit_status + " rate -> " + str(round(order_win_lose_rate, 2)) + "%")
+                self.logger.info(order_type + " " + profit_status + " sum -> $" + str(round(order_win_lose_sum, 2)))
+                self.logger.info(order_type + " " + profit_status + " average -> $" + str(round(order_win_lose_mean, 2)))
+                self.logger.info(order_type + " " + profit_status + " standard deviation -> $" + str(round(order_win_lose_std, 2)))
+                self.logger.info(order_type + " " + profit_status + " average percentage -> " + str(round(order_win_lose_mean_percentage, 2)) + "%")
 
 
 class OrderPosition:
