@@ -6,79 +6,54 @@ from technical_analysis.MACD import TechnicalAnalysisMACD
 
 class BottomTrendFollow(TradingBot):
     def __init__(self, client, is_backtest=False):
+        # default hyper parameters
+        # Don't use instance variable to avoid name duplication
 
-        # hyper parameters
-        self.timeframe = "1h"
+        self.default_params = {
+            "bot_name": "bottom_trend_follow",
+            "timeframe": "1h",
+            "close_in_do_nothing": True,
+            "inverse_trading": False
+        }
+
+        # bot params
         self.bottom_trend_tick = 12
         self.middle_trend_tick = 6
         self.top_trend_tick = 3
-        close_in_do_nothing = True
-        inverse_trading = True
 
-        self.bot_name = "bottom_trend_follow_" + self.timeframe + "_" + \
-            str(self.bottom_trend_tick) + "_" + \
-            str(self.middle_trend_tick) + "_" + str(self.top_trend_tick)
-        super().__init__(
-            client,
-            is_backtest,
-            self.bot_name,
-            self.timeframe,
-            close_in_do_nothing=close_in_do_nothing,
-            inverse_trading=inverse_trading
-        )
+        self.bot_params = {
+            "bottom_trend_tick": self.bottom_trend_tick,
+            "middle_trend_tick": self.middle_trend_tick,
+            "top_trend_tick": self.top_trend_tick
+        }
 
-        self.logger.info("hyper parameters")
-        self.logger.info("timeframe : " + self.timeframe)
-        self.logger.info("bottom_trend_tick : " + str(self.bottom_trend_tick))
-        self.logger.info("middle_trend_tick : " + str(self.middle_trend_tick))
-        self.logger.info("top_trend_tick : " + str(self.top_trend_tick))
+        super().__init__(client, self.default_params, self.bot_params, is_backtest)
 
-        # for EMA and columns
-        self.bottom_col = "ema_" + str(self.bottom_trend_tick)
-        self.bottom_diff_col = self.bottom_col + "_diff"
-        self.bottom_trend_col = self.bottom_col + "_trend"
-
-        self.middle_col = "ema_" + str(self.middle_trend_tick)
-        self.middle_diff_col = self.middle_col + "_diff"
-        self.middle_trend_col = self.middle_col + "_trend"
-
-        self.top_col = "ema_" + str(self.top_trend_tick)
-        self.top_diff_col = self.top_col + "_diff"
-        self.top_trend_col = self.top_col + "_trend"
+        # for metrics calculation
+        bot_params_values = list(self.bot_params.values())
+        self.bottom_trend_col = "ema_" + str(bot_params_values[0]) + "_trend"
+        self.middle_trend_col = "ema_" + str(bot_params_values[1]) + "_trend"
+        self.top_trend_col = "ema_" + str(bot_params_values[2]) + "_trend"
 
     def calculate_metrics(self):
         ta_ema = TechnicalAnalysisMACD(self.ohlcv_df)
 
-        self.ohlcv_df[self.bottom_col] = ta_ema.append_ema_close(
-            self.bottom_trend_tick)
-        self.ohlcv_df[self.middle_col] = ta_ema.append_ema_close(
-            self.middle_trend_tick)
-        self.ohlcv_df[self.top_col] = ta_ema.append_ema_close(
-            self.top_trend_tick)
+        for tick in list(self.bot_params.values()):
+            col = "ema_" + str(tick)
+            diff_col = col + "_diff"
+            trend_col = col + "_trend"
 
-        # percentage of ema moving
-        self.ohlcv_df[self.bottom_diff_col] = self.ohlcv_df[self.bottom_col].diff(
-        ) / self.ohlcv_df[self.bottom_col] * 100
-        self.ohlcv_df[self.middle_diff_col] = self.ohlcv_df[self.middle_col].diff(
-        ) / self.ohlcv_df[self.middle_col] * 100
-        self.ohlcv_df[self.top_diff_col] = self.ohlcv_df[self.top_col].diff(
-        ) / self.ohlcv_df[self.top_col] * 100
+            self.ohlcv_df[col] = ta_ema.append_ema_close(tick)
 
-        # trend of ema moving
-        self.ohlcv_df.loc[(self.ohlcv_df[self.bottom_diff_col]
-                           > 0), self.bottom_trend_col] = "uptrend"
-        self.ohlcv_df.loc[~(self.ohlcv_df[self.bottom_diff_col]
-                            > 0), self.bottom_trend_col] = "downtrend"
+            # percentage of ema moving
+            self.ohlcv_df[diff_col] = self.ohlcv_df[col].diff() / \
+                self.ohlcv_df[col] * 100
 
-        self.ohlcv_df.loc[(self.ohlcv_df[self.middle_diff_col]
-                           > 0), self.middle_trend_col] = "uptrend"
-        self.ohlcv_df.loc[~(self.ohlcv_df[self.middle_diff_col]
-                            > 0), self.middle_trend_col] = "downtrend"
-
-        self.ohlcv_df.loc[(self.ohlcv_df[self.top_diff_col]
-                           > 0), self.top_trend_col] = "uptrend"
-        self.ohlcv_df.loc[~(self.ohlcv_df[self.top_diff_col]
-                            > 0), self.top_trend_col] = "downtrend"
+            # trend of ema moving
+            self.ohlcv_df.loc[(self.ohlcv_df[diff_col] > 0),
+                              trend_col] = "uptrend"
+            self.ohlcv_df.loc[~(self.ohlcv_df[diff_col] > 0),
+                              trend_col] = "downtrend"
 
     def calculate_sign(self, row):
         if (row[self.bottom_trend_col] == "uptrend"
