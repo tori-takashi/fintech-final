@@ -111,7 +111,8 @@ class TradingBot:
             "close_price",
             "lot",
             "transaction_cost",
-            "profit_size"
+            "profit_size",
+            "profit_percentage"
         ]
         # [close_in_do_nothing option]
         # True  => close position when the [buy/sell] signal change to the [do_nothing/opposite] signal
@@ -233,6 +234,8 @@ class TradingBot:
                 self.closed_positions_df["profit_status"] == "lose")].profit_size.sum()
 
             order_average_return = order_return / order_entries
+            order_average_return_percentage = self.closed_positions_df[(
+                self.closed_positions_df["order_type"] == order_type)].profit_percentage.mean()
             self.logger.info(order_type + " order entry -> " +
                              str(order_entries) + " times")
             self.logger.info(order_type + " order winning rate -> " +
@@ -243,6 +246,8 @@ class TradingBot:
             self.logger.info(order_type + " order lose -> $" + str(order_lose))
             self.logger.info(order_type + " order average return -> $" +
                              str(round(order_average_return, 2)))
+            self.logger.info(
+                order_type + " order average return percentage -> " + str(round(order_average_return_percentage, 2)) + "%")
 
         self.logger.info("\n## total record")
         total_entries = len(self.closed_positions_df)
@@ -258,6 +263,8 @@ class TradingBot:
         )
 
         total_average_return = total_return / total_entries
+        total_average_return_percentage = self.closed_positions_df.profit_percentage.mean()
+        total_transaction_cost = self.closed_positions_df.transaction_cost.sum()
         self.logger.info("total entry -> " + str(total_entries) + " times")
         self.logger.info("total winning rate -> " +
                          str(round(total_winning_rate, 2)) + "%")
@@ -266,6 +273,9 @@ class TradingBot:
         self.logger.info("total lose -> $" + str(total_lose))
         self.logger.info("total average return -> $" +
                          str(round(total_average_return, 2)))
+        self.logger.info("total average return percentage -> " +
+                         str(round(total_average_return_percentage, 2)) + "%")
+        self.logger.info("transaction fee -> $" + str(total_transaction_cost))
 
 
 class OrderPosition:
@@ -324,7 +334,8 @@ class OrderPosition:
             "close_price",
             "lot",
             "transaction_cost",
-            "profit_size"
+            "profit_size",
+            "profit_percentage"
         ]
         self.position = pd.Series([
             self.entry_timestamp,
@@ -336,6 +347,7 @@ class OrderPosition:
             self.close_price,
             self.lot,
             self.transaction_cost,
-            self.profit_size
+            self.profit_size,
+            (self.profit_size / self.entry_price)*100
         ], index=record_column)
         return self.position
