@@ -22,3 +22,12 @@ class DBClient:
             return sqlite3.connect(self.config['sqlite3']['db_path'])
         else:
             return sqlite3.connect(self.opt)
+
+    def write_to_table(self, table_name, dataframe, if_exists):
+        dataframe.to_sql(table_name, self.client, if_exists=if_exists)
+
+    def overwrite_to_table(self, table_name, dataframe):
+        self.write_to_table(table_name, dataframe, if_exists="replace")
+
+    def append_to_table(self, table_name, dataframe):
+        self.write_to_table(table_name, dataframe, if_exists="append")
