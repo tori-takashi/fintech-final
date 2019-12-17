@@ -164,15 +164,30 @@ class TradingBot:
 
             if row.signal == "buy":
                 if position is not None and position.order_type == "long":
-                    # still holding
-                    pass
-                elif position is not None and position.order_type == "short":
-                    position.close_position(row)
-                    self.closed_positions_df = self.closed_positions_df.append(
-                        position.set_summary_df(), ignore_index=True)
-                    self.logging_close(position)
+                    # inverse => close position
+                    if self.inverse_trading:
+                        position.close_position(row)
+                        self.closed_positions_df = self.closed_positions_df.append(
+                            position.set_summary_df(), ignore_index=True)
+                        self.logging_close(position)
 
-                    position = None
+                        position = None                        
+                    # normal => still holding
+                    else:
+                        pass
+
+                elif position is not None and position.order_type == "short":
+                    # inverse => still holding
+                    if self.inverse_trading:
+                        pass
+                    # normal => close position
+                    else:
+                        position.close_position(row)
+                        self.closed_positions_df = self.closed_positions_df.append(
+                            position.set_summary_df(), ignore_index=True)
+                        self.logging_close(position)
+
+                        position = None
                 else:
                     lot = self.calculate_lot()
                     # inverse => open short position
@@ -187,17 +202,32 @@ class TradingBot:
 
             elif row.signal == "sell":
                 if position is not None and position.order_type == "long":
-                    # close position
-                    position.close_position(row)
-                    self.closed_positions_df = self.closed_positions_df.append(
-                        position.set_summary_df(), ignore_index=True)
-                    self.logging_close(position)
+                    # inverse => still holding
+                    if self.inverse_trading:
+                        pass
+                    # normal => close position
+                    else:
+                        position.close_position(row)
+                        self.closed_positions_df = self.closed_positions_df.append(
+                            position.set_summary_df(), ignore_index=True)
+                        self.logging_close(position)
 
-                    position = None
+                        position = None
 
                 elif position is not None and position.order_type == "short":
-                    # still holding
-                    pass
+                    # inverse => close position
+                    if self.inverse_trading:
+                        position.close_position(row)
+                        self.closed_positions_df = self.closed_positions_df.append(
+                            position.set_summary_df(), ignore_index=True)
+                        self.logging_close(position)
+
+                        position = None
+
+                    # normal => still holding
+                    else:
+                        pass
+
                 else:
                     lot = self.calculate_lot()
                     # inverse => open long position
@@ -212,6 +242,8 @@ class TradingBot:
 
             elif row.signal == "do_nothing":
                 if self.close_in_do_nothing:
+                    # if do nothing option is true
+                    # and you get do nothing from signal, then close out the position
                     if position is not None and position.order_type == "long":
                         # close position
                         position.close_position(row)
