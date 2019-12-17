@@ -5,23 +5,14 @@ import numpy as np
 from .pandamex import PandaMex
 
 
-class CreateDataset:
+class Dataset:
     def __init__(self, bitmex):
         self.bitmex = bitmex
 
-    def create_dataset(self, start_time=datetime.now()-timedelta(days=1), end_time=datetime.now(), symbol="1m"):
-        self.ohlcv_with_timestamp = self.download_data(
-            symbol, start_time, end_time)
-
-        before_mins = [1, 5, 10]
-        future_mins = [1, 5, 10]
-
-        self.ohlcv_with_past_future = self.ohlcv_with_timestamp
+    def attach_past_future(self, before_mins=[1, 5, 10], future_mins=[1, 5, 10]):
         self.append_past(before_mins)
         self.append_future(future_mins)
         self.cut_empty_row(before_mins, future_mins)
-
-        return self.ohlcv_with_past_future
 
     def download_data(self, symbol, start_time, end_time):
         pdmex = PandaMex(self.bitmex)
@@ -29,7 +20,10 @@ class CreateDataset:
             "BTC/USD", symbol, start_time, end_time)
 
         # assign timestamp to ohlcv
-        return PandaMex.to_timestamp(ohlcv_df)
+        self.ohlcv_with_timestamp = PandaMex.to_timestamp(ohlcv_df)
+        self.ohlcv_with_past_future = self.ohlcv_with_timestamp
+
+        return self.ohlcv_with_timestamp
 
     def append_past(self, before_mins):
         for min in before_mins:
