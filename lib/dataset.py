@@ -6,13 +6,9 @@ from .pandamex import PandaMex
 
 
 class Dataset:
-    def __init__(self, bitmex):
+    def __init__(self, bitmex, db_client=None):
         self.bitmex = bitmex
-
-    def attach_past_future(self, before_mins=[1, 5, 10], future_mins=[1, 5, 10]):
-        self.append_past(before_mins)
-        self.append_future(future_mins)
-        self.cut_empty_row(before_mins, future_mins)
+        self.db_client = db_client
 
     def download_data(self, symbol, start_time, end_time):
         pdmex = PandaMex(self.bitmex)
@@ -24,6 +20,14 @@ class Dataset:
         self.ohlcv_with_past_future = self.ohlcv_with_timestamp
 
         return self.ohlcv_with_timestamp
+
+    def update_data(self):
+        self.db_client.append_to_table("original_ohlcv_1min")
+
+    def append_past_future(self, before_mins=[1, 5, 10], future_mins=[1, 5, 10]):
+        self.append_past(before_mins)
+        self.append_future(future_mins)
+        self.cut_empty_row(before_mins, future_mins)
 
     def append_past(self, before_mins):
         for min in before_mins:

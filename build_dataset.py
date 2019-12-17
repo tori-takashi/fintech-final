@@ -12,5 +12,5 @@ end_time = datetime.now()
 
 create_dataset.download_data(
     symbol="1m", start_time=start_time, end_time=end_time)
-create_dataset.attach_past_future()
+create_dataset.append_past_future()
 create_dataset.export_to_csv("./csv/ohlcv_with_past_future.csv")
