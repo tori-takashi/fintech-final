@@ -50,8 +50,9 @@ class DBClient:
 
     # sqlite3
     def write_to_table(self, table_name, dataframe, if_exists):
-        dataframe.to_sql(table_name, self.engine,
-                         if_exists=if_exists, index=False)
+        if self.is_sqlite3():
+            dataframe.to_sql(table_name, self.engine,
+                             if_exists=if_exists, index=False)
 
     def overwrite_to_table(self, table_name, dataframe):
         self.write_to_table(table_name, dataframe, if_exists="replace")
@@ -60,13 +61,15 @@ class DBClient:
         self.write_to_table(table_name, dataframe, if_exists="append")
 
     def is_table_exist(self, table_name):
-        query = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{}';".format(table_name)
-        results = self.exec_sql(table_name, query, False)
-        for result in results:
-            if result == (1,):
-                return True
-            else:
-                return False
+        if self.is_sqlite3():
+            query = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{}';".format(
+                table_name)
+            results = self.exec_sql(table_name, query, False)
+            for result in results:
+                if result == (1,):
+                    return True
+                else:
+                    return False
 
     def get_last_row(self, table_name):
         if self.is_sqlite3():
@@ -74,12 +77,13 @@ class DBClient:
         self.exec_sql(table_name, query)
 
     def exec_sql(self, table_name, query, return_df=True):
-        result_rows = self.engine.execute(query)
-        if return_df:
-            column_names = self.get_column_name(table_name)
-            return pd.DataFrame(data=result_rows, columns=column_names)
-        else:
-            return result_rows
+        if self.is_sqlite3():
+            result_rows = self.engine.execute(query)
+            if return_df:
+                column_names = self.get_column_name(table_name)
+                return pd.DataFrame(data=result_rows, columns=column_names)
+            else:
+                return result_rows
 
     def get_column_name(self, table_name):
         if self.is_sqlite3():
