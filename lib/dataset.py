@@ -10,6 +10,8 @@ class Dataset:
         self.bitmex = bitmex
         self.db_client = db_client
 
+        self.original_ohlcv_1min_column = self.bitmex.name + "_original_ohlcv_1min"
+
     def download_data(self, symbol, start_time, end_time):
         pdmex = PandaMex(self.bitmex)
         ohlcv_df = pdmex.fetch_ohlcv(
@@ -21,7 +23,33 @@ class Dataset:
 
         return self.ohlcv_with_timestamp
 
-    def update_data(self):
+    def initialize_ohlcv(self, start_time):
+        if self.db_client.is_table_exist(self.original_ohlcv_1min_column):
+            pass
+        else:
+            create_table_query = """CREATE TABLE """ + self.original_ohlcv_1min_column + """ (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TIMESTAMP,
+                open REAL,
+                high REAL,
+                low REAL,
+                close REAL,
+                volume REAL
+            );
+                """
+            self.db_client.exec_sql(
+                self.original_ohlcv_1min_column, create_table_query, return_df=False)
+
+        ohlcv = self.download_data(
+            "1m", start_time, end_time=datetime.now())
+        ohlcv.drop(columns=ohlcv.columns[[0]], inplace=True)
+        self.db_client.append_to_table(self.original_ohlcv_1min_column, ohlcv)
+
+        ask = "SELECT * FROM " + self.original_ohlcv_1min_column + ";"
+        print(self.db_client.exec_sql(self.original_ohlcv_1min_column, ask))
+
+    def update_ohlcv(self):
+        self.db_client
         self.db_client.append_to_table("original_ohlcv_1min")
 
     def append_past_future(self, before_mins=[1, 5, 10], future_mins=[1, 5, 10]):
