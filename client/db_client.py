@@ -4,6 +4,8 @@ import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from influxdb import InfluxDBClient
+
 
 class DBClient:
     def __init__(self, db_type, opt=None):
@@ -13,18 +15,24 @@ class DBClient:
         # config.ini should be same place to executing file
         self.config.read("config.ini")
         self.db_type = db_type
+        self.engine = self.establish_connection_to_db()
 
         # sql alchemy configurations
-        self.engine = self.establish_connection_to_db()
-        Session = sessionmaker(bind=self.engine)
-        self.session = Session()
+        if self.is_sqlite3:
+            Session = sessionmaker(bind=self.engine)
+            self.session = Session()
 
     def is_sqlite3(self):
         return self.db_type == "sqlite3"
 
+    def is_influxdb(self):
+        return self.db_type == "influxdb"
+
     def establish_connection_to_db(self):
         if self.is_sqlite3():
             return self.sqlite3_establish_connection()
+        elif self.is_influxdb():
+            return self.influxdb_establish_connection()
 
     def sqlite3_establish_connection(self):
         if self.opt == None:
@@ -32,6 +40,15 @@ class DBClient:
         else:
             return create_engine("sqlite3:///" + self.opt)
 
+    def influxdb_establish_connection(self):
+        return InfluxDBClient(
+            host=self.config['influxdb']['host'],
+            port=int(self.config['influxdb']['port']),
+            username=self.config['influxdb']['username'],
+            password=self.config['influxdb']['password']
+        )
+
+    # sqlite3
     def write_to_table(self, table_name, dataframe, if_exists):
         dataframe.to_sql(table_name, self.engine,
                          if_exists=if_exists, index=False)
@@ -69,3 +86,5 @@ class DBClient:
             query = "SELECT * FROM " + table_name + ";"
             result = self.cursor.execute(query)
             return result.description
+
+    # influxdb
