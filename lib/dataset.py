@@ -42,7 +42,6 @@ class Dataset:
 
         ohlcv = self.download_data(
             "1m", start_time, end_time=datetime.now())
-        ohlcv.drop(columns=ohlcv.columns[[0]], inplace=True)
         self.db_client.append_to_table(self.original_ohlcv_1min_column, ohlcv)
 
         ask = "SELECT * FROM " + self.original_ohlcv_1min_column + ";"
