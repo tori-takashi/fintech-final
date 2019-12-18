@@ -13,7 +13,7 @@ class PandaMex:
     def __init__(self, bitmex):
         self.bitmex = bitmex
 
-    def fetch_ohlcv(self, symbol="BTC/USD", timeframe="1m", start_time=None, end_time=None, count=500, reverse=True):
+    def fetch_ohlcv(self, symbol="BTC/USD", timeframe="1m", start_time=None, end_time=None, count=500, reverse=True, no_index=False):
         # o => open price
         # h => high price
         # l => low price
@@ -44,11 +44,14 @@ class PandaMex:
                     reverse, count, current_start, current_end)
 
                 # at first, converting to dataframe to adjust the columns
-                ohlcv_rawdata = self.bitmex.fetch_ohlcv(
+                ohlcv_rawdata = self.bitmex.client.fetch_ohlcv(
                     symbol, timeframe, params=params)
                 ohlcv_df_part = pd.DataFrame(
                     ohlcv_rawdata, columns=self.ohlcv_columns)
                 ohlcv_df = ohlcv_df.append(ohlcv_df_part)
+
+        if no_index:
+            return ohlcv_df.drop(columns=ohlcv_df.columns[[0]])
 
         return ohlcv_df
 
