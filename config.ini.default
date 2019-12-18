@@ -8,8 +8,9 @@ db_path=
 
 
 [influxdb]
+; you need to create database and user manually at first.
     host=127.0.0.1
     port=8086
-    user=
+    username=
     password=
     db_name=tradingbot
