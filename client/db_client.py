@@ -1,7 +1,8 @@
 from configparser import SafeConfigParser
-import sqlite3
 import pandas as pd
+
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 class DBClient:
@@ -13,7 +14,13 @@ class DBClient:
         self.config.read("config.ini")
         self.db_type = db_type
 
+        # sql alchemy configurations
         self.engine = self.establish_connection_to_db()
+        Session = sessionmaker(bind=self.engine)
+        self.session = Session()
+
+    def is_sqlite3(self):
+        return self.db_type == "sqlite3"
 
     def establish_connection_to_db(self):
         if self.is_sqlite3():
@@ -26,7 +33,7 @@ class DBClient:
             return create_engine("sqlite3:///" + self.opt)
 
     def write_to_table(self, table_name, dataframe, if_exists):
-        dataframe.to_sql(table_name, self.client,
+        dataframe.to_sql(table_name, self.engine,
                          if_exists=if_exists, index=False)
 
     def overwrite_to_table(self, table_name, dataframe):
@@ -62,6 +69,3 @@ class DBClient:
             query = "SELECT * FROM " + table_name + ";"
             result = self.cursor.execute(query)
             return result.description
-
-    def is_sqlite3(self):
-        return self.db_type == "sqlite3"
