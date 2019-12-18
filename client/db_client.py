@@ -74,7 +74,7 @@ class DBClient:
         self.exec_sql(table_name, query)
 
     def exec_sql(self, table_name, query, return_df=True):
-        result_rows = self.cursor.execute(query)
+        result_rows = self.engine.execute(query)
         if return_df:
             column_names = self.get_column_name(table_name)
             return pd.DataFrame(data=result_rows, columns=column_names)
@@ -84,7 +84,7 @@ class DBClient:
     def get_column_name(self, table_name):
         if self.is_sqlite3():
             query = "SELECT * FROM " + table_name + ";"
-            result = self.cursor.execute(query)
+            result = self.engine.execute(query)
             return result.description
 
     # influxdb
