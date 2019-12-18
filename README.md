@@ -4,6 +4,11 @@ Fintech Final Project for Group 4
 
 ## installation
 
+### installing influxdb
+
+[influxdb install documentation](https://docs.influxdata.com/influxdb/v1.7/introduction/installation/)
+[influxdb setup](http://hassiweb-programming.blogspot.com/2018/10/how-to-use-python-library-for-influxdb.html)
+
 ### intall talib
 
 1. follow instructions like below to install talib.
@@ -35,7 +40,7 @@ Beforehand of installation, update setuptools.
 If you're using anaconda, please replace `pip` to `conda`
 
 `$ sudo pip install -U setuptools`
-`$ pip install ccxt pandas ta-lib`
+`$ pip install ccxt pandas ta-lib sqlalchemy influxdb`
 
 ### create csv
 

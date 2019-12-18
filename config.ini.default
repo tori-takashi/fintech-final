@@ -5,3 +5,11 @@ secret=
 [sqlite3]
 ; root path is the current directory which is running .py file.
 db_path=
+
+
+[influxdb]
+    host=127.0.0.1
+    post=8086
+    user=
+    password=
+    db_name=tradingbot
