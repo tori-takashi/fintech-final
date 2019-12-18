@@ -4,10 +4,22 @@ Fintech Final Project for Group 4
 
 ## installation
 
-### installing influxdb
+### install influxdb
 
-[influxdb install documentation](https://docs.influxdata.com/influxdb/v1.7/introduction/installation/)
-[influxdb setup](http://hassiweb-programming.blogspot.com/2018/10/how-to-use-python-library-for-influxdb.html)
+1. install and configuration influx db
+   [influxdb install documentation](https://docs.influxdata.com/influxdb/v1.7/introduction/installation/)
+   [influxdb setup](http://hassiweb-programming.blogspot.com/2018/10/how-to-use-python-library-for-influxdb.html)
+
+2. add admin user
+   `$ influx`
+   `> CREATE USER admin WITH PASSWORD 'password' WITH ALL PRIVILEGES`
+   `$ exit`
+
+3. add tradingbot user and permission
+   `$ influx -precision rfc3339 -username admin -password <password>`
+   `> CREATE USER tradingbot WITH PASSWORD 'password'`
+   `> GRANT ALL ON tradingbot TO tradingbot`
+   `$ exit`
 
 ### intall talib
 
