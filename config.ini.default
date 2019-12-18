@@ -9,7 +9,7 @@ db_path=
 
 [influxdb]
     host=127.0.0.1
-    post=8086
+    port=8086
     user=
     password=
     db_name=tradingbot
