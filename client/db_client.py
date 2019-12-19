@@ -71,6 +71,9 @@ class DBClient:
                 else:
                     return False
 
+        if self.is_influxdb():
+            pass
+
     def get_last_row(self, table_name):
         if self.is_sqlite3():
             query = "SELECT * FROM " + table_name + " WHERE index = last_insert_rowid();"
