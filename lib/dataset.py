@@ -14,7 +14,7 @@ class Dataset:
 
         self.original_ohlcv_1min_column = self.bitmex.name + "_original_ohlcv_1min"
 
-    def download_data(self, symbol, start_time, end_time):
+    def download_ohlcv_data(self, symbol, start_time, end_time):
         pdmex = PandaMex(self.bitmex)
         ohlcv_df = pdmex.fetch_ohlcv(
             "BTC/USD", symbol, start_time, end_time)
@@ -25,26 +25,29 @@ class Dataset:
 
         return self.ohlcv_with_timestamp
 
-    def initialize_ohlcv(self, start_time):
+    def update_ohlcv(self, start_time=None):
+        # if ohlcv table is existing, start time will be ignored
         if self.db_client.is_table_exist(self.original_ohlcv_1min_column):
-            pass
-        else:
-            table_name = self.bitmex.name + self.original_ohlcv_1min_column
+            latest_row = self.db_client.get_last_row(
+                self.original_ohlcv_1min_column)
+            latest_row['timestamp'] = pd.to_datetime(latest_row.timestamp)
 
+            append_offset = timedelta(minutes=1, seconds=30)
+
+            start_time = latest_row.timestamp + append_offset
+        else:
             ohlcv_1min_table = OHLCV_1min.__table__
-            ohlcv_1min_table.name = table_name
+            ohlcv_1min_table.name = self.original_ohlcv_1min_column
             ohlcv_1min_table.create(bind=self.db_client.connector)
 
-        ohlcv = self.download_data(
+        ohlcv = self.download_ohlcv_data(
             "1m", start_time, end_time=datetime.now())
+
         self.db_client.append_to_table(self.original_ohlcv_1min_column, ohlcv)
 
-        ask = "SELECT * FROM " + self.original_ohlcv_1min_column + ";"
-        self.db_client.exec_sql(self.original_ohlcv_1min_column, ask)
-
-    def update_ohlcv(self):
-        self.db_client
-        self.db_client.append_to_table("original_ohlcv_1min")
+    def get_ohlcv(self, symbol=None, start_time=None, end_time=None):
+        query = "SELECT * FROM " + self.original_ohlcv_1min_column + ";"
+        return self.db_client.exec_sql(self.original_ohlcv_1min_column, query)
 
     def append_past_future(self, before_mins=[1, 5, 10], future_mins=[1, 5, 10]):
         self.append_past(before_mins)
