@@ -58,7 +58,7 @@ class Dataset:
         all_data['timestamp'] = pd.to_datetime(all_data.timestamp)
         all_data.set_index('timestamp', inplace=True)
 
-        return all_data
+        return all_data[start_time:end_time:symbol_min]
 
     def append_past_future(self, before_mins=[1, 5, 10], future_mins=[1, 5, 10]):
         self.append_past(before_mins)
