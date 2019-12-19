@@ -7,6 +7,7 @@ class BacktestSummary(declarative_base()):
     # [Need to be edited]
     __tablename__ = "backtest_summary"
     backtest_transaction_log = relationship("BacktestTransactionLog")
+    backtest_params = relationship("BacktestParams")
 
     # [No need to edit below]
     id = Column(Integer, primary_key=True)

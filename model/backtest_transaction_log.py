@@ -1,11 +1,13 @@
 from sqlalchemy import Column, Integer, Float, DateTime, String, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
 
 class BacktestTransactionLog(declarative_base()):
     # [Need to be edited]
     __tablename__ = "backtest_transaction_log"
-    backtest_summary_id = Column(Integer, ForeignKey("backtest_summary.id"))
+    backtest_summary = relationship("BacktestSummary")
+    #backtest_summary_id = Column(Integer, ForeignKey("backtest_summary.id"))
 
     # [No need to edit below]
     id = Column(Integer, primary_key=True)
