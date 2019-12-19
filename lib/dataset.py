@@ -40,7 +40,7 @@ class Dataset:
         self.db_client.append_to_table(self.original_ohlcv_1min_column, ohlcv)
 
         ask = "SELECT * FROM " + self.original_ohlcv_1min_column + ";"
-        print(self.db_client.exec_sql(self.original_ohlcv_1min_column, ask))
+        self.db_client.exec_sql(self.original_ohlcv_1min_column, ask)
 
     def update_ohlcv(self):
         self.db_client

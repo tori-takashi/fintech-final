@@ -15,12 +15,7 @@ class DBClient:
         # config.ini should be same place to executing file
         self.config.read("config.ini")
         self.db_type = db_type
-        self.engine = self.establish_connection_to_db()
-
-        # sql alchemy configurations
-        if self.is_sqlite3:
-            Session = sessionmaker(bind=self.engine)
-            self.session = Session()
+        self.connector = self.establish_connection_to_db()
 
     def is_sqlite3(self):
         return self.db_type == "sqlite3"
@@ -36,9 +31,9 @@ class DBClient:
 
     def sqlite3_establish_connection(self):
         if self.opt == None:
-            return create_engine("sqlite3:///" + self.config['sqlite3']['db_path'], echo=True)
+            return create_engine("sqlite:///" + self.config['sqlite3']['db_path'])
         else:
-            return create_engine("sqlite3:///" + self.opt)
+            return create_engine("sqlite:///" + self.opt)
 
     def influxdb_establish_connection(self):
         return InfluxDBClient(
@@ -51,7 +46,7 @@ class DBClient:
     # sqlite3
     def write_to_table(self, table_name, dataframe, if_exists):
         if self.is_sqlite3():
-            dataframe.to_sql(table_name, self.engine,
+            dataframe.to_sql(table_name, self.connector,
                              if_exists=if_exists, index=False)
 
     def overwrite_to_table(self, table_name, dataframe):
@@ -81,17 +76,14 @@ class DBClient:
 
     def exec_sql(self, table_name, query, return_df=True):
         if self.is_sqlite3():
-            result_rows = self.engine.execute(query)
             if return_df:
-                column_names = self.get_column_name(table_name)
-                return pd.DataFrame(data=result_rows, columns=column_names)
+                return pd.read_sql(query, self.connector)
             else:
+                result_rows = self.connector.execute(query)
                 return result_rows
 
     def get_column_name(self, table_name):
         if self.is_sqlite3():
             query = "SELECT * FROM " + table_name + ";"
-            result = self.engine.execute(query)
-            return result.description
-
-    # influxdb
+            result = self.connector.execute(query)
+            return result
