@@ -73,12 +73,13 @@ class DBClient:
         if self.is_sqlite3():
             query = "SELECT * FROM " + table_name + \
                 " WHERE id = (SELECT MAX(id) FROM " + table_name + ");"
-        return self.exec_sql(table_name, query)
+        return_df = self.exec_sql(table_name, query)
+        return pd.Series(return_df.iat[0, 0], index=return_df.columns)
 
     def exec_sql(self, table_name, query, return_df=True):
         if self.is_sqlite3():
             if return_df:
-                return pd.read_sql(query, self.connector)
+                return pd.read_sql(query, self.connector, index_col="id")
             else:
                 result_rows = self.connector.execute(query)
                 return result_rows
