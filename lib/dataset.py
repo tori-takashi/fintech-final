@@ -50,7 +50,7 @@ class Dataset:
 
         self.db_client.append_to_table(self.original_ohlcv_1min_column, ohlcv)
 
-    def get_ohlcv(self, symbol_min=None, start_time=None, end_time=None):
+    def get_ohlcv(self, symbol_min=None, start_time=None, end_time=None, round=True):
         query = "SELECT * FROM " + self.original_ohlcv_1min_column + ";"
 
         all_data = self.db_client.exec_sql(
@@ -58,7 +58,19 @@ class Dataset:
         all_data['timestamp'] = pd.to_datetime(all_data.timestamp)
         all_data.set_index('timestamp', inplace=True)
 
-        return all_data[start_time:end_time:symbol_min]
+        if round:
+            rounded_start_time = self.floor_datetime_to_ohlcv(start_time, "up")
+            rounded_end_time = self.floor_datetime_to_ohlcv(end_time, "down")
+            return all_data[rounded_start_time:rounded_end_time:symbol_min]
+        else:
+            return all_data[start_time:end_time:symbol_min]
+
+    def floor_datetime_to_ohlcv(self, start_or_end_time, round_up_or_down):
+        if round_up_or_down == "up":
+            return (start_or_end_time.replace(second=0, microsecond=0, minute=0, hour=start_or_end_time.hour)
+                    + timedelta(hours=1))
+        elif round_up_or_down == "down":
+            return start_or_end_time.replace(second=0, microsecond=0, minute=0, hour=start_or_end_time.hour)
 
     def append_past_future(self, before_mins=[1, 5, 10], future_mins=[1, 5, 10]):
         self.append_past(before_mins)
