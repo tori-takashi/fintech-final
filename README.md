@@ -52,7 +52,7 @@ Beforehand of installation, update setuptools.
 If you're using anaconda, please replace `pip` to `conda`
 
 `$ sudo pip install -U setuptools`
-`$ pip install ccxt pandas ta-lib sqlalchemy influxdb`
+`$ pip install ccxt pandas ta-lib sqlalchemy influxdb alembic`
 
 ### create csv
 
