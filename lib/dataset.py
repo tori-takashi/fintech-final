@@ -8,14 +8,14 @@ from model.ohlcv_1min import OHLCV_1min
 
 
 class Dataset:
-    def __init__(self, bitmex, db_client=None):
-        self.bitmex = bitmex
+    def __init__(self, exchange_client, db_client):
+        self.exchange_client = exchange_client
         self.db_client = db_client
 
-        self.original_ohlcv_1min_column = self.bitmex.name + "_original_ohlcv_1min"
+        self.original_ohlcv_1min_column = self.exchange_client.name + "_original_ohlcv_1min"
 
     def download_ohlcv_data(self, symbol, start_time, end_time):
-        pdmex = PandaMex(self.bitmex)
+        pdmex = PandaMex(self.exchange_client)
         ohlcv_df = pdmex.fetch_ohlcv(
             "BTC/USD", symbol, start_time, end_time)
 
