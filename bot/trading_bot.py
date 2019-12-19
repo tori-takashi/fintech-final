@@ -24,7 +24,24 @@ class TradingBot:
         self.bot_name_with_option = self.build_bot_name(
             self.default_params, self.specific_params)
 
+        if self.is_backtest:
+            if self.db_client.is_table_exist(self.bot_name + "_backtest_summary") is not True:
+                self.create_backtest_summary()
+            if self.db_client.is_table_exist(self.bot_name + "_backtest_params") is not True:
+                self.create_backtest_params()
+            if self.db_client.is_table_exist(self.bot_name + "_backtest_transaction_log") is not True:
+                self.create_backtest_transaction_log()
+
         self.set_logger()
+
+    def create_backtest_summary(self):
+        pass
+
+    def create_backtest_params(self):
+        pass
+
+    def create_backtest_transaction_log(self):
+        pass
 
     def extract_default_params(self, default_params):
         # default_params = {
