@@ -5,13 +5,13 @@ from technical_analysis.MACD import TechnicalAnalysisMACD
 
 
 class BottomTrendFollow(TradingBot):
-    def __init__(self, client, is_backtest=False):
+    def __init__(self, exchange_client, db_client, is_backtest=False):
         # default hyper parameters
         # Don't use instance variable to avoid name duplication
 
         self.default_params = {
             "bot_name": "bottom_trend_follow",
-            "timeframe": "1h",
+            "timeframe": 60,
             "close_in_do_nothing": True,
             "inverse_trading": False
         }
@@ -27,7 +27,8 @@ class BottomTrendFollow(TradingBot):
             "top_trend_tick": self.top_trend_tick
         }
 
-        super().__init__(client, self.default_params, self.bot_params, is_backtest)
+        super().__init__(exchange_client, db_client,
+                         self.default_params, self.bot_params, is_backtest)
 
         # for metrics calculation
         bot_params_values = list(self.bot_params.values())

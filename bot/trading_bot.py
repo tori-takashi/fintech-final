@@ -4,15 +4,17 @@ import logging
 from datetime import datetime, timedelta
 
 from lib.pandamex import PandaMex
-
+from lib.dataset import Dataset
 
 class TradingBot:
-    def __init__(self, exchange_client, default_params, bot_params, is_backtest=False):
-        # initialize status and settings of bot
+    def __init__(self, exchange_client, db_client, default_params, bot_params, is_backtest=False):
+        # initialize status and settings of bot.
+        # if you try backtest, db_client is in need.
         self.is_backtest = is_backtest
 
         self.exchange_client = exchange_client
-        self.client = exchange_client.client
+        self.db_client = db_client
+        self.dataset_manipulator = Dataset(self.exchange_client, self.db_client)
 
         self.default_params = default_params
         self.extract_default_params(self.default_params)
@@ -27,7 +29,7 @@ class TradingBot:
     def extract_default_params(self, default_params):
         # default_params = {
         #    "bot_name" : bot_name, # used in bot name builder for log
-        #    "timeframe": timeframe,
+        #    "timeframe": integer,
         #    "close_in_do_nothing": close_in_do_nothing,
         #    "inverse_trading": inverse_trading
         # }
@@ -36,12 +38,11 @@ class TradingBot:
         self.close_in_do_nothing = default_params["close_in_do_nothing"]
         self.inverse_trading = default_params["inverse_trading"]
 
-    def run(self, duration_days=30):
+    def run(self, duration_days=90):
         start_time = datetime.now() - timedelta(days=duration_days)
         end_time = datetime.now()
 
-        self.ohlcv_df = self.init_ohlcv_data(
-            start_time=start_time, end_time=end_time)
+        self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, start_time, end_time)
 
         self.calculate_metrics()
         if self.is_backtest:
@@ -102,17 +103,6 @@ class TradingBot:
         for k, v in self.bot_params.items():
             self.logger.info(k + " => " + str(v))
 
-    def init_ohlcv_data(self, start_time=datetime.now() - timedelta(days=30), end_time=datetime.now()):
-        self.start_time = start_time
-        self.end_time = end_time
-
-        self.stock_duration = end_time - start_time
-
-        if self.exchange_client.name == "bitmex":
-            ohlcv_df = PandaMex(self.client).fetch_ohlcv(
-                timeframe=self.timeframe, start_time=self.start_time, end_time=self.end_time)
-            # fetch ohlcv data
-            return PandaMex.to_timestamp(ohlcv_df)
 
     def calculate_lot(self):
         return 1
