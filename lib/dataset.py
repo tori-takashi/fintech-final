@@ -50,9 +50,15 @@ class Dataset:
 
         self.db_client.append_to_table(self.original_ohlcv_1min_column, ohlcv)
 
-    def get_ohlcv(self, symbol=None, start_time=None, end_time=None):
+    def get_ohlcv(self, symbol_min=None, start_time=None, end_time=None):
         query = "SELECT * FROM " + self.original_ohlcv_1min_column + ";"
-        return self.db_client.exec_sql(self.original_ohlcv_1min_column, query)
+
+        all_data = self.db_client.exec_sql(
+            self.original_ohlcv_1min_column, query)
+        all_data['timestamp'] = pd.to_datetime(all_data.timestamp)
+        all_data.set_index('timestamp', inplace=True)
+
+        return all_data
 
     def append_past_future(self, before_mins=[1, 5, 10], future_mins=[1, 5, 10]):
         self.append_past(before_mins)
