@@ -71,8 +71,9 @@ class DBClient:
 
     def get_last_row(self, table_name):
         if self.is_sqlite3():
-            query = "SELECT * FROM " + table_name + " WHERE index = last_insert_rowid();"
-        self.exec_sql(table_name, query)
+            query = "SELECT * FROM " + table_name + \
+                " WHERE id = (SELECT MAX(id) FROM " + table_name + ");"
+        return self.exec_sql(table_name, query)
 
     def exec_sql(self, table_name, query, return_df=True):
         if self.is_sqlite3():
@@ -81,9 +82,3 @@ class DBClient:
             else:
                 result_rows = self.connector.execute(query)
                 return result_rows
-
-    def get_column_name(self, table_name):
-        if self.is_sqlite3():
-            query = "SELECT * FROM " + table_name + ";"
-            result = self.connector.execute(query)
-            return result
