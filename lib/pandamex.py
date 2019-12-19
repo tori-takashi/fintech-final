@@ -47,7 +47,6 @@ class PandaMex:
 
             params = self.params_builder(
                 reverse, count, round(current_start_time.timestamp()), round(current_end_time.timestamp()))
-            print(params)
 
             print("downloading " + str(current_start_time) +
                   " ~ " + str(current_end_time) + " data")
@@ -64,7 +63,6 @@ class PandaMex:
             # update to current_start time
             # get last row timestamp
             # increment count
-            print(ohlcv_df_part)
             latest_row = pd.Series(
                 ohlcv_df_part.iat[0, 0], index=ohlcv_df_part.columns)
 
