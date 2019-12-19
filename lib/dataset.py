@@ -28,13 +28,18 @@ class Dataset:
     def update_ohlcv(self, start_time=None):
         # if ohlcv table is existing, start time will be ignored
         if self.db_client.is_table_exist(self.original_ohlcv_1min_column):
+
             latest_row = self.db_client.get_last_row(
                 self.original_ohlcv_1min_column)
             latest_row['timestamp'] = pd.to_datetime(latest_row.timestamp)
 
+            # [FIXME] adhock solution to timezone problem
             append_offset = timedelta(minutes=1, seconds=30)
+            print("[FIXME] adhock solution to timezone problem")
+            print("[FIXME] fetching time would be wrong below")
+            timezone_offset = timedelta(hours=8)
 
-            start_time = latest_row.timestamp + append_offset
+            start_time = latest_row.timestamp + append_offset - timezone_offset
         else:
             ohlcv_1min_table = OHLCV_1min.__table__
             ohlcv_1min_table.name = self.original_ohlcv_1min_column

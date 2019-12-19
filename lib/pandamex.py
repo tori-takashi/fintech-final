@@ -15,46 +15,63 @@ class PandaMex:
         self.bitmex = bitmex
 
     def fetch_ohlcv(self, symbol="BTC/USD", timeframe="1m", start_time=None, end_time=None, count=500, reverse=True, no_index=False):
+        # start time and end time are datetime
+
         # o => open price
         # h => high price
         # l => low price
         # c => close price
         # v => volume
 
-        iterations = self.calc_iterations(
-            timeframe, start_time, end_time, count)
-        fetch_data_onetime = self.timeframe_sec[timeframe] * count
+        # seconds for duration calculating per downloading
+        duration_sec_per_download = self.timeframe_sec[timeframe] * count
 
+        current_start_time = start_time
         ohlcv_df = pd.DataFrame(data=None, columns=self.ohlcv_columns)
 
-        for i in range(0, iterations):
+        iterations = self.calc_iterations(
+            timeframe, start_time, end_time, count)
 
-            # timezone adjusted to Taiwan
-            # [FIXME] use system timezone
-            current_start = start_time + \
-                timedelta(seconds=i * fetch_data_onetime) - timedelta(hours=8)
-            current_end = start_time + \
-                timedelta(seconds=(i + 1) * fetch_data_onetime)
+        i = 0
+        while i < iterations:
+            time.sleep(2)
 
-            # condition of continuing
-            if current_start < end_time:
-                time.sleep(2)
-                print(str(i*100/iterations) + "% completed")
+            current_start_time = start_time + timedelta(seconds=i *
+                                                        duration_sec_per_download)
+            current_end_time = current_start_time + \
+                timedelta(seconds=duration_sec_per_download)
 
+            if end_time < current_end_time:
                 # cut surplus in final iteration
-                if current_end > end_time:
-                    current_end = end_time.timestamp()
+                current_end_time = end_time
 
-                # create paramater with current start and enc
-                params = self.params_builder(
-                    reverse, count, current_start.timestamp(), current_end)
+            params = self.params_builder(
+                reverse, count, round(current_start_time.timestamp()), round(current_end_time.timestamp()))
+            print(params)
 
-                # at first, converting to dataframe to adjust the columns
-                ohlcv_rawdata = self.bitmex.client.fetch_ohlcv(
-                    symbol, timeframe, params=params)
-                ohlcv_df_part = pd.DataFrame(
-                    ohlcv_rawdata, columns=self.ohlcv_columns)
-                ohlcv_df = ohlcv_df.append(ohlcv_df_part)
+            print("downloading " + str(current_start_time) +
+                  " ~ " + str(current_end_time) + " data")
+
+            # download ohlcv data
+            ohlcv_rawdata = self.bitmex.client.fetch_ohlcv(
+                symbol, timeframe, params=params)
+            # convert into dataframe
+            ohlcv_df_part = pd.DataFrame(
+                ohlcv_rawdata, columns=self.ohlcv_columns)
+            # append to return dataframe
+            ohlcv_df = ohlcv_df.append(ohlcv_df_part)
+
+            # update to current_start time
+            # get last row timestamp
+            # increment count
+            print(ohlcv_df_part)
+            latest_row = pd.Series(
+                ohlcv_df_part.iat[0, 0], index=ohlcv_df_part.columns)
+
+            current_start_time = pd.Timestamp(latest_row.timestamp, unit="ms")
+            i += 1
+
+            print(str(round((i)*100/iterations, 1)) + "% completed")
 
         if no_index:
             return ohlcv_df.drop(columns=ohlcv_df.columns[[0]])
@@ -93,6 +110,6 @@ class PandaMex:
         sec = self.timeframe_sec[timeframe]
 
         fetch_data_onetime = sec * count
-        iteration = (math.ceil(duration / fetch_data_onetime)) + 1
+        iteration = duration / fetch_data_onetime
 
-        return iteration
+        return int(iteration) + 1
