@@ -4,6 +4,8 @@ import numpy as np
 
 from .pandamex import PandaMex
 
+from model.ohlcv_1min import OHLCV_1min
+
 
 class Dataset:
     def __init__(self, bitmex, db_client=None):
@@ -27,18 +29,11 @@ class Dataset:
         if self.db_client.is_table_exist(self.original_ohlcv_1min_column):
             pass
         else:
-            create_table_query = """CREATE TABLE """ + self.original_ohlcv_1min_column + """ (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TIMESTAMP,
-                open REAL,
-                high REAL,
-                low REAL,
-                close REAL,
-                volume REAL
-            );
-                """
-            self.db_client.exec_sql(
-                self.original_ohlcv_1min_column, create_table_query, return_df=False)
+            table_name = self.bitmex.name + self.original_ohlcv_1min_column
+
+            ohlcv_1min_table = OHLCV_1min.__table__
+            ohlcv_1min_table.name = table_name
+            ohlcv_1min_table.create(bind=self.db_client.connector)
 
         ohlcv = self.download_data(
             "1m", start_time, end_time=datetime.now())

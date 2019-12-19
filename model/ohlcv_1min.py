@@ -12,4 +12,15 @@ class OHLCV_1min(declarative_base()):
     high = Column(Float)
     low = Column(Float)
     close = Column(Float)
-    Volume = Column(Float)
+    volume = Column(Float)
+
+    def __init__(self, timestamp, open, high, low, close, volume):
+        self.timestamp = timestamp
+        self.open = open
+        self.high = high
+        self.low = low
+        self.close = close
+        self.volume = volume
+
+    def __repr__(self):
+        return "<'%s'('%s','%s')>" % (OHLCV_1min.__tablename__, self.info_name, self.description)
