@@ -7,7 +7,7 @@ from lib.pandamex import PandaMex
 from lib.dataset import Dataset
 
 class TradingBot:
-    def __init__(self, exchange_client, db_client, default_params, bot_params, is_backtest=False):
+    def __init__(self, exchange_client, db_client, default_params, specific_params, is_backtest=False):
         # initialize status and settings of bot.
         # if you try backtest, db_client is in need.
         self.is_backtest = is_backtest
@@ -19,10 +19,10 @@ class TradingBot:
         self.default_params = default_params
         self.extract_default_params(self.default_params)
 
-        self.bot_params = bot_params
+        self.specific_params = specific_params
 
         self.bot_name_with_option = self.build_bot_name(
-            self.default_params, self.bot_params)
+            self.default_params, self.specific_params)
 
         self.set_logger()
 
@@ -55,7 +55,7 @@ class TradingBot:
             self.run_backtest(csv_output=True, filename=filename)
             self.aggregate_summary()
 
-    def build_bot_name(self, default_params, bot_params):
+    def build_bot_name(self, default_params, specific_params):
         # default params
         if self.close_in_do_nothing:
             do_nothing_option = "_do_nothing"
@@ -68,12 +68,12 @@ class TradingBot:
             inverse_trading_option = ""
 
         # bot params
-        bot_params_option = ""
-        for param in list(bot_params.values()):
-            bot_params_option += "_" + str(param)
+        specific_params_option = ""
+        for param in list(specific_params.values()):
+            specific_params_option += "_" + str(param)
 
         return default_params["bot_name"] + "_" + default_params["timeframe"] + \
-            bot_params_option + do_nothing_option + inverse_trading_option
+            specific_params_option + do_nothing_option + inverse_trading_option
 
     def set_logger(self):
         self.logger = logging.getLogger(self.bot_name)
@@ -100,7 +100,7 @@ class TradingBot:
             self.logger.info(k + " => " + str(v))
 
         self.logger.info("bot hyperparameters")
-        for k, v in self.bot_params.items():
+        for k, v in self.specific_params.items():
             self.logger.info(k + " => " + str(v))
 
 

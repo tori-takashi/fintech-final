@@ -16,30 +16,32 @@ class BottomTrendFollow(TradingBot):
             "inverse_trading": False
         }
 
-        # bot params
+        # specific params
         self.bottom_trend_tick = 12
         self.middle_trend_tick = 6
         self.top_trend_tick = 3
 
-        self.bot_params = {
+        self.specific_params = {
             "bottom_trend_tick": self.bottom_trend_tick,
             "middle_trend_tick": self.middle_trend_tick,
             "top_trend_tick": self.top_trend_tick
         }
 
         super().__init__(exchange_client, db_client,
-                         self.default_params, self.bot_params, is_backtest)
+                         self.default_params, self.specific_params, is_backtest)
 
         # for metrics calculation
-        bot_params_values = list(self.bot_params.values())
-        self.bottom_trend_col = "ema_" + str(bot_params_values[0]) + "_trend"
-        self.middle_trend_col = "ema_" + str(bot_params_values[1]) + "_trend"
-        self.top_trend_col = "ema_" + str(bot_params_values[2]) + "_trend"
+        specific_params_values = list(self.specific_params.values())
+        self.bottom_trend_col = "ema_" + \
+            str(specific_params_values[0]) + "_trend"
+        self.middle_trend_col = "ema_" + \
+            str(specific_params_values[1]) + "_trend"
+        self.top_trend_col = "ema_" + str(specific_params_values[2]) + "_trend"
 
     def calculate_metrics(self):
         ta_ema = TechnicalAnalysisMACD(self.ohlcv_df)
 
-        for tick in list(self.bot_params.values()):
+        for tick in list(self.specific_params.values()):
             col = "ema_" + str(tick)
             diff_col = col + "_diff"
             trend_col = col + "_trend"
