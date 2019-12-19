@@ -4,16 +4,16 @@ from sqlalchemy.ext.declarative import declarative_base
 
 
 class BacktestSummary(declarative_base()):
-    __tablename__ = "_backtest_summary"
+    # [Need to be edited]
+    __tablename__ = "backtest_summary"
+    backtest_transaction_log = relationship("BacktestTransactionLog")
 
+    # [No need to edit below]
     id = Column(Integer, primary_key=True)
     # params
     bot_name = Column(String)
     initial_deposit = Column(Float)
     account_currency = Column(String)
-
-    # relationships
-    backtest_transaction_log = relationship("BacktestTransactionLog")
 
     # trade metrics
     total_entry = Column(Integer)

@@ -3,14 +3,12 @@ from sqlalchemy.ext.declarative import declarative_base
 
 
 class BacktestTransactionLog(declarative_base()):
-    __tablename__ = "_backtest_transaction_log"
-    __botname__ = ""
+    # [Need to be edited]
+    __tablename__ = "backtest_transaction_log"
+    backtest_summary_id = Column(Integer, ForeignKey("backtest_summary.id"))
 
+    # [No need to edit below]
     id = Column(Integer, primary_key=True)
-
-    # relationship
-    backtest_summary_id = Column(Integer, ForeignKey(
-        __botname__ + "_backtest_summary.id"))
 
     exchange_name = Column(String)
     asset_name = Column(String)
