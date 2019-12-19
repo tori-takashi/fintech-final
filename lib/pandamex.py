@@ -34,7 +34,7 @@ class PandaMex:
 
         i = 0
         while i < iterations:
-            time.sleep(2)
+            time.sleep(1.05)
 
             current_start_time = start_time + timedelta(seconds=i *
                                                         duration_sec_per_download)
