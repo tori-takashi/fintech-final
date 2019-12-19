@@ -48,12 +48,16 @@ class PandaMex:
             params = self.params_builder(
                 reverse, count, round(current_start_time.timestamp()), round(current_end_time.timestamp()))
 
+            # download ohlcv data
             print("downloading " + str(current_start_time) +
                   " ~ " + str(current_end_time) + " data")
-
-            # download ohlcv data
             ohlcv_rawdata = self.bitmex.client.fetch_ohlcv(
                 symbol, timeframe, params=params)
+
+            if not ohlcv_rawdata:
+                print("No data downloaded")
+                break
+
             # convert into dataframe
             ohlcv_df_part = pd.DataFrame(
                 ohlcv_rawdata, columns=self.ohlcv_columns)
