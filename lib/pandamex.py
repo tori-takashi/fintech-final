@@ -1,6 +1,7 @@
 # bitmex wrapper with pandas
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
+import math
 import pandas as pd
 
 from . import time_ms
@@ -27,21 +28,26 @@ class PandaMex:
         ohlcv_df = pd.DataFrame(data=None, columns=self.ohlcv_columns)
 
         for i in range(0, iterations):
-            current_start = start_time.timestamp() + i * fetch_data_onetime
-            current_end = start_time.timestamp() + (i + 1) * fetch_data_onetime
+
+            # timezone adjusted to Taiwan
+            # [FIXME] use system timezone
+            current_start = start_time + \
+                timedelta(seconds=i * fetch_data_onetime) - timedelta(hours=8)
+            current_end = start_time + \
+                timedelta(seconds=(i + 1) * fetch_data_onetime)
 
             # condition of continuing
-            if current_start < end_time.timestamp():
+            if current_start < end_time:
                 time.sleep(2)
                 print(str(i*100/iterations) + "% completed")
 
                 # cut surplus in final iteration
-                if current_end > end_time.timestamp():
+                if current_end > end_time:
                     current_end = end_time.timestamp()
 
                 # create paramater with current start and enc
                 params = self.params_builder(
-                    reverse, count, current_start, current_end)
+                    reverse, count, current_start.timestamp(), current_end)
 
                 # at first, converting to dataframe to adjust the columns
                 ohlcv_rawdata = self.bitmex.client.fetch_ohlcv(
@@ -87,6 +93,6 @@ class PandaMex:
         sec = self.timeframe_sec[timeframe]
 
         fetch_data_onetime = sec * count
-        iteration = duration / fetch_data_onetime
+        iteration = (math.ceil(duration / fetch_data_onetime)) + 1
 
-        return int(iteration) + 1
+        return iteration
