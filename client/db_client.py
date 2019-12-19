@@ -3,8 +3,14 @@ import pandas as pd
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.interfaces import PoolListener
 
 from influxdb import InfluxDBClient
+
+
+class ForeignKeysListener(PoolListener):
+    def connect(self, dbapi_con, con_record):
+        db_cursor = dbapi_con.execute('pragma foreign_keys=ON')
 
 
 class DBClient:
@@ -31,7 +37,7 @@ class DBClient:
 
     def sqlite3_establish_connection(self):
         if self.opt == None:
-            return create_engine("sqlite:///" + self.config['sqlite3']['db_path'])
+            return create_engine("sqlite:///" + self.config['sqlite3']['db_path'], listeners=[ForeignKeysListener])
         else:
             return create_engine("sqlite:///" + self.opt)
 
