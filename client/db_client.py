@@ -37,7 +37,7 @@ class DBClient:
 
     def sqlite3_establish_connection(self):
         if self.opt == None:
-            return create_engine("sqlite:///" + self.config['sqlite3']['db_path'], listeners=[ForeignKeysListener])
+            return create_engine("sqlite:///" + self.config['sqlite3']['db_path'], listeners=[ForeignKeysListener()])
         else:
             return create_engine("sqlite:///" + self.opt)
 
