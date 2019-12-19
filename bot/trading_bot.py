@@ -3,8 +3,19 @@ import pandas as pd
 import logging
 from datetime import datetime, timedelta
 
+from sqlalchemy import Column, Integer, Float, ForeignKey, ForeignKeyConstraint
+from sqlalchemy.orm import relationship
+
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+
 from lib.pandamex import PandaMex
 from lib.dataset import Dataset
+
+from model.backtest_params import BacktestParams
+from model.backtest_summary import BacktestSummary
+from model.backtest_transaction_log import BacktestTransactionLog
+
 
 class TradingBot:
     def __init__(self, exchange_client, db_client, default_params, specific_params, is_backtest=False):
@@ -21,9 +32,6 @@ class TradingBot:
 
         self.specific_params = specific_params
 
-        self.bot_name_with_option = self.build_bot_name(
-            self.default_params, self.specific_params)
-
         if self.is_backtest:
             if self.db_client.is_table_exist(self.bot_name + "_backtest_summary") is not True:
                 self.create_backtest_summary()
@@ -35,13 +43,62 @@ class TradingBot:
         self.set_logger()
 
     def create_backtest_summary(self):
-        pass
+        table_def = BacktestSummary.__table__
+        table_def.name = self.bot_name + "_backtest_summary"
+        table_def.create(bind=self.db_client.connector)
+        
 
     def create_backtest_params(self):
-        pass
+        table_def = BacktestParams
+        table_def.relation = relationship("BacktestSummary")
+
+        table_def = table_def.__table__
+
+        # add specific params columns
+        table_def = self.append_specific_params_column(table_def)
+        backtest_summary_id = Column(self.bot_name + "_backtest_summary_id", Integer)
+        table_def.append_column(backtest_summary_id)
+
+        table_def.name = self.bot_name + "_backtest_params"
+        table_def.create(bind=self.db_client.connector)
+
+        # add foreign key constraint
+        ctx = MigrationContext.configure(self.db_client.connector)
+        op = Operations(ctx)
+
+        with op.batch_alter_table(self.bot_name + "_backtest_params") as batch_op:
+            batch_op.create_foreign_key(
+                "fk_summary_params", self.bot_name + "_backtest_summary",
+                [self.bot_name + "_backtest_summary_id"], ["id"]
+            )
+
 
     def create_backtest_transaction_log(self):
-        pass
+        table_def = BacktestTransactionLog
+        table_def.relation = relationship("BacktestSummary")
+
+        table_def = table_def.__table__
+        backtest_summary_id = Column(self.bot_name + "_backtest_summary_id", Integer)
+        table_def.append_column(backtest_summary_id)
+
+        table_def.name = self.bot_name + "_backtest_transaction_log"
+        table_def.create(bind=self.db_client.connector)
+
+        # add foreign key constraint
+        ctx = MigrationContext.configure(self.db_client.connector)
+        op = Operations(ctx)
+
+        with op.batch_alter_table(self.bot_name + "_backtest_transaction_log") as batch_op:
+            batch_op.create_foreign_key(
+                "fk_summary_log", self.bot_name + "_backtest_summary",
+                [self.bot_name + "_backtest_summary_id"], ["id"]
+            )
+
+        
+    def append_specific_params_column(self, table_def):
+        return table_def
+        # Need to be oberride
+        # return table def
 
     def extract_default_params(self, default_params):
         # default_params = {
@@ -63,34 +120,9 @@ class TradingBot:
 
         self.calculate_metrics()
         if self.is_backtest:
-            filename = str(duration_days) + "days_" + self.bot_name_with_option
-            self.set_log_output_target(filename)
-
-            self.log_params()
-
             self.calculate_sign_backtest()
-            self.run_backtest(csv_output=True, filename=filename)
+            self.run_backtest(csv_output=False)
             self.aggregate_summary()
-
-    def build_bot_name(self, default_params, specific_params):
-        # default params
-        if self.close_in_do_nothing:
-            do_nothing_option = "_do_nothing"
-        else:
-            do_nothing_option = ""
-
-        if self.inverse_trading:
-            inverse_trading_option = "_inverse"
-        else:
-            inverse_trading_option = ""
-
-        # bot params
-        specific_params_option = ""
-        for param in list(specific_params.values()):
-            specific_params_option += "_" + str(param)
-
-        return default_params["bot_name"] + "_" + default_params["timeframe"] + \
-            specific_params_option + do_nothing_option + inverse_trading_option
 
     def set_logger(self):
         self.logger = logging.getLogger(self.bot_name)

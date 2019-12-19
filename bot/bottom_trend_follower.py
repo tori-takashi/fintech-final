@@ -1,5 +1,7 @@
 # bottom trend detection and follow with MACD
 import pandas as pd
+from sqlalchemy import Column, Integer
+
 from bot.trading_bot import TradingBot
 from technical_analysis.MACD import TechnicalAnalysisMACD
 
@@ -37,6 +39,12 @@ class BottomTrendFollow(TradingBot):
         self.middle_trend_col = "ema_" + \
             str(specific_params_values[1]) + "_trend"
         self.top_trend_col = "ema_" + str(specific_params_values[2]) + "_trend"
+
+    def append_specific_params_column(self, table_def):
+        table_def.append_column(Column("bottom_trend_tick", Integer))
+        table_def.append_column(Column("middle_trend_tick", Integer))
+        table_def.append_column(Column("top_trend_tick", Integer))
+        return table_def
 
     def calculate_metrics(self):
         ta_ema = TechnicalAnalysisMACD(self.ohlcv_df)
