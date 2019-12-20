@@ -322,31 +322,6 @@ class TradingBot:
                 "  $" + str(abs(position.profit_size)) + " loss")
 
     def aggregate_summary(self):
-        
-        
-        for profit_status in profit_statuses:
-            
-        for order_type in order_types:
-            self.logger.info("\n## "+ order_type + " result")
-
-            order = (self.closed_positions_df["order_type"] == order_type)
-            order_col = self.closed_positions_df[order]
-            
-            # index
-            order_entries = order.sum()
-
-            order_sum  = order_col.profit_size.sum()
-            order_mean = order_col.profit_size.mean()
-            order_std = order_col.profit_size.std()
-            
-            order_average_return_percentage = order_col.profit_percentage.mean()
-
-            self.logger.info(order_type + " entry -> " + str(order_entries) + " times")
-            self.logger.info(order_type + " sum -> $" + str(round(order_sum, 2)))
-            self.logger.info(order_type + " average -> $" + str(round(order_mean, 2)))
-            self.logger.info(order_type + " standard deviation -> $" + str(round(order_std, 2)))
-            self.logger.info(order_type + " average return percentage -> " + str(round(order_average_return_percentage, 2)) + "%")
-
             for profit_status in profit_statuses:
                 self.logger.info("\n### " + order_type+ " & " + profit_status + " result")
 
@@ -371,7 +346,9 @@ class TradingBot:
                 self.logger.info(order_type + " " + profit_status + " average percentage -> " + str(round(order_win_lose_mean_percentage, 2)) + "%")
 
     def build_summary(self, closed_position):
-        pass
+        total_summary_series = self.build_total_summary()
+        long_short_summary_series = self.build_long_short_summary()
+
 
     def build_total_summary(self):
         total_summary_column = [
@@ -436,7 +413,7 @@ class TradingBot:
             profit_status + "_rate",
             profit_status + "_return",
             profit_status + "_average",
-            profit_status + "_standard_deviation".
+            profit_status + "_standard_deviation",
             profit_status + "_skewness",
             profit_status + "_kurtosis",
             profit_status + "_median",
@@ -445,7 +422,7 @@ class TradingBot:
             profit_status + "_standard_deviation_percentage",
             profit_status + "_skewness_percentage",
             profit_status + "_transaction_cost",
-            profit_status + "_consective",
+            profit_status + "_consecutive",
             profit_status + "_consecutive_max_entry",
             profit_status + "_consecutive_average_entry"
             ]
@@ -472,18 +449,18 @@ class TradingBot:
 
             win_lose_transaction_cost = win_lose_row.transaction_cost.sum()
             
-            win_lose_consective = self.build_consecutive(profit_status)
+            win_lose_consecutive = self.build_consecutive(profit_status)
 
-            win_lose_consecutive_max_entry = win_lose_consective["consective_max_entry"]
-            win_lose_consecutive_average_entry = win_lose_consective["consective_average_entry"]
-            win_lose_consecutive_total_profit_loss = win_consective["consecutive_df"].profit_size.sum()
+            win_lose_consecutive_max_entry = win_lose_consecutive["consecutive_max_entry"]
+            win_lose_consecutive_average_entry = win_lose_consecutive["consecutive_average_entry"]
+            win_lose_consecutive_total_profit_loss = win_lose_consecutive["consecutive_df"].profit_size.sum()
 
             win_lose_summary_data = [
             win_lose_entry,
             win_lose_rate,
             win_lose_return,
             win_lose_average,
-            win_lose_standard_deviation.
+            win_lose_standard_deviation,
             win_lose_skewness,
             win_lose_kurtosis,
             win_lose_median,
@@ -491,8 +468,10 @@ class TradingBot:
             win_lose_average_percentage,
             win_lose_standard_deviation_percentage,
             win_lose_skewness_percentage,
+            win_lose_kurtosis_percentage,
+            win_lose_median_percentage,
             win_lose_transaction_cost,
-            win_lose_consective,
+            win_lose_consecutive,
             win_lose_consecutive_max_entry,
             win_lose_consecutive_average_entry,
             ]
@@ -529,26 +508,26 @@ class TradingBot:
 
         return pd.Series(win_lose_summary_data, index=win_lose_summary_columns)
 
-    def build_consective(self, profit_status):
+    def build_consecutive(self, profit_status):
         current_start_index = 0
         current_end_index = 0
 
         max_start_index = 0
         max_end_index = 0
 
-        consective_win_lose_entries = []
+        consecutive_win_lose_entries = []
 
         profit_status_df = self.closed_positions_df.loc[:,["profit_status"]]
-        profit_status_np = id_profit_status_df.to_numpy(copy=True)
+        profit_status_np = profit_status_df.to_numpy(copy=True)
 
         # for loop
-        for row_id, row in enumrate(profit_status_np):
+        for row_id, row in enumerate(profit_status_np):
             if row[row_id] == profit_status:
                 if current_start_index == 0:
                     current_start_index = row[0]
             else:
                 current_end_index = row[0]
-                consective_win_lose_entries.append(current_end_index - current_start_index)
+                consecutive_win_lose_entries.append(current_end_index - current_start_index)
                 if current_end_index - current_start_index < max_end_index - max_start_index:
                     max_start_index = current_start_index
                     max_end_index = current_end_index
@@ -556,23 +535,89 @@ class TradingBot:
                 current_start_index = 0
                 current_end_index = 0
 
-        consective_max_entry = np.max(consective_win_lose_entries)
-        consective_average_entry = np.mean(consective_win_lose_entries)
+        consecutive_max_entry = np.max(consecutive_win_lose_entries)
+        consecutive_average_entry = np.mean(consecutive_win_lose_entries)
 
         return_hash = {
             "consecutive_df": self.closed_positions_df.loc[max_start_index:max_end_index],
-            "consecutive_max_entry": consective_max_entry,
-            "consective_average_entry": consective_average_entry
+            "consecutive_max_entry": consecutive_max_entry,
+            "consecutive_average_entry": consecutive_average_entry
         }
 
         return return_hash
 
     def build_long_short_summary(self):
         order_types = ["long", "short"]
-        pass
+
+        for order_type in order_types:
+            long_short_entries_condition = (self.closed_positions_df["order_type"] == order_type)
+            long_short_row = self.closed_positions_df[(long_short_entries_condition)]
+
+            long_short_summary_columns = [
+            order_type + "_entry",
+            order_type + "_rate",
+            order_type + "_return",
+            order_type + "_average",
+            order_type + "_standard_deviation",
+            order_type + "_skewness",
+            order_type + "_kurtosis",
+            order_type + "_median",
+            order_type + "_return_percentage",
+            order_type + "_average_percentage",
+            order_type + "_standard_deviation_percentage",
+            order_type + "_skewness_percentage",
+            order_type + "_max_profit",
+            order_type + "_max_loss"
+            ]
+
+            long_short_entry = len(long_short_row)
+            long_short_rate = (long_short_entry / len(self.closed_positions_df)) * 100
+
+            long_short_return  = long_short_row.profit_size.sum()
+            long_short_average = long_short_row.profit_size.mean()
+            long_short_standard_deviation  = long_short_row.profit_size.std()
+            long_short_skewness = long_short_row.profit_size.skew()
+            long_short_kurtosis = long_short_row.profit_size.kurt()
+            long_short_median = long_short_row.profit_size.median()
+
+            long_short_return_percentage  = long_short_row.profit_percentage.sum()
+            long_short_average_percentage = long_short_row.profit_percentage.mean()
+            long_short_standard_deviation_percentage  = long_short_row.profit_percentage.std()
+            long_short_skewness_percentage = long_short_row.profit_percentage.skew()
+            long_short_kurtosis_percentage = long_short_row.profit_percentage.kurt()
+            long_short_median_percentage = long_short_row.profit_percentage.median()
+            
+            long_short_max_profit = long_short_row.profit_size.max()
+            long_short_max_profit_percentage = long_short_row.profit_percentage.max()
+
+            long_short_max_loss = long_short_row.profit_size.min()
+            long_short_max_loss_percentage = long_short_row.profit_percentage.min()
+
+            long_short_summary_data = [
+            long_short_entry,
+            long_short_rate,
+            long_short_return,
+            long_short_average,
+            long_short_standard_deviation,
+            long_short_skewness,
+            long_short_kurtosis,
+            long_short_median,
+            long_short_return_percentage,
+            long_short_average_percentage,
+            long_short_standard_deviation_percentage,
+            long_short_skewness_percentage,
+            long_short_kurtosis_percentage,
+            long_short_median_percentage,
+            long_short_max_profit,
+            long_short_max_profit_percentage,
+            long_short_max_loss,
+            long_short_max_loss_percentage
+            ]
+
+            return pd.Series(long_short_summary_data, index=long_short_summary_columns)
+
 
     def build_combined_summary(self):
-        combine_statuses = ["win_long", "win_short", "lose_long", "lose_short"]
         pass
 
 

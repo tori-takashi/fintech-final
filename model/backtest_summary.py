@@ -109,7 +109,10 @@ class BacktestSummary(declarative_base()):
     long_kurtosis_percentage = Column(Float)
 
     long_max_profit = Column(Float)
+    long_max_profit_percentage = Column(Float)
+
     long_max_loss = Column(Float)
+    long_max_loss_percentage = Column(Float)
 
     # short
     short_entry = Column(Integer)
@@ -128,7 +131,10 @@ class BacktestSummary(declarative_base()):
     short_kurtosis_percentage = Column(Float)
 
     short_max_profit = Column(Float)
+    short_max_profit_percentage = Column(Float)
+
     short_max_loss = Column(Float)
+    short_max_loss_percentage = Column(Float)
 
     # win long
     win_long_entry = Column(Integer)
