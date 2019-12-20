@@ -4,6 +4,9 @@ from sqlalchemy.ext.declarative import declarative_base
 
 
 class BacktestSummary(declarative_base()):
+    # [FIXME]
+    # Add geometric mean
+
     # [Need to be edited]
     __tablename__ = "backtest_summary"
     backtest_transaction_log = relationship("BacktestTransactionLog")
@@ -28,13 +31,14 @@ class BacktestSummary(declarative_base()):
     total_standard_deviation = Column(Float)
     total_skewness = Column(Float)
     total_kurtosis = Column(Float)
+    total_median = Column(Float)
 
     total_return_percentage = Column(Float)
-    # expected payoff
-    total_return_average_percentage = Column(Float)
-    total_return_standard_deviation_percentage = Column(Float)
+    total_average_percentage = Column(Float)
+    total_standard_deviation_percentage = Column(Float)
     total_skewness_percentage = Column(Float)
     total_kurtosis_percentage = Column(Float)
+    total_median = Column(Float)
 
     total_transaction_cost = Column(Float)
 
@@ -47,18 +51,21 @@ class BacktestSummary(declarative_base()):
     win_standard_deviation = Column(Float)
     win_skewness = Column(Float)
     win_kurtosis = Column(Float)
+    win_median = Column(Float)
 
     win_return_percentage = Column(Float)
     win_return_average_percentage = Column(Float)
     win_return_standard_deviation_percentage = Column(Float)
     win_skewness_percentage = Column(Float)
     win_kurtosis_percentage = Column(Float)
+    win_median_percentage = Column(Float)
 
     win_max_profit = Column(Float)
+    win_max_profit_percentage = Column(Float)
 
     win_consecutive_max_entry = Column(Integer)
     win_consecutive_average_entry = Column(Float)
-    win_consecutive_max_profit = Column(Float)
+    win_consecutive_total_profit = Column(Float)
 
     # lose
     lose_entry = Column(Integer)
@@ -69,18 +76,21 @@ class BacktestSummary(declarative_base()):
     lose_standard_deviation = Column(Float)
     lose_skewness = Column(Float)
     lose_kurtosis = Column(Float)
+    lose_median = Column(Float)
 
     lose_return_percentage = Column(Float)
     lose_return_average_percentage = Column(Float)
     lose_return_standard_deviation_percentage = Column(Float)
     lose_skewness_percentage = Column(Float)
     lose_kurtosis_percentage = Column(Float)
+    lose_median_percentage = Column(Float)
 
     lose_max_loss = Column(Float)
+    lose_max_loss_percentage = Column(Float)
 
     lose_consecutive_max_entry = Column(Integer)
     lose_consecutive_average_entry = Column(Float)
-    lose_consecutive_max_loss = Column(Float)
+    lose_consecutive_total_loss = Column(Float)
 
     # long
     long_entry = Column(Integer)
