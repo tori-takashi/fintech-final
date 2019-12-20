@@ -15,6 +15,9 @@ class BacktestTransactionLog(declarative_base()):
     exchange_name = Column(String)
     asset_name = Column(String)
 
+    initial_balance = Column(Float)
+    current_balance = Column(Float)
+
     backtest_start_time = Column(DateTime)
     backtest_end_time = Column(DateTime)
 
@@ -43,6 +46,9 @@ class BacktestTransactionLog(declarative_base()):
     def __init__(self):
         self.exchange_name = BacktestTransactionLog.exchange_name
         self.asset_name = BacktestTransactionLog.asset_name
+
+        self.initial_balance = BacktestTransactionLog.initial_balance
+        self.current_balance = BacktestTransactionLog.current_balance
 
         self.backtest_start_time = BacktestTransactionLog.backtest_start_time
         self.backtest_end_time = BacktestTransactionLog.backtest_end_time
