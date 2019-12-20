@@ -175,17 +175,26 @@ class TradingBot:
 
     def run_backtest(self, csv_output=False, filename=""):
         record_column = [
+            "exchange_name",
+            "asset_name",
+            "initial_balance",
+            "profit_percentage",
+            "current_balance",
+            "backtest_start_time",
+            "backtest_end_time",
             "entry_timestamp",
+            "holding_time",
             "close_timestamp",
-            "status",
+            "order_status",
             "order_type",
             "profit_status",
             "entry_price",
+            "price_difference",
+            "price_difference_percentage",
             "close_price",
             "lot",
             "transaction_cost",
             "profit_size",
-            "profit_percentage"
         ]
         # [close_in_do_nothing option]
         # True  => close position when the [buy/sell] signal change to the [do_nothing/opposite] signal
@@ -212,7 +221,7 @@ class TradingBot:
                             position.set_summary_df(), ignore_index=True)
                         self.logging_close(position)
 
-                        position = None                        
+                        position = None
                     # normal => still holding
                     else:
                         pass
@@ -329,6 +338,7 @@ class TradingBot:
         long_short_summary_series = self.build_long_short_summary()
         win_lose_summary_series = self.build_win_lose_summary()
         combined_summary_series = self.build_combined_summary()
+        other_summary_seris = self.build_other_summary()
 
 
     def build_total_summary(self):
@@ -659,9 +669,45 @@ class TradingBot:
 
                 return pd.Series(combined_summary_data, index=combined_summary_column)
 
+    def other_summary_seris(self):
+        other_column = [
+        "bot_name",
+        "initial_deposit",
+        "account_currency",
+        "profit_factor",
+        "recovery_factor",
+        "absolute_drawdown",
+        "maximal_drawdown",
+        "relative_drawdown"
+        ]
+        
+        win_entries_condition = (self.closed_positions_df["profit_status"] == "win")
+        win_row = self.closed_positions_df[(win_entries_condition)]
+        
+        lose_entries_condition = (self.closed_positions_df["profit_status"] == "lose")
+        lose_row = self.closed_positions_df[(lose_entries_condition)]
+
+        #bot_name = self.bot_name
+        #initial_deposit
+        #account_currency
+        #profit_factor = win_row.profit_size.sum() / abs(lose_row.profit_size.sum())
+        #recovery_factor
+        #absolute_drawdown
+        #maximal_drawdown
+        #relative_drawdown
+        
+
 
 class OrderPosition:
-    def __init__(self, row, order_type, lot, is_backtest=False):
+    def __init__(self,
+        row_open,
+        exchange_name,
+        asset_name,
+        order_type,
+        lot,
+        is_backtest=False
+        ):
+
         self.transaction_fee_by_order = 0.0005
         self.status = "open"
 
@@ -671,8 +717,8 @@ class OrderPosition:
         self.lot = lot
 
         # for summary
-        self.entry_price = row.close
-        self.entry_timestamp = row.timestamp
+        self.entry_price = row_open.close
+        self.entry_timestamp = ohlcv_row_open.timestamp
         self.close_price = 0
         # self.close_timestamp
 
@@ -682,10 +728,10 @@ class OrderPosition:
         if self.is_backtest:
             pass
 
-    def close_position(self, row_execution):
+    def close_position(self, row_close):
         # for summary
-        self.close_price = row_execution.close
-        self.close_timestamp = row_execution.timestamp
+        self.close_price = row_close.close
+        self.close_timestamp = row_close.timestamp
 
         self.transaction_cost = self.close_price * self.transaction_fee_by_order
 
@@ -705,19 +751,28 @@ class OrderPosition:
         if self.is_backtest:
             pass
 
-    def set_summary_df(self):
+    def get_transaction_log(self):
         record_column = [
+            "exchange_name",
+            "asset_name",
+            "initial_balance",
+            "profit_percentage",
+            "current_balance",
+            "backtest_start_time",
+            "backtest_end_time",
             "entry_timestamp",
+            "holding_time",
             "close_timestamp",
-            "status",
+            "order_status",
             "order_type",
             "profit_status",
             "entry_price",
+            "price_difference",
+            "price_difference_percentage",
             "close_price",
             "lot",
             "transaction_cost",
-            "profit_size",
-            "profit_percentage"
+            "profit_size"
         ]
         self.position = pd.Series([
             self.entry_timestamp,
