@@ -22,6 +22,9 @@ class DBClient:
         self.config.read("config.ini")
         self.db_type = db_type
         self.connector = self.establish_connection_to_db()
+        if self.is_influxdb() is not True:
+            Session = sessionmaker(self.connector)
+            self.session = Session()
 
     def is_sqlite3(self):
         return self.db_type == "sqlite3"
