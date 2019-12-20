@@ -322,32 +322,13 @@ class TradingBot:
                 "  $" + str(abs(position.profit_size)) + " loss")
 
     def aggregate_summary(self):
-            for profit_status in profit_statuses:
-                self.logger.info("\n### " + order_type+ " & " + profit_status + " result")
-
-                win_lose_entries = (self.closed_positions_df["profit_status"] == profit_status)
-                order_win_lose_col = self.closed_positions_df[(order) & (win_lose_entries)]
-
-                # index
-                order_win_lose_entries = ((order) & (win_lose_entries)).sum()
-                order_win_lose_rate = (order_win_lose_entries / order_entries) * 100
-
-                order_win_lose_sum  = order_win_lose_col.profit_size.sum()
-                order_win_lose_mean = order_win_lose_col.profit_size.mean()
-                order_win_lose_std  = order_win_lose_col.profit_size.std()
-                
-                order_win_lose_mean_percentage = order_win_lose_col.profit_percentage.mean()
-            
-                self.logger.info(order_type + " " + profit_status + " entry -> " + str(order_win_lose_entries) + " times")
-                self.logger.info(order_type + " " + profit_status + " rate -> " + str(round(order_win_lose_rate, 2)) + "%")
-                self.logger.info(order_type + " " + profit_status + " sum -> $" + str(round(order_win_lose_sum, 2)))
-                self.logger.info(order_type + " " + profit_status + " average -> $" + str(round(order_win_lose_mean, 2)))
-                self.logger.info(order_type + " " + profit_status + " standard deviation -> $" + str(round(order_win_lose_std, 2)))
-                self.logger.info(order_type + " " + profit_status + " average percentage -> " + str(round(order_win_lose_mean_percentage, 2)) + "%")
+        pass
 
     def build_summary(self, closed_position):
         total_summary_series = self.build_total_summary()
         long_short_summary_series = self.build_long_short_summary()
+        win_lose_summary_series = self.build_win_lose_summary()
+        combined_summary_series = self.build_combined_summary()
 
 
     def build_total_summary(self):
@@ -473,7 +454,7 @@ class TradingBot:
             win_lose_transaction_cost,
             win_lose_consecutive,
             win_lose_consecutive_max_entry,
-            win_lose_consecutive_average_entry,
+            win_lose_consecutive_average_entry
             ]
 
             if profit_status == "win":
@@ -618,7 +599,65 @@ class TradingBot:
 
 
     def build_combined_summary(self):
-        pass
+        order_types = ["long", "short"]
+        profit_statuses = ["win", "lose"]
+        for order_type in order_types:
+            for profit_status in profit_statuses:
+                win_lose_entries_condition = (self.closed_positions_df["profit_status"] == profit_status)
+                long_short_entries_condition = (self.closed_positions_df["order_type"] == order_type)
+
+                combined_row = self.closed_positions_df[
+                    (long_short_entries_condition) & (win_lose_entries_condition)]
+
+                combined_summary_column = [
+                profit_status + "_" + order_type + "_entries",
+                profit_status + "_" + order_type + "_return",
+                profit_status + "_" + order_type + "_average",
+                profit_status + "_" + order_type + "_standard_deviation",
+                profit_status + "_" + order_type + "_skewness",
+                profit_status + "_" + order_type + "_kurtosis",
+                profit_status + "_" + order_type + "_median",
+                profit_status + "_" + order_type + "_return_percentage",
+                profit_status + "_" + order_type + "_average_percentage",
+                profit_status + "_" + order_type + "_standard_deviation_percentage",
+                profit_status + "_" + order_type + "_skewness_percentage",
+                profit_status + "_" + order_type + "_kurtosis_percentage",
+                profit_status + "_" + order_type + "_median_percentage",
+                ]
+
+                profit_order_entries = len(combined_row)
+
+                profit_order_return  = combined_row.profit_size.sum()
+                profit_order_average = combined_row.profit_size.mean()
+                profit_order_standard_deviation  = combined_row.profit_size.std()
+                profit_order_skewness = combined_row.profit_size.skew()
+                profit_order_kurtosis = combined_row.profit_size.kurt()
+                profit_order_median = combined_row.profit_size.median()
+
+                profit_order_return_percentage  = combined_row.profit_percentage.sum()
+                profit_order_average_percentage = combined_row.profit_percentage.mean()
+                profit_order_standard_deviation_percentage  = combined_row.profit_percentage.std()
+                profit_order_skewness_percentage = combined_row.profit_percentage.skew()
+                profit_order_kurtosis_percentage = combined_row.profit_percentage.kurt()
+                profit_order_median_percentage = combined_row.profit_percentage.median()
+
+                combined_summary_data = [
+                profit_order_entries,
+                profit_order_return,
+                profit_order_average,
+                profit_order_standard_deviation,
+                profit_order_skewness,
+                profit_order_kurtosis,
+                profit_order_median,
+                profit_order_return_percentage,
+                profit_order_average_percentage,
+                profit_order_standard_deviation_percentage,
+                profit_order_skewness_percentage,
+                profit_order_kurtosis_percentage,
+                profit_order_median_percentage
+                ]
+
+                return pd.Series(combined_summary_data, index=combined_summary_column)
 
 
 class OrderPosition:
