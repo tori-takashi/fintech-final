@@ -4,6 +4,9 @@ import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.interfaces import PoolListener
+from sqlalchemy.ext.declarative import declarative_base
+
+from model.base import Base
 
 from influxdb import InfluxDBClient
 
@@ -22,9 +25,12 @@ class DBClient:
         self.config.read("config.ini")
         self.db_type = db_type
         self.connector = self.establish_connection_to_db()
+
         if self.is_influxdb() is not True:
             Session = sessionmaker(self.connector)
             self.session = Session()
+
+            Base.metadata.create_all(bind=self.connector, checkfirst=False)
 
     def is_sqlite3(self):
         return self.db_type == "sqlite3"
@@ -40,9 +46,9 @@ class DBClient:
 
     def sqlite3_establish_connection(self):
         if self.opt == None:
-            return create_engine("sqlite:///" + self.config['sqlite3']['db_path'], listeners=[ForeignKeysListener()])
+            return create_engine("sqlite:///" + self.config['sqlite3']['db_path'], listeners=[ForeignKeysListener()], echo=True)
         else:
-            return create_engine("sqlite:///" + self.opt)
+            return create_engine("sqlite:///" + self.opt, listners=[ForeignKeysListener()])
 
     def influxdb_establish_connection(self):
         return InfluxDBClient(
@@ -68,7 +74,7 @@ class DBClient:
         if self.is_sqlite3():
             query = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{}';".format(
                 table_name)
-            results = self.exec_sql(table_name, query, False)
+            results = self.exec_sql(query, return_df=False)
             for result in results:
                 if result == (1,):
                     return True
@@ -78,17 +84,22 @@ class DBClient:
         if self.is_influxdb():
             pass
 
-    def get_last_row(self, table_name):
+    def get_row_by_id(self, table_name, id, return_type):
         if self.is_sqlite3():
             query = "SELECT * FROM " + table_name + \
-                " WHERE id = (SELECT MAX(id) FROM " + table_name + ");"
-        return_df = self.exec_sql(table_name, query)
+                " WHERE id = " + str(id) + ";"
+        return_df = pd.read_sql_query(
+            query, self.connector, index_col="id")
         if return_df.empty is not True:
-            return pd.Series(return_df.iat[0, 0], index=return_df.columns)
+            return return_df
         else:
             return False
 
-    def exec_sql(self, table_name, query, return_df=True):
+    def get_last_row(self, table_name):
+        id = "(SELECT MAX(id) FROM " + table_name + ")"
+        return self.get_row_by_id(table_name, id, return_type="dataframe")
+
+    def exec_sql(self, query, return_df=True):
         if self.is_sqlite3():
             if return_df:
                 return pd.read_sql(query, self.connector, index_col="id")

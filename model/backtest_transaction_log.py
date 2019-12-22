@@ -1,9 +1,9 @@
-from sqlalchemy import Column, Integer, Float, DateTime, String, ForeignKey
+from sqlalchemy import Column, Integer, Float, DateTime, String, ForeignKey, Interval
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from .base import Base
 
 
-class BacktestTransactionLog(declarative_base()):
+class BacktestTransactionLog(Base):
     # [Need to be edited]
     __tablename__ = "backtest_transaction_log"
     backtest_summary = relationship("BacktestSummary")
@@ -22,6 +22,7 @@ class BacktestTransactionLog(declarative_base()):
     backtest_end_time = Column(DateTime)
 
     entry_time = Column(DateTime)
+    holding_time = Column(Interval)
     close_time = Column(DateTime)
 
     order_status = Column(String)
@@ -34,6 +35,8 @@ class BacktestTransactionLog(declarative_base()):
     # win or lose
 
     entry_price = Column(Float)
+    price_difference = Column(Float)
+    price_difference_percentage = Column(Float)
     close_price = Column(Float)
 
     leverage = Column(Float)
@@ -48,12 +51,14 @@ class BacktestTransactionLog(declarative_base()):
         self.asset_name = BacktestTransactionLog.asset_name
 
         self.initial_balance = BacktestTransactionLog.initial_balance
+        self.profit_percentage = BacktestTransactionLog.profit_percentage
         self.current_balance = BacktestTransactionLog.current_balance
 
         self.backtest_start_time = BacktestTransactionLog.backtest_start_time
         self.backtest_end_time = BacktestTransactionLog.backtest_end_time
 
         self.entry_time = BacktestTransactionLog.entry_time
+        self.holding_time = BacktestTransactionLog.holding_time
         self.close_time = BacktestTransactionLog.close_time
 
         self.order_status = BacktestTransactionLog.order_status
@@ -63,6 +68,8 @@ class BacktestTransactionLog(declarative_base()):
         self.profit_status = BacktestTransactionLog.profit_status
 
         self.entry_price = BacktestTransactionLog.entry_price
+        self.price_difference = BacktestTransactionLog.price_difference
+        self.price_difference_percentage = BacktestTransactionLog.price_difference_percentage
         self.close_price = BacktestTransactionLog.close_price
 
         self.leverage = BacktestTransactionLog.leverage
@@ -70,7 +77,6 @@ class BacktestTransactionLog(declarative_base()):
 
         self.transaction_cost = BacktestTransactionLog.transaction_cost
         self.profit_size = BacktestTransactionLog.profit_size
-        self.profit_percentage = BacktestTransactionLog.profit_percentage
 
     def __repr__(self):
         return "<'%s'('%s','%s')>" % (BacktestTransactionLog.__tablename__, self.info_name, self.description)

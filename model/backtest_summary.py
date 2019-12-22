@@ -1,9 +1,8 @@
 from sqlalchemy import Column, Integer, Float, DateTime, String
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from .base import Base
 
-
-class BacktestSummary(declarative_base()):
+class BacktestSummary(Base):
     # [FIXME]
     # Add geometric mean
 
@@ -16,7 +15,7 @@ class BacktestSummary(declarative_base()):
     id = Column(Integer, primary_key=True)
     # params
     bot_name = Column(String)
-    initial_deposit = Column(Float)
+    initial_balance = Column(Float)
     account_currency = Column(String)
 
     # trade metrics
@@ -218,11 +217,22 @@ class BacktestSummary(declarative_base()):
     relative_drawdown = Column(Float)
 
     def __init__(self):
+        # other metrics
+
+        # initial status and tag
         self.bot_name = BacktestSummary.bot_name
-        self.initial_deposit = BacktestSummary.initial_deposit
+        self.initial_balance = BacktestSummary.initial_balance
         self.account_currency = BacktestSummary.account_currency
+        # important metrics
+        self.profit_factor = BacktestSummary.profit_factor
+        self.recovery_factor = BacktestSummary.recovery_factor
+        # https://www.metatrader5.com/ja/terminal/help/trading_advanced/history_report#drawdown
+        self.absolute_drawdown = BacktestSummary.absolute_drawdown
+        self.maximal_drawdown = BacktestSummary.maximal_drawdown
+        self.relative_drawdown = BacktestSummary.relative_drawdown
 
         # trade metrics
+
         self.total_entry = BacktestSummary.total_entry
 
         self.total_max_holding_ms = BacktestSummary.total_max_holding_ms
@@ -236,7 +246,6 @@ class BacktestSummary(declarative_base()):
         self.total_kurtosis = BacktestSummary.total_kurtosis
 
         self.total_return_percentage = BacktestSummary.total_return_percentage
-        # expected payoff
         self.total_return_average_percentage = BacktestSummary.total_return_average_percentage
         self.total_return_standard_deviation_percentage = BacktestSummary.total_return_standard_deviation_percentage
         self.total_skewness_percentage = BacktestSummary.total_skewness_percentage
@@ -403,15 +412,6 @@ class BacktestSummary(declarative_base()):
         self.lose_short_skewness_percentage = BacktestSummary.lose_short_skewness_percentage
         self.lose_short_kurtosis_percentage = BacktestSummary.lose_short_kurtosis_percentage
         self.lose_short_median_percentage = BacktestSummary.lose_short_median_percentage
-
-        # important metrics
-        self.profit_factor = BacktestSummary.profit_factor
-        self.recovery_factor = BacktestSummary.recovery_factor
-
-        # https://www.metatrader5.com/ja/terminal/help/trading_advanced/history_report#drawdown
-        self.absolute_drawdown = BacktestSummary.absolute_drawdown
-        self.maximal_drawdown = BacktestSummary.maximal_drawdown
-        self.relative_drawdown = BacktestSummary.relative_drawdown
 
     def __repr__(self):
         return "<'%s'('%s','%s')>" % (BacktestSummary.__tablename__, self.info_name, self.description)
