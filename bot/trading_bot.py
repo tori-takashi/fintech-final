@@ -118,9 +118,6 @@ class TradingBot:
                     # inverse => close position
                     if self.inverse_trading:
                         position.close_position(row)
-                        self.closed_positions_df = self.closed_positions_df.append(
-                            position.set_summary_df(), ignore_index=True)
-
                         position = None
                     # normal => still holding
                     else:
@@ -133,9 +130,6 @@ class TradingBot:
                     # normal => close position
                     else:
                         position.close_position(row)
-                        self.closed_positions_df = self.closed_positions_df.append(
-                            position.set_summary_df(), ignore_index=True)
-
                         position = None
                 else:
                     lot = self.calculate_lot()
@@ -156,18 +150,12 @@ class TradingBot:
                     # normal => close position
                     else:
                         position.close_position(row)
-                        self.closed_positions_df = self.closed_positions_df.append(
-                            position.set_summary_df(), ignore_index=True)
-
                         position = None
 
                 elif position is not None and position.order_type == "short":
                     # inverse => close position
                     if self.inverse_trading:
                         position.close_position(row)
-                        self.closed_positions_df = self.closed_positions_df.append(
-                            position.set_summary_df(), ignore_index=True)
-
                         position = None
 
                     # normal => still holding
@@ -189,20 +177,9 @@ class TradingBot:
                 if self.close_position_on_do_nothing:
                     # if do nothing option is true
                     # and you get do nothing from signal, then close out the position
-                    if position is not None and position.order_type == "long":
+                    if position is not None:
                         # close position
                         position.close_position(row)
-                        self.closed_positions_df = self.closed_positions_df.append(
-                            position.set_summary_df(), ignore_index=True)
-
-                        position = None
-
-                    elif position is not None and position.order_type == "short":
-                        # close position
-                        position.close_position(row)
-                        self.closed_positions_df = self.closed_positions_df.append(
-                            position.set_summary_df(), ignore_index=True)
-
                         position = None
 
 
