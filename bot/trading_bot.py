@@ -40,7 +40,7 @@ class TradingBot:
         
         if is_backtest:
             if self.db_client.is_table_exist(self.params_table_name):
-            self.create_backtest_params_table()
+                self.create_backtest_params_table()
 
         self.set_logger()
 
