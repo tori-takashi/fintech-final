@@ -2,15 +2,17 @@ from sqlalchemy import Column, Integer, Float, DateTime, String
 from sqlalchemy.orm import relationship
 from .base import Base
 
+
 class BacktestSummary(Base):
     # [FIXME]
     # Add geometric mean
 
     __tablename__ = "backtest_summary"
-    backtest_transaction_log = relationship("BacktestTransactionLog", backref="backtest_summary")
-    backtest_params = relationship("BacktestParams")
 
     id = Column(Integer, primary_key=True)
+    backtest_transaction_log = relationship(
+        "BacktestTransactionLog", backref="backtest_summary")
+
     # params
     bot_name = Column(String)
     initial_balance = Column(Float)

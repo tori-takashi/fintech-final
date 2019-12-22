@@ -5,10 +5,11 @@ from .base import Base
 
 class BacktestTransactionLog(Base):
     __tablename__ = "backtest_transaction_log"
-    backtest_summary = relationship("BacktestSummary")
 
     id = Column(Integer, primary_key=True)
-    backtest_summary_id = Column(Integer, ForeignKey, (backtest_summary.id))
+
+    backtest_summary_id = Column(Integer, ForeignKey("backtest_summary.id"))
+    backtest_summary = relationship("BacktestSummary")
 
     exchange_name = Column(String)
     asset_name = Column(String)
