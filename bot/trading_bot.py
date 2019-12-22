@@ -41,8 +41,6 @@ class TradingBot:
             if self.db_client.is_table_exist(self.backtest_management_table_name):
                 self.create_backtest_management_table()
 
-        self.set_logger()
-
     def create_backtest_management_table(self):
         table_def = BacktestManagement
         table_def = table_def.__table__
@@ -70,7 +68,7 @@ class TradingBot:
         self.close_position_on_do_nothing = default_params["close_position_on_do_nothing"]
         self.inverse_trading = default_params["inverse_trading"]
 
-    def run(self, backtest_start_time=datetime.now() - timedelta(days=200), backtest_end_time=datetime.now())
+    def run(self, backtest_start_time=datetime.now() - timedelta(days=200), backtest_end_time=datetime.now()):
         self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, backtest_start_time, backtest_end_time)
         self.calculate_metrics()
 
@@ -84,28 +82,11 @@ class TradingBot:
             self.backtest_params_df = self.concat_params()
 
     def concat_params(self):
-        return
+        all_params = {}
+        all_params.update(self.default_params)
+        all_params.update(self.specific_params)
+        return pd.DataFrame(pd.Series(all_params))
 
-    def set_logger(self):
-        self.logger = logging.getLogger(self.bot_name)
-        self.logger.setLevel(10)
-
-        sh = logging.StreamHandler()
-        self.logger.addHandler(sh)
-
-        formatter_sh = logging.Formatter(
-            '[%(levelname)s] %(message)s')
-        sh.setFormatter(formatter_sh)
-
-    def set_log_output_target(self, filename):
-        logging.basicConfig(
-            filename="./log/" + filename + ".log",
-            filemode='a',
-            level=logging.INFO
-        )
-
-    def log_params(self):
-        self.logger.info("\n# hyper parameters")
         self.logger.info("default hyperparameters")
         for k, v in self.default_params.items():
             self.logger.info(k + " => " + str(v))
