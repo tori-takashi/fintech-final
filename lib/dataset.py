@@ -31,7 +31,8 @@ class Dataset:
             latest_row = self.db_client.get_last_row(
                 self.original_ohlcv_1min_column)
             if latest_row is not False:
-                latest_row['timestamp'] = pd.to_datetime(latest_row.timestamp)
+                latest_row_time = pd.to_datetime(
+                    latest_row['timestamp']).dt.to_pydatetime()[0]
 
                 # [FIXME] adhock solution to timezone problem
                 append_offset = timedelta(minutes=1, seconds=30)
@@ -39,7 +40,8 @@ class Dataset:
                 print("[FIXME] fetching time would be wrong below")
                 timezone_offset = timedelta(hours=8)
 
-                start_time = latest_row.timestamp + append_offset - timezone_offset
+                start_time = latest_row_time + \
+                    append_offset - timezone_offset
         else:
             ohlcv_1min_table = OHLCV_1min.__table__
             ohlcv_1min_table.name = self.original_ohlcv_1min_column
@@ -53,8 +55,7 @@ class Dataset:
     def get_ohlcv(self, symbol_min=None, start_time=None, end_time=None, round=True):
         query = "SELECT * FROM " + self.original_ohlcv_1min_column + ";"
 
-        all_data = self.db_client.exec_sql(
-            self.original_ohlcv_1min_column, query)
+        all_data = self.db_client.exec_sql(query)
         all_data['timestamp'] = pd.to_datetime(all_data.timestamp)
         all_data.set_index('timestamp', inplace=True)
 
