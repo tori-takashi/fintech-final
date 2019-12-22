@@ -5,10 +5,7 @@ import numpy as np
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import Column, Integer, Float, ForeignKey, ForeignKeyConstraint
-
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
+from sqlalchemy import Column, Integer, Float
 
 from lib.pandamex import PandaMex
 from lib.dataset import Dataset
@@ -33,16 +30,17 @@ class TradingBot:
         self.specific_params = specific_params
 
         # for params table
-        self.params_table_name = self.bot_name + "_backtest_management"
+        self.backtest_management_table_name = self.bot_name + "_backtest_management"
 
         # backtest configure
         self.is_backtest = is_backtest
         self.backtest_start_time = datetime.now() - timedelta(days=90)
         self.backtest_end_time = datetime.now()
         self.initial_balance = 100.0  # USD
+        self.account_currency = "USD"
         
         if is_backtest:
-            if self.db_client.is_table_exist(self.params_table_name):
+            if self.db_client.is_table_exist(self.backtest_management_table_name):
                 self.create_backtest_management_table()
 
         self.set_logger()
@@ -54,18 +52,8 @@ class TradingBot:
         # add specific params columns
         table_def = self.append_specific_params_column(table_def)
 
-        table_def.name = self.params_table_name
+        table_def.name = self.backtest_management_table_name
         table_def.create(bind=self.db_client.connector)
-
-        # add foreign key constraint
-        ctx = MigrationContext.configure(self.db_client.connector)
-        op = Operations(ctx)
-
-        with op.batch_alter_table(self.params_table_name) as batch_op:
-            batch_op.create_foreign_key(
-                "fk_summary_params", "backtest_summary",
-                ["backtest_summary_id"], ["id"]
-            )
 
     def append_specific_params_column(self, table_def):
         return table_def
