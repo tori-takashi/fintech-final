@@ -31,6 +31,8 @@ class Dataset:
             latest_row = self.db_client.get_last_row(
                 self.original_ohlcv_1min_column)
             if latest_row is not False:
+
+                # convert to datetime array, then convert to pydatetime
                 latest_row_time = pd.to_datetime(
                     latest_row['timestamp']).dt.to_pydatetime()[0]
 

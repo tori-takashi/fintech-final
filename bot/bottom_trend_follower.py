@@ -14,7 +14,7 @@ class BottomTrendFollow(TradingBot):
         self.default_params = {
             "bot_name": "bottom_trend_follow",
             "timeframe": 60,
-            "close_in_do_nothing": True,
+            "close_position_on_do_nothing": True,
             "inverse_trading": False
         }
 

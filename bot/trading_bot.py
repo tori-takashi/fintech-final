@@ -7,10 +7,13 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import Column, Integer, Float, ForeignKey, ForeignKeyConstraint
 
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+
 from lib.pandamex import PandaMex
 from lib.dataset import Dataset
 
-from model.backtest_params import BacktestParams
+from model.backtest_management import BacktestManagement
 from model.backtest_summary import BacktestSummary
 from model.backtest_transaction_log import BacktestTransactionLog
 
@@ -30,7 +33,7 @@ class TradingBot:
         self.specific_params = specific_params
 
         # for params table
-        self.params_table_name = self.bot_name + "_backtest_params"
+        self.params_table_name = self.bot_name + "_backtest_management"
 
         # backtest configure
         self.is_backtest = is_backtest
@@ -40,17 +43,16 @@ class TradingBot:
         
         if is_backtest:
             if self.db_client.is_table_exist(self.params_table_name):
-                self.create_backtest_params_table()
+                self.create_backtest_management_table()
 
         self.set_logger()
 
-    def create_backtest_params_table(self):
-        table_def = BacktestParams
+    def create_backtest_management_table(self):
+        table_def = BacktestManagement
         table_def = table_def.__table__
 
         # add specific params columns
         table_def = self.append_specific_params_column(table_def)
-        table_def.append_column(backtest_summary_id)
 
         table_def.name = self.params_table_name
         table_def.create(bind=self.db_client.connector)
@@ -74,12 +76,12 @@ class TradingBot:
         # default_params = {
         #    "bot_name" : bot_name, # used in bot name builder for log
         #    "timeframe": integer,
-        #    "close_in_do_nothing": close_in_do_nothing,
+        #    "close_position_on_do_nothing": close_position_on_do_nothing,
         #    "inverse_trading": inverse_trading
         # }
         self.bot_name = default_params["bot_name"]
         self.timeframe = default_params["timeframe"]
-        self.close_in_do_nothing = default_params["close_in_do_nothing"]
+        self.close_position_on_do_nothing = default_params["close_position_on_do_nothing"]
         self.inverse_trading = default_params["inverse_trading"]
 
     def run(self, duration_days=90):
@@ -145,14 +147,11 @@ class TradingBot:
         record_column = [
             "exchange_name",
             "asset_name",
-            "initial_balance",
             "profit_percentage",
             "current_balance",
-            "backtest_start_time",
-            "backtest_end_time",
-            "entry_timestamp",
+            "entry_time",
             "holding_time",
-            "close_timestamp",
+            "close_time",
             "order_status",
             "order_type",
             "profit_status",
@@ -164,7 +163,7 @@ class TradingBot:
             "transaction_cost",
             "profit_size",
         ]
-        # [close_in_do_nothing option]
+        # [close_position_on_do_nothing option]
         # True  => close position when the [buy/sell] signal change to the [do_nothing/opposite] signal
         # False => close position when the [buy/sell] signal change to the opposite signal
 
@@ -259,7 +258,7 @@ class TradingBot:
                     self.logging_entry(position)
 
             elif row.signal == "do_nothing":
-                if self.close_in_do_nothing:
+                if self.close_position_on_do_nothing:
                     # if do nothing option is true
                     # and you get do nothing from signal, then close out the position
                     if position is not None and position.order_type == "long":
@@ -686,7 +685,7 @@ class OrderPosition:
 
         # for summary
         self.entry_price = row_open.close
-        self.entry_timestamp = row_open.timestamp
+        self.entry_time = row_open.time
         self.close_price = 0
         # self.close_timestamp
 
@@ -699,7 +698,7 @@ class OrderPosition:
     def close_position(self, row_close):
         # for summary
         self.close_price = row_close.close
-        self.close_timestamp = row_close.timestamp
+        self.close_time = row_close.time
 
         self.transaction_cost = self.close_price * self.transaction_fee_by_order
 
@@ -729,9 +728,9 @@ class OrderPosition:
             "current_balance", # init
             "backtest_start_time", # init
             "backtest_end_time", # init
-            "entry_timestamp",
+            "entry_time",
             "holding_time",
-            "close_timestamp",
+            "close_time",
             "order_status",
             "order_type",
             "profit_status",
@@ -744,8 +743,8 @@ class OrderPosition:
             "profit_size"
         ]
         self.position = pd.Series([
-            self.entry_timestamp,
-            self.close_timestamp,
+            self.entry_time,
+            self.close_time,
             self.status,
             self.order_type,
             self.profit_status,

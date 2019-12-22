@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 
 
-class BacktestParams(declarative_base()):
+class BacktestManagement(declarative_base()):
     # [Need to be edited]
     # append class and instance variable from outside for specific params
-    __tablename__ = "backtest_params"
+    __tablename__ = "backtest_management"
 
     # [No need to edit below]
     id = Column(Integer, primary_key=True)
@@ -22,9 +22,9 @@ class BacktestParams(declarative_base()):
 
     def __init__(self):
         # default params
-        self.timeframe = BacktestParams.timeframe
-        self.close_position_on_do_nothing = BacktestParams.close_position_on_do_nothing
-        self.inverse_trading = BacktestParams.inverse_trading
+        self.timeframe = BacktestManagement.timeframe
+        self.close_position_on_do_nothing = BacktestManagement.close_position_on_do_nothing
+        self.inverse_trading = BacktestManagement.inverse_trading
 
     def __repr__(self):
-        return "<'%s'('%s','%s')>" % (BacktestParams.__tablename__, self.info_name, self.description)
+        return "<'%s'('%s','%s')>" % (BacktestManagement.__tablename__, self.info_name, self.description)
