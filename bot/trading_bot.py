@@ -70,7 +70,7 @@ class TradingBot:
 
     def run(self, backtest_start_time=datetime.now() - timedelta(days=200), backtest_end_time=datetime.now()):
         self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, backtest_start_time, backtest_end_time)
-        self.calculate_metrics()
+        self.ohlcv_with_metrics = self.caclulate_metrics()
 
         if self.is_backtest:
             self.backtest_start_time = backtest_start_time
@@ -78,29 +78,21 @@ class TradingBot:
 
             self.caclulate_signs_for_backtest()
             
-            self.backtest_transaction_log_df, self.backtest_summary_df =  self.run_backtest()
-            self.backtest_params_df = self.concat_params()
+            self.run_backtest()
+            self.build_summary()
+            self.insert_params_management()
 
-    def concat_params(self):
+    def insert_params_management(self):
         all_params = {}
         all_params.update(self.default_params)
         all_params.update(self.specific_params)
         return pd.DataFrame(pd.Series(all_params))
 
-        self.logger.info("default hyperparameters")
-        for k, v in self.default_params.items():
-            self.logger.info(k + " => " + str(v))
-
-        self.logger.info("bot hyperparameters")
-        for k, v in self.specific_params.items():
-            self.logger.info(k + " => " + str(v))
-
-
     def calculate_lot(self):
         return 1
         # if you need, you can override
 
-    def calculate_metrics(self):
+    def caclulate_metrics(self):
         pass
         # need to override
 
@@ -115,41 +107,12 @@ class TradingBot:
         # return dataframe with ["buy", "sell", "do_nothing"]
 
     def run_backtest(self, csv_output=False, filename=""):
-        record_column = [
-            "exchange_name",
-            "asset_name",
-            "profit_percentage",
-            "current_balance",
-            "entry_time",
-            "holding_time",
-            "close_time",
-            "order_status",
-            "order_type",
-            "profit_status",
-            "entry_price",
-            "price_difference",
-            "price_difference_percentage",
-            "close_price",
-            "lot",
-            "transaction_cost",
-            "profit_size",
-        ]
-        # [close_position_on_do_nothing option]
-        # True  => close position when the [buy/sell] signal change to the [do_nothing/opposite] signal
-        # False => close position when the [buy/sell] signal change to the opposite signal
-
-        # refer to signal then calculate
-        # having only one order
+        # refer to signal then judge investment
+        # keep one order at most
 
         position = None
-        contain_signal_df = self.ohlcv_df
 
-        self.closed_positions_df = pd.DataFrame(columns=record_column)
-
-        for row in contain_signal_df.itertuples():
-            self.logger.info(str(row.timestamp) + " : open price: $" +
-                             str(row.open) + " close price: $" + str(row.close))
-
+        for row in self.ohlcv_with_metrics.itertuples():
             if row.signal == "buy":
                 if position is not None and position.order_type == "long":
                     # inverse => close position
@@ -157,7 +120,6 @@ class TradingBot:
                         position.close_position(row)
                         self.closed_positions_df = self.closed_positions_df.append(
                             position.set_summary_df(), ignore_index=True)
-                        self.logging_close(position)
 
                         position = None
                     # normal => still holding
@@ -173,7 +135,6 @@ class TradingBot:
                         position.close_position(row)
                         self.closed_positions_df = self.closed_positions_df.append(
                             position.set_summary_df(), ignore_index=True)
-                        self.logging_close(position)
 
                         position = None
                 else:
@@ -186,7 +147,6 @@ class TradingBot:
                         # normal => open long position
                         position = OrderPosition(
                             row, "long", lot, is_backtest=True)
-                    self.logging_entry(position)
 
             elif row.signal == "sell":
                 if position is not None and position.order_type == "long":
@@ -198,7 +158,6 @@ class TradingBot:
                         position.close_position(row)
                         self.closed_positions_df = self.closed_positions_df.append(
                             position.set_summary_df(), ignore_index=True)
-                        self.logging_close(position)
 
                         position = None
 
@@ -208,7 +167,6 @@ class TradingBot:
                         position.close_position(row)
                         self.closed_positions_df = self.closed_positions_df.append(
                             position.set_summary_df(), ignore_index=True)
-                        self.logging_close(position)
 
                         position = None
 
@@ -226,7 +184,6 @@ class TradingBot:
                         # normal => open short position
                         position = OrderPosition(
                             row, "short", lot, is_backtest=True)
-                    self.logging_entry(position)
 
             elif row.signal == "do_nothing":
                 if self.close_position_on_do_nothing:
@@ -237,7 +194,6 @@ class TradingBot:
                         position.close_position(row)
                         self.closed_positions_df = self.closed_positions_df.append(
                             position.set_summary_df(), ignore_index=True)
-                        self.logging_close(position)
 
                         position = None
 
@@ -246,30 +202,9 @@ class TradingBot:
                         position.close_position(row)
                         self.closed_positions_df = self.closed_positions_df.append(
                             position.set_summary_df(), ignore_index=True)
-                        self.logging_close(position)
 
                         position = None
 
-        if csv_output:
-            self.closed_positions_df.to_csv(
-                "log/transaction_log_" + filename + ".csv")
-
-    def logging_entry(self, position):
-        self.logger.info("  Entry " + position.order_type +
-                         " at $" + str(position.entry_price))
-
-    def logging_close(self, position):
-        self.logger.info("  Close " + position.order_type +
-                         " position at $" + str(position.close_price))
-        if position.profit_status == "win":
-            self.logger.info(
-                "  $" + str(abs(position.profit_size)) + " profit")
-        else:
-            self.logger.info(
-                "  $" + str(abs(position.profit_size)) + " loss")
-
-    def aggregate_summary(self):
-        pass
 
     def build_summary(self, closed_position):
         total_summary_series = self.build_total_summary()

@@ -46,25 +46,27 @@ class BottomTrendFollow(TradingBot):
         table_def.append_column(Column("top_trend_tick", Integer))
         return table_def
 
-    def calculate_metrics(self):
-        ta_ema = TechnicalAnalysisMACD(self.ohlcv_df)
+    def caclulate_metrics(self):
+        ohlcv_with_metrics = self.ohlcv_df
+        ta_ema = TechnicalAnalysisMACD(ohlcv_with_metrics)
 
         for tick in list(self.specific_params.values()):
             col = "ema_" + str(tick)
             diff_col = col + "_diff"
             trend_col = col + "_trend"
 
-            self.ohlcv_df[col] = ta_ema.append_ema_close(tick)
+            ohlcv_with_metrics[col] = ta_ema.append_ema_close(tick)
 
             # percentage of ema moving
-            self.ohlcv_df[diff_col] = self.ohlcv_df[col].diff() / \
-                self.ohlcv_df[col] * 100
+            ohlcv_with_metrics[diff_col] = ohlcv_with_metrics[col].diff() / \
+                ohlcv_with_metrics[col] * 100
 
             # trend of ema moving
-            self.ohlcv_df.loc[(self.ohlcv_df[diff_col] > 0),
-                              trend_col] = "uptrend"
-            self.ohlcv_df.loc[~(self.ohlcv_df[diff_col] > 0),
-                              trend_col] = "downtrend"
+            ohlcv_with_metrics.loc[(ohlcv_with_metrics[diff_col] > 0),
+                                   trend_col] = "uptrend"
+            ohlcv_with_metrics.loc[~(ohlcv_with_metrics[diff_col] > 0),
+                                   trend_col] = "downtrend"
+        return ohlcv_with_metrics
 
     def calculate_sign(self, row):
         if (row[self.bottom_trend_col] == "uptrend"
