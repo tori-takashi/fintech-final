@@ -6,10 +6,6 @@ import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import Column, Integer, Float, ForeignKey, ForeignKeyConstraint
-from sqlalchemy.orm import relationship
-
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 
 from lib.pandamex import PandaMex
 from lib.dataset import Dataset
@@ -23,7 +19,6 @@ class TradingBot:
     def __init__(self, exchange_client, db_client, default_params, specific_params, is_backtest=False):
         # initialize status and settings of bot.
         # if you try backtest, db_client is in need.
-        self.is_backtest = is_backtest
 
         self.exchange_client = exchange_client
         self.db_client = db_client
@@ -34,69 +29,42 @@ class TradingBot:
 
         self.specific_params = specific_params
 
-        if self.is_backtest:
-            if self.db_client.is_table_exist(self.bot_name + "_backtest_summary") is not True:
-                self.create_backtest_summary()
-            if self.db_client.is_table_exist(self.bot_name + "_backtest_params") is not True:
-                self.create_backtest_params()
-            if self.db_client.is_table_exist(self.bot_name + "_backtest_transaction_log") is not True:
-                self.create_backtest_transaction_log()
+        # for params table
+        self.params_table_name = self.bot_name + "_backtest_params"
+
+        # backtest configure
+        self.is_backtest = is_backtest
+        self.backtest_start_time = datetime.now() - timedelta(days=90)
+        self.backtest_end_time = datetime.now()
+        self.initial_balance = 100.0  # USD
+        
+        if is_backtest:
+            if self.db_client.is_table_exist(self.params_table_name):
+            self.create_backtest_params_table()
 
         self.set_logger()
 
-    def create_backtest_summary(self):
-        table_def = BacktestSummary.__table__
-        table_def.name = self.bot_name + "_backtest_summary"
-        table_def.create(bind=self.db_client.connector)
-        
-
-    def create_backtest_params(self):
+    def create_backtest_params_table(self):
         table_def = BacktestParams
-        table_def.relation = relationship("BacktestSummary")
-
         table_def = table_def.__table__
 
         # add specific params columns
         table_def = self.append_specific_params_column(table_def)
-        backtest_summary_id = Column(self.bot_name + "_backtest_summary_id", Integer)
         table_def.append_column(backtest_summary_id)
 
-        table_def.name = self.bot_name + "_backtest_params"
+        table_def.name = self.params_table_name
         table_def.create(bind=self.db_client.connector)
 
         # add foreign key constraint
         ctx = MigrationContext.configure(self.db_client.connector)
         op = Operations(ctx)
 
-        with op.batch_alter_table(self.bot_name + "_backtest_params") as batch_op:
+        with op.batch_alter_table(self.params_table_name) as batch_op:
             batch_op.create_foreign_key(
-                "fk_summary_params", self.bot_name + "_backtest_summary",
-                [self.bot_name + "_backtest_summary_id"], ["id"]
+                "fk_summary_params", "backtest_summary",
+                ["backtest_summary_id"], ["id"]
             )
 
-
-    def create_backtest_transaction_log(self):
-        table_def = BacktestTransactionLog
-        table_def.relation = relationship("BacktestSummary")
-
-        table_def = table_def.__table__
-        backtest_summary_id = Column(self.bot_name + "_backtest_summary_id", Integer)
-        table_def.append_column(backtest_summary_id)
-
-        table_def.name = self.bot_name + "_backtest_transaction_log"
-        table_def.create(bind=self.db_client.connector)
-
-        # add foreign key constraint
-        ctx = MigrationContext.configure(self.db_client.connector)
-        op = Operations(ctx)
-
-        with op.batch_alter_table(self.bot_name + "_backtest_transaction_log") as batch_op:
-            batch_op.create_foreign_key(
-                "fk_summary_log", self.bot_name + "_backtest_summary",
-                [self.bot_name + "_backtest_summary_id"], ["id"]
-            )
-
-        
     def append_specific_params_column(self, table_def):
         return table_def
         # Need to be oberride
@@ -718,7 +686,7 @@ class OrderPosition:
 
         # for summary
         self.entry_price = row_open.close
-        self.entry_timestamp = ohlcv_row_open.timestamp
+        self.entry_timestamp = row_open.timestamp
         self.close_price = 0
         # self.close_timestamp
 
@@ -753,13 +721,14 @@ class OrderPosition:
 
     def get_transaction_log(self):
         record_column = [
+            self.bot_name + "_backtest_transaction_summary_id",
             "exchange_name",
             "asset_name",
-            "initial_balance",
+            "initial_balance", # init
             "profit_percentage",
-            "current_balance",
-            "backtest_start_time",
-            "backtest_end_time",
+            "current_balance", # init
+            "backtest_start_time", # init
+            "backtest_end_time", # init
             "entry_timestamp",
             "holding_time",
             "close_timestamp",
