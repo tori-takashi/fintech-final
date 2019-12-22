@@ -6,12 +6,10 @@ class BacktestSummary(Base):
     # [FIXME]
     # Add geometric mean
 
-    # [Need to be edited]
     __tablename__ = "backtest_summary"
-    backtest_transaction_log = relationship("BacktestTransactionLog")
+    backtest_transaction_log = relationship("BacktestTransactionLog", backref="backtest_summary")
     backtest_params = relationship("BacktestParams")
 
-    # [No need to edit below]
     id = Column(Integer, primary_key=True)
     # params
     bot_name = Column(String)

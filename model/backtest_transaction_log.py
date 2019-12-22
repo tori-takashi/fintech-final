@@ -4,22 +4,16 @@ from .base import Base
 
 
 class BacktestTransactionLog(Base):
-    # [Need to be edited]
     __tablename__ = "backtest_transaction_log"
     backtest_summary = relationship("BacktestSummary")
-    #backtest_summary_id = Column(Integer, ForeignKey("backtest_summary.id"))
 
-    # [No need to edit below]
     id = Column(Integer, primary_key=True)
+    backtest_summary_id = Column(Integer, ForeignKey, (backtest_summary.id))
 
     exchange_name = Column(String)
     asset_name = Column(String)
 
-    initial_balance = Column(Float)
     current_balance = Column(Float)
-
-    backtest_start_time = Column(DateTime)
-    backtest_end_time = Column(DateTime)
 
     entry_time = Column(DateTime)
     holding_time = Column(Interval)
@@ -50,12 +44,7 @@ class BacktestTransactionLog(Base):
         self.exchange_name = BacktestTransactionLog.exchange_name
         self.asset_name = BacktestTransactionLog.asset_name
 
-        self.initial_balance = BacktestTransactionLog.initial_balance
-        self.profit_percentage = BacktestTransactionLog.profit_percentage
         self.current_balance = BacktestTransactionLog.current_balance
-
-        self.backtest_start_time = BacktestTransactionLog.backtest_start_time
-        self.backtest_end_time = BacktestTransactionLog.backtest_end_time
 
         self.entry_time = BacktestTransactionLog.entry_time
         self.holding_time = BacktestTransactionLog.holding_time
@@ -77,6 +66,7 @@ class BacktestTransactionLog(Base):
 
         self.transaction_cost = BacktestTransactionLog.transaction_cost
         self.profit_size = BacktestTransactionLog.profit_size
+        self.profit_percentage = BacktestTransactionLog.profit_percentage
 
     def __repr__(self):
         return "<'%s'('%s','%s')>" % (BacktestTransactionLog.__tablename__, self.info_name, self.description)
