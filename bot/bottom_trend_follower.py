@@ -78,7 +78,7 @@ class BottomTrendFollow(TradingBot):
         else:
             return "do_nothing"
 
-    def calculate_sign_backtest(self):
+    def caclulate_signs_for_backtest(self):
         self.ohlcv_df.loc[((self.ohlcv_df[self.bottom_trend_col] == "uptrend")
                            & (self.ohlcv_df[self.middle_trend_col] == "uptrend")
                            & (self.ohlcv_df[self.top_trend_col] == "uptrend")), "signal"] = "buy"

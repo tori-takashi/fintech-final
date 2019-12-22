@@ -34,8 +34,6 @@ class TradingBot:
 
         # backtest configure
         self.is_backtest = is_backtest
-        self.backtest_start_time = datetime.now() - timedelta(days=90)
-        self.backtest_end_time = datetime.now()
         self.initial_balance = 100.0  # USD
         self.account_currency = "USD"
         
@@ -72,17 +70,21 @@ class TradingBot:
         self.close_position_on_do_nothing = default_params["close_position_on_do_nothing"]
         self.inverse_trading = default_params["inverse_trading"]
 
-    def run(self, duration_days=90):
-        start_time = datetime.now() - timedelta(days=duration_days)
-        end_time = datetime.now()
-
-        self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, start_time, end_time)
-
+    def run(self, backtest_start_time=datetime.now() - timedelta(days=200), backtest_end_time=datetime.now())
+        self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, backtest_start_time, backtest_end_time)
         self.calculate_metrics()
+
         if self.is_backtest:
-            self.calculate_sign_backtest()
-            self.run_backtest(csv_output=False)
-            self.aggregate_summary()
+            self.backtest_start_time = backtest_start_time
+            self.backtest_end_time = backtest_end_time
+
+            self.caclulate_signs_for_backtest()
+            
+            self.backtest_transaction_log_df, self.backtest_summary_df =  self.run_backtest()
+            self.backtest_params_df = self.concat_params()
+
+    def concat_params(self):
+        return
 
     def set_logger(self):
         self.logger = logging.getLogger(self.bot_name)
@@ -126,7 +128,7 @@ class TradingBot:
         # need to override
         # return ["buy", "sell", "do_nothing"]
 
-    def calculate_sign_backtest(self):
+    def caclulate_signs_for_backtest(self):
         pass
         # need to override
         # return dataframe with ["buy", "sell", "do_nothing"]
