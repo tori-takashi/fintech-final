@@ -110,8 +110,14 @@ class DBClient:
         if self.is_sqlite3():
             query = "SELECT * FROM " + table_name + \
                 " WHERE id = " + str(id) + ";"
+
+        elif self.is_mysql():
+            query = "SELECT * FROM " + table_name + \
+                " WHERE id = " + str(id) + ";"
+
         return_df = pd.read_sql_query(
             query, self.connector, index_col="id")
+
         if return_df.empty is not True:
             return return_df
         else:
