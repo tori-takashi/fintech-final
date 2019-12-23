@@ -19,3 +19,12 @@ db_path=
     username=tradingbot
     password=
     db_name=tradingbot
+
+; eval interpret exchanges as list
+[data_providers]
+    data_providers=["bitmex"]
+
+; set assets like [in exchanges + "_asset_names"]
+; with asset_names=["BTC/USD"] => list
+[bitmex_asset_names]
+    asset_names=["BTC/USD"]

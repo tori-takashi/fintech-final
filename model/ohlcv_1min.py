@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, DateTime
+from sqlalchemy import Column, Integer, Float, DateTime, String
 from sqlalchemy.ext.declarative import declarative_base
 
 
@@ -6,6 +6,9 @@ class OHLCV_1min(declarative_base()):
     __tablename__ = "orginal_ohlcv_1min"
 
     id = Column(Integer, primary_key=True)
+
+    exchange_name = Column(String(100))
+    asset_name = Column(String(200))
 
     timestamp = Column(DateTime)
     open = Column(Float)
