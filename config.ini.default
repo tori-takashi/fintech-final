@@ -6,11 +6,16 @@ secret=
 ; root path is the current directory which is running .py file.
 db_path=
 
+[mysql]
+    host=localhost
+    username=tradingbot
+    password=
+    db_name=tradingbot
 
 [influxdb]
 ; you need to create database and user manually at first.
-    host=127.0.0.1
+    host=localhost
     port=8086
-    username=
+    username=tradingbot
     password=
     db_name=tradingbot

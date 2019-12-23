@@ -4,7 +4,30 @@ Fintech Final Project for Group 4
 
 ## installation
 
+### install MySQL
+
+for backtest
+
+1. install MySQL server
+   `$ sudo apt-get install -y mysql-server`
+   `$ mysql --version`
+   => mysql Ver 14.14 Distrib 5.7.28, for Linux (x86_64) using EditLine wrapper
+   `$ sudo service mysql start`
+
+2. login as root and create database
+   `$ sudo mysql -uroot`
+   `mysql> CREATE DATABASE tradingbot;`
+
+3. user settings
+   `mysql> CREATE USER 'tradingbot'@'localhost' IDENTIFIED BY 'password';`
+   `mysql> GRANT ALL ON tradingbot.* TO 'tradingbot'@'localhost' IDENTIFIED BY 'password';`
+
+4. set config
+   set conig.ini
+
 ### install influxdb
+
+for real environment
 
 1. install and configuration influx db
    [influxdb install documentation](https://docs.influxdata.com/influxdb/v1.7/introduction/installation/)
@@ -20,6 +43,9 @@ Fintech Final Project for Group 4
    `> CREATE USER tradingbot WITH PASSWORD 'password'`
    `> GRANT ALL ON tradingbot TO tradingbot`
    `$ exit`
+
+4. set config
+   set conig.ini
 
 ### intall talib
 
@@ -52,7 +78,7 @@ Beforehand of installation, update setuptools.
 If you're using anaconda, please replace `pip` to `conda`
 
 `$ sudo pip install -U setuptools`
-`$ pip install ccxt pandas ta-lib sqlalchemy influxdb`
+`$ pip install ccxt pandas ta-lib sqlalchemy influxdb alembic PyMySQL`
 
 ### create csv
 
