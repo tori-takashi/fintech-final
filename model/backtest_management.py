@@ -1,9 +1,10 @@
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, Boolean
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy import Column, Integer, Float, ForeignKey, Boolean
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
+from .base import Base
 
 
-class BacktestManagement(declarative_base()):
+class BacktestManagement(Base):
     # [Need to be edited]
     # append class and instance variable from outside for specific params
     __tablename__ = "backtest_management"
@@ -13,7 +14,8 @@ class BacktestManagement(declarative_base()):
 
     backtest_summary_id = Column(Integer, ForeignKey("backtest_summary.id"))
     backtest_summary = relationship(
-        "BacktestSummary", backref=backref("backtest_summary.id", uselist=False))
+        "BacktestSummary", foreign_keys=[backtest_summary_id],
+        primaryjoin="BacktestManagement.backtest_summary_id == BacktestSummary.id", uselist=False, viewonly=True)
 
     # default params
     timeframe = Column(Integer)

@@ -12,11 +12,13 @@ class BacktestSummary(Base):
     id = Column(Integer, primary_key=True)
     backtest_transaction_log = relationship(
         "BacktestTransactionLog", backref="backtest_summary")
+    backtest_management = relationship(
+        "BacktestManagement", back_populates="backtest_summary")
 
     # params
-    bot_name = Column(String)
+    bot_name = Column(String(300))
     initial_balance = Column(Float)
-    account_currency = Column(String)
+    account_currency = Column(String(200))
 
     # trade metrics
     total_entry = Column(Integer)
@@ -26,14 +28,14 @@ class BacktestSummary(Base):
     total_min_holding_ms = Column(Float)
 
     total_return = Column(Float)
-    total_average = Column(Float)
+    total_return_average = Column(Float)
     total_standard_deviation = Column(Float)
     total_skewness = Column(Float)
     total_kurtosis = Column(Float)
     total_median = Column(Float)
 
     total_return_percentage = Column(Float)
-    total_average_percentage = Column(Float)
+    total_return_average_percentage = Column(Float)
     total_standard_deviation_percentage = Column(Float)
     total_skewness_percentage = Column(Float)
     total_kurtosis_percentage = Column(Float)
@@ -64,7 +66,7 @@ class BacktestSummary(Base):
 
     win_consecutive_max_entry = Column(Integer)
     win_consecutive_average_entry = Column(Float)
-    win_consecutive_total_profit = Column(Float)
+    win_consecutive_max_profit = Column(Float)
 
     # lose
     lose_entry = Column(Integer)
@@ -89,7 +91,7 @@ class BacktestSummary(Base):
 
     lose_consecutive_max_entry = Column(Integer)
     lose_consecutive_average_entry = Column(Float)
-    lose_consecutive_total_loss = Column(Float)
+    lose_consecutive_max_loss = Column(Float)
 
     # long
     long_entry = Column(Integer)
@@ -144,14 +146,14 @@ class BacktestSummary(Base):
     win_long_standard_deviation = Column(Float)
     win_long_skewness = Column(Float)
     win_long_kurtosis = Column(Float)
-    win_lose_median = Column(Float)
+    win_long_median = Column(Float)
 
     win_long_return_percentage = Column(Float)
     win_long_return_average_percentage = Column(Float)
     win_long_return_standard_deviation_percentage = Column(Float)
     win_long_skewness_percentage = Column(Float)
     win_long_kurtosis_percentage = Column(Float)
-    win_lose_median_percentage = Column(Float)
+    win_long_median_percentage = Column(Float)
 
     # win short
     win_short_entry = Column(Integer)
@@ -240,14 +242,14 @@ class BacktestSummary(Base):
         self.total_min_holding_ms = BacktestSummary.total_min_holding_ms
 
         self.total_return = BacktestSummary.total_return
-        self.total_average = BacktestSummary.total_average_holding_ms
+        self.total_return_average = BacktestSummary.total_return_average
         self.total_standard_deviation = BacktestSummary.total_standard_deviation
         self.total_skewness = BacktestSummary.total_skewness
         self.total_kurtosis = BacktestSummary.total_kurtosis
 
         self.total_return_percentage = BacktestSummary.total_return_percentage
         self.total_return_average_percentage = BacktestSummary.total_return_average_percentage
-        self.total_return_standard_deviation_percentage = BacktestSummary.total_return_standard_deviation_percentage
+        self.total_standard_deviation_percentage = BacktestSummary.total_standard_deviation_percentage
         self.total_skewness_percentage = BacktestSummary.total_skewness_percentage
         self.total_kurtosis_percentage = BacktestSummary.total_kurtosis_percentage
 
@@ -295,7 +297,7 @@ class BacktestSummary(Base):
 
         self.lose_consecutive_max_entry = BacktestSummary.lose_consecutive_max_entry
         self.lose_consecutive_average_entry = BacktestSummary.lose_consecutive_average_entry
-        self.lose_consecutive_max_loss = BacktestSummary.lose_consecutive_max_profit
+        self.lose_consecutive_max_loss = BacktestSummary.lose_consecutive_max_loss
 
         # long
         self.long_entry = BacktestSummary.long_entry

@@ -9,10 +9,9 @@ class BacktestTransactionLog(Base):
     id = Column(Integer, primary_key=True)
 
     backtest_summary_id = Column(Integer, ForeignKey("backtest_summary.id"))
-    backtest_summary = relationship("BacktestSummary")
 
-    exchange_name = Column(String)
-    asset_name = Column(String)
+    exchange_name = Column(String(100))
+    asset_name = Column(String(100))
 
     current_balance = Column(Float)
 
@@ -20,13 +19,13 @@ class BacktestTransactionLog(Base):
     holding_time = Column(Interval)
     close_time = Column(DateTime)
 
-    order_status = Column(String)
+    order_status = Column(String(10))
     # open or close
 
-    order_type = Column(String)
+    order_type = Column(String(10))
     # long or short
 
-    profit_status = Column(String)
+    profit_status = Column(String(10))
     # win or lose
 
     entry_price = Column(Float)
