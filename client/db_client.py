@@ -30,7 +30,10 @@ class DBClient:
             Session = sessionmaker(self.connector)
             self.session = Session()
 
-            Base.metadata.create_all(bind=self.connector, checkfirst=False)
+            Base.metadata.create_all(bind=self.connector)
+
+    def is_mysql(self):
+        return self.db_type == "mysql"
 
     def is_sqlite3(self):
         return self.db_type == "sqlite3"
@@ -41,14 +44,24 @@ class DBClient:
     def establish_connection_to_db(self):
         if self.is_sqlite3():
             return self.sqlite3_establish_connection()
+        elif self.is_mysql:
+            return self.mysql_establish_connection()
         elif self.is_influxdb():
             return self.influxdb_establish_connection()
 
     def sqlite3_establish_connection(self):
         if self.opt == None:
-            return create_engine("sqlite:///" + self.config['sqlite3']['db_path'], listeners=[ForeignKeysListener()], echo=True)
+            return create_engine("sqlite:///" + self.config['sqlite3']['db_path'], listeners=[ForeignKeysListener()])
         else:
             return create_engine("sqlite:///" + self.opt, listners=[ForeignKeysListener()])
+
+    def mysql_establish_connection(self):
+        if self.opt == None:
+            conf = self.config['mysql']
+            url = "mysql+pymysql://" + \
+                conf['username'] + ":" + conf['password'] + \
+                "@" + conf['host'] + "/" + conf['db_name']
+            return create_engine(url, echo=True)
 
     def influxdb_establish_connection(self):
         return InfluxDBClient(
@@ -60,7 +73,7 @@ class DBClient:
 
     # sqlite3
     def write_to_table(self, table_name, dataframe, if_exists):
-        if self.is_sqlite3():
+        if self.is_influxdb() is not True:
             dataframe.to_sql(table_name, self.connector,
                              if_exists=if_exists, index=False)
 
@@ -77,6 +90,15 @@ class DBClient:
             results = self.exec_sql(query, return_df=False)
             for result in results:
                 if result == (1,):
+                    return True
+                else:
+                    return False
+
+        if self.is_mysql():
+            query = "SHOW TABLES LIKE '" + table_name + "';"
+            results = self.exec_sql(query, return_df=False)
+            for result in results:
+                if result == (table_name,):
                     return True
                 else:
                     return False
@@ -100,7 +122,7 @@ class DBClient:
         return self.get_row_by_id(table_name, id, return_type="dataframe")
 
     def exec_sql(self, query, return_df=True):
-        if self.is_sqlite3():
+        if self.is_influxdb() is not True:
             if return_df:
                 return pd.read_sql(query, self.connector, index_col="id")
             else:
