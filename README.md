@@ -80,9 +80,15 @@ If you're using anaconda, please replace `pip` to `conda`
 `$ sudo pip install -U setuptools`
 `$ pip install ccxt pandas ta-lib sqlalchemy influxdb alembic PyMySQL`
 
-### create csv
+###
 
-`$ python3 build_dataset.py`
+`$ python3 demo.py`
+
+You might be faced with this error at first execution, it's a bug in sqlalchemy so please ignore and run again.
+
+```
+sqlalchemy.exc.ArgumentError: Could not locate any simple equality expressions involving locally mapped foreign key columns for primary join condition 'bottom_trend_follow_backtest_management.backtest_summary_id = backtest_summary.id' on relationship BacktestManagement.backtest_summary.  Ensure that referencing columns are associated with a ForeignKey or ForeignKeyConstraint, or are annotated in the join condition with the foreign() annotation. To allow comparison operators other than '==', the relationship can be marked as viewonly=True.
+```
 
 ## Error
 
