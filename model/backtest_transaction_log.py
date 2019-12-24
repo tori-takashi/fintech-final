@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, DateTime, String, ForeignKey, Interval
+from sqlalchemy import Column, Integer, Float, DateTime, String, ForeignKey
 from sqlalchemy.orm import relationship
 from .base import Base
 
@@ -16,7 +16,6 @@ class BacktestTransactionLog(Base):
     current_balance = Column(Float)
 
     entry_time = Column(DateTime)
-    holding_time = Column(Interval)
     close_time = Column(DateTime)
 
     order_status = Column(String(10))

@@ -6,6 +6,10 @@ import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import Column, Integer, Float
+from sqlalchemy.orm import relationship
+
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 
 from lib.pandamex import PandaMex
 from lib.dataset import Dataset
@@ -16,30 +20,33 @@ from model.backtest_transaction_log import BacktestTransactionLog
 
 
 class TradingBot:
-    def __init__(self, exchange_client, db_client, default_params, specific_params, is_backtest=False):
+    def __init__(self, default_params, specific_params, db_client, exchange_client=None, is_backtest=False):
         # initialize status and settings of bot.
         # if you try backtest, db_client is in need.
 
         self.exchange_client = exchange_client
         self.db_client = db_client
-        self.dataset_manipulator = Dataset(self.exchange_client, self.db_client)
 
         self.default_params = default_params
         self.extract_default_params(self.default_params)
 
         self.specific_params = specific_params
 
-        # for params table
-        self.backtest_management_table_name = self.bot_name + "_backtest_management"
-
-        # backtest configure
         self.is_backtest = is_backtest
-        self.initial_balance = 100.0  # USD
-        self.account_currency = "USD"
         
         if is_backtest:
-            if self.db_client.is_table_exist(self.backtest_management_table_name):
+            # for params table
+            self.backtest_management_table_name = self.bot_name + "_backtest_management"
+
+            # backtest configure
+            self.initial_balance = 100.0  # USD
+            self.account_currency = "USD"
+        
+            self.dataset_manipulator = Dataset(self.db_client, self.exchange_client)
+
+            if self.db_client.is_table_exist(self.backtest_management_table_name) is not True:
                 self.create_backtest_management_table()
+
 
     def create_backtest_management_table(self):
         table_def = BacktestManagement
@@ -48,8 +55,21 @@ class TradingBot:
         # add specific params columns
         table_def = self.append_specific_params_column(table_def)
 
+        backtest_summary_id = Column("backtest_summary_id", Integer)
+        table_def.relation = relationship("BacktestSummary")
+        table_def.append_column(backtest_summary_id)
+
         table_def.name = self.backtest_management_table_name
+
         table_def.create(bind=self.db_client.connector)
+        
+       # add foreign key constraint
+
+        ctx = MigrationContext.configure(self.db_client.connector)
+        op = Operations(ctx)
+
+        with op.batch_alter_table(self.bot_name + "_backtest_management") as batch_op:
+            batch_op.create_foreign_key("fk_management_summary", "backtest_summary", ["backtest_summary_id"], ["id"])
 
     def append_specific_params_column(self, table_def):
         return table_def
@@ -68,32 +88,54 @@ class TradingBot:
         self.close_position_on_do_nothing = default_params["close_position_on_do_nothing"]
         self.inverse_trading = default_params["inverse_trading"]
 
-    def run(self, backtest_start_time=datetime.now() - timedelta(days=200), backtest_end_time=datetime.now()):
+    def run(self, backtest_start_time=datetime.now() - timedelta(days=90), backtest_end_time=datetime.now()):
         self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, backtest_start_time, backtest_end_time)
-        self.ohlcv_with_metrics = self.caclulate_metrics()
+        self.ohlcv_with_metrics = self.calculate_metrics_for_backtest()
 
         if self.is_backtest:
             self.backtest_start_time = backtest_start_time
             self.backtest_end_time = backtest_end_time
 
-            self.caclulate_signs_for_backtest()
+            self.ohlcv_with_signals = self.calculate_signs_for_backtest()
+            print(self.ohlcv_with_signals)
+            
+            self.summary_id = self.init_summary()
             
             self.run_backtest()
-            self.build_summary()
-            self.insert_params_management()
+            print(self.insert_params_management())
+            
+            # build summary
 
     def insert_params_management(self):
-        all_params = {}
+        all_params = {"backtest_summary_id" : self.summary_id}
         all_params.update(self.default_params)
         all_params.update(self.specific_params)
         return pd.DataFrame(pd.Series(all_params))
 
+    def init_summary(self):
+        summary = BacktestSummary()
+        summary.bot_name = self.bot_name
+        summary.initial_balance = self.initial_balance
+        summary.account_currency = self.account_currency
+        self.db_client.session.add(summary)
+        self.db_client.session.commit()
+        # [FIXME] only for single task
+        return self.db_client.get_last_row("backtest_summary").index.array[0]
+        
     def calculate_lot(self):
-        return 1
+        return 1 # 100 %
+        # if you need, you can override
+        # default is invest all that you have
+
+    def calculate_leverage(self):
+        return 1 # 1 times
         # if you need, you can override
 
-    def caclulate_metrics(self):
-        pass
+    def calculate_metric(self):
+        return "metric"
+
+    def calculate_metrics_for_backtest(self):
+        return "ohlcv_with_metric_dataframe"
         # need to override
 
     def calculate_sign(self):
@@ -101,23 +143,26 @@ class TradingBot:
         # need to override
         # return ["buy", "sell", "do_nothing"]
 
-    def caclulate_signs_for_backtest(self):
-        pass
+    def calculate_signs_for_backtest(self):
+        return "ohlcv_with_signal_data"
         # need to override
         # return dataframe with ["buy", "sell", "do_nothing"]
 
-    def run_backtest(self, csv_output=False, filename=""):
+    def run_backtest(self):
         # refer to signal then judge investment
         # keep one order at most
 
         position = None
+        current_balance = self.initial_balance
 
-        for row in self.ohlcv_with_metrics.itertuples():
+        for row in self.ohlcv_with_signals.itertuples(): # self.ohlcv_with_signals should be dataframe
             if row.signal == "buy":
                 if position is not None and position.order_type == "long":
                     # inverse => close position
                     if self.inverse_trading:
                         position.close_position(row)
+                        position.add_transaction_log(self.db_client, self.summary_id)
+                        current_balance = position.current_balance
                         position = None
                     # normal => still holding
                     else:
@@ -130,17 +175,18 @@ class TradingBot:
                     # normal => close position
                     else:
                         position.close_position(row)
+                        position.add_transaction_log(self.db_client, self.summary_id)
+                        current_balance = position.current_balance
                         position = None
                 else:
                     lot = self.calculate_lot()
+                    leverage = self.calculate_leverage()
                     # inverse => open short position
                     if self.inverse_trading:
-                        position = OrderPosition(
-                            row, "short", lot, is_backtest=True)
+                        position = OrderPosition(row, "short", current_balance, lot, leverage, is_backtest=True)
                     else:
                         # normal => open long position
-                        position = OrderPosition(
-                            row, "long", lot, is_backtest=True)
+                        position = OrderPosition(row, "long", current_balance, lot, leverage, is_backtest=True)
 
             elif row.signal == "sell":
                 if position is not None and position.order_type == "long":
@@ -150,12 +196,16 @@ class TradingBot:
                     # normal => close position
                     else:
                         position.close_position(row)
+                        position.add_transaction_log(self.db_client, self.summary_id)
+                        current_balance = position.current_balance
                         position = None
 
                 elif position is not None and position.order_type == "short":
                     # inverse => close position
                     if self.inverse_trading:
                         position.close_position(row)
+                        position.add_transaction_log(self.db_client, self.summary_id)
+                        current_balance = position.current_balance
                         position = None
 
                     # normal => still holding
@@ -164,14 +214,13 @@ class TradingBot:
 
                 else:
                     lot = self.calculate_lot()
+                    leverage = self.calculate_leverage()
                     # inverse => open long position
                     if self.inverse_trading:
-                        position = OrderPosition(
-                            row, "long", lot, is_backtest=True)
+                        position = OrderPosition(row, "long",current_balance, lot, leverage, is_backtest=True)
                     else:
                         # normal => open short position
-                        position = OrderPosition(
-                            row, "short", lot, is_backtest=True)
+                        position = OrderPosition(row, "short",current_balance, lot, leverage, is_backtest=True)
 
             elif row.signal == "do_nothing":
                 if self.close_position_on_do_nothing:
@@ -180,7 +229,12 @@ class TradingBot:
                     if position is not None:
                         # close position
                         position.close_position(row)
+                        position.add_transaction_log(self.db_client, self.summary_id)
+                        current_balance = position.current_balance
                         position = None
+
+        self.db_client.session.commit()
+        # bulk insert transaction log to table
 
 
     def build_summary(self, closed_position):
@@ -549,28 +603,24 @@ class TradingBot:
 
 
 class OrderPosition:
-    def __init__(self,
-        row_open,
-        exchange_name,
-        asset_name,
-        order_type,
-        lot,
-        is_backtest=False
-        ):
+    def __init__(self, row_open, order_type, current_balance, lot, leverage, is_backtest=False):
+        self.is_backtest = is_backtest
 
-        self.transaction_fee_by_order = 0.0005
-        self.status = "open"
+        self.transaction_fee_by_order = 0.0005 # profit * transaction fee
+        
+        # for transaction log
+        self.order_status = "open"
+
+        self.exchange_name = row_open.exchange_name
+        self.asset_name = row_open.asset_name
+        self.current_balance = current_balance
+
+        self.entry_price = row_open.close
+        self.entry_time = row_open.Index
 
         self.order_type = order_type
-        # order_type = ["long", "short"]
-        self.is_backtest = is_backtest
         self.lot = lot
-
-        # for summary
-        self.entry_price = row_open.close
-        self.entry_time = row_open.time
-        self.close_price = 0
-        # self.close_timestamp
+        self.leverage = leverage
 
         self.open_position()
 
@@ -581,61 +631,59 @@ class OrderPosition:
     def close_position(self, row_close):
         # for summary
         self.close_price = row_close.close
-        self.close_time = row_close.time
+        self.close_time = row_close.Index
+
+        self.price_difference = self.close_price - self.entry_price
+        self.price_difference_percentage = ((self.close_price - self.entry_price) / self.entry_price) - 1
 
         self.transaction_cost = self.close_price * self.transaction_fee_by_order
 
         if self.order_type == "long":
             self.profit_size = ((self.close_price -
-                                 self.entry_price) - self.transaction_cost) * self.lot
+                                 self.entry_price) - self.transaction_cost) * self.lot * self.leverage
         elif self.order_type == "short":
             self.profit_size = ((self.entry_price -
-                                 self.close_price) - self.transaction_cost) * self.lot
+                                 self.close_price) - self.transaction_cost) * self.lot * self.leverage
+
+        self.current_balance += self.profit_size
+        self.profit_percentage = ((self.current_balance + self.profit_size) / self.current_balance) - 1
 
         if self.profit_size > 0:
             self.profit_status = "win"
         else:
             self.profit_status = "lose"
 
-        self.status = "closed"
+        self.order_status = "closed"
         if self.is_backtest:
             pass
 
-    def get_transaction_log(self):
-        record_column = [
-            self.bot_name + "_backtest_transaction_summary_id",
-            "exchange_name",
-            "asset_name",
-            "initial_balance", # init
-            "profit_percentage",
-            "current_balance", # init
-            "backtest_start_time", # init
-            "backtest_end_time", # init
-            "entry_time",
-            "holding_time",
-            "close_time",
-            "order_status",
-            "order_type",
-            "profit_status",
-            "entry_price",
-            "price_difference",
-            "price_difference_percentage",
-            "close_price",
-            "lot",
-            "transaction_cost",
-            "profit_size"
-        ]
-        self.position = pd.Series([
-            self.entry_time,
-            self.close_time,
-            self.status,
-            self.order_type,
-            self.profit_status,
-            self.entry_price,
-            self.close_price,
-            self.lot,
-            self.transaction_cost,
-            self.profit_size,
-            (self.profit_size / self.entry_price)*100
-        ], index=record_column)
-        return self.position
+    def add_transaction_log(self, db_client, summary_id):
+        log = BacktestTransactionLog()
+
+        log.backtest_summary_id = int(summary_id)
+
+        log.exchange_name = self.exchange_name
+        log.asset_name = self.asset_name
+        log.current_balance = float(self.current_balance)
+
+        log.entry_time = self.entry_time.to_pydatetime()
+        log.holding_time = self.close_time - self.entry_time
+        log.close_time = self.close_time.to_pydatetime()
+
+        log.order_status = self.order_status
+        log.order_type = self.order_type
+        log.profit_status = self.profit_status
+
+        log.entry_price = float(self.entry_price)
+        log.price_difference = float(self.price_difference)
+        log.price_difference_percentage = float(self.price_difference_percentage)
+        log.close_price = float(self.close_price)
+
+        log.leverage = float(self.leverage)
+        log.lot = float(self.lot)
+
+        log.transaction_cost = float(self.transaction_cost)
+        log.profit_size = float(self.profit_size)
+        log.profit_percentage = float(self.profit_percentage)
+
+        db_client.session.add(log)

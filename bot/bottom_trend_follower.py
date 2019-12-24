@@ -29,8 +29,8 @@ class BottomTrendFollow(TradingBot):
             "top_trend_tick": self.top_trend_tick
         }
 
-        super().__init__(exchange_client, db_client,
-                         self.default_params, self.specific_params, is_backtest)
+        super().__init__(exchange_client=exchange_client, db_client=db_client, default_params=self.default_params,
+                         specific_params=self.specific_params, is_backtest=is_backtest)
 
         # for metrics calculation
         specific_params_values = list(self.specific_params.values())
@@ -46,7 +46,7 @@ class BottomTrendFollow(TradingBot):
         table_def.append_column(Column("top_trend_tick", Integer))
         return table_def
 
-    def caclulate_metrics(self):
+    def calculate_metrics_for_backtest(self):
         ohlcv_with_metrics = self.ohlcv_df
         ta_ema = TechnicalAnalysisMACD(ohlcv_with_metrics)
 
@@ -80,7 +80,7 @@ class BottomTrendFollow(TradingBot):
         else:
             return "do_nothing"
 
-    def caclulate_signs_for_backtest(self):
+    def calculate_signs_for_backtest(self):
         self.ohlcv_df.loc[((self.ohlcv_df[self.bottom_trend_col] == "uptrend")
                            & (self.ohlcv_df[self.middle_trend_col] == "uptrend")
                            & (self.ohlcv_df[self.top_trend_col] == "uptrend")), "signal"] = "buy"
@@ -88,3 +88,4 @@ class BottomTrendFollow(TradingBot):
                            & (self.ohlcv_df[self.middle_trend_col] == "downtrend")
                            & (self.ohlcv_df[self.top_trend_col] == "downtrend")), "signal"] = "sell"
         self.ohlcv_df["signal"] = self.ohlcv_df["signal"].fillna("do_nothing")
+        return self.ohlcv_df
