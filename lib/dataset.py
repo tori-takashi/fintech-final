@@ -66,18 +66,11 @@ class Dataset:
         ohlcv_1min_table.create(bind=self.db_client.connector)
 
     def calc_fetch_start_time(self, latest_row):
-        print("[FIXME] adhock solution to timezone problem")
-        print("[FIXME] start time to fetch would be wrong below but the data in database have no problem.")
-
         latest_row_time = pd.to_datetime(
             latest_row['timestamp']).dt.to_pydatetime()[0]
-        # convert to datetime array, then convert to pydatetime
-        # [FIXME] adhock solution to timezone problem
-        append_offset = timedelta(minutes=1, seconds=30)
-        timezone_offset = timedelta(hours=8)
 
-        start_time = latest_row_time + \
-            append_offset - timezone_offset
+        append_offset = timedelta(minutes=1, seconds=30)
+        start_time = latest_row_time + append_offset
 
         return start_time
 
@@ -95,6 +88,8 @@ class Dataset:
         all_data = self.db_client.exec_sql(query)
         print("Done")
         all_data['timestamp'] = pd.to_datetime(all_data.timestamp)
+        print(all_data[all_data.timestamp ==
+                       self.floor_datetime_to_ohlcv(end_time, "down")])
         all_data.set_index('timestamp', inplace=True)
 
         if round:
