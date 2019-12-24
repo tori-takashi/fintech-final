@@ -9,7 +9,7 @@ from model.ohlcv_1min import OHLCV_1min
 
 
 class Dataset:
-    def __init__(self, data_provider_client, db_client):
+    def __init__(self, db_client, data_provider_client=None):
         # data_provider_client should have exchange name
         self.config = SafeConfigParser()
 
@@ -22,7 +22,7 @@ class Dataset:
         self.original_ohlcv_1min_table = self.data_provider_client.name + "_original_ohlcv_1min"
 
     def download_ohlcv_data_from_bitmex_with_asset_name(self, asset_name, start_time, end_time):
-        print("downloading " + asset_name + "data on bitmex")
+        print("downloading " + asset_name + " data on bitmex")
         pdmex = PandaMex(self.data_provider_client)
         ohlcv_df = pdmex.fetch_ohlcv(
             symbol=asset_name, start_time=start_time, end_time=end_time)
@@ -30,7 +30,7 @@ class Dataset:
         ohlcv_df["exchange_name"] = "bitmex"
         ohlcv_df["asset_name"] = asset_name
 
-        return ohlcv_df
+        return PandaMex.to_timestamp(ohlcv_df)
 
     def download_ohlcv_data_from_bitmex(self, symbol, start_time, end_time):
         asset_names = eval(self.config['bitmex_asset_names']['asset_names'])
@@ -42,12 +42,12 @@ class Dataset:
 
         return pd.concat(ohlcv_df_list)
 
-    def update_ohlcv(self, data_provider_name, asset_name=None, start_time=None):
+    def update_ohlcv(self, data_provider_name, start_time=None, asset_name=None):
         # if ohlcv table is existing, start time will be ignored
         if self.db_client.is_table_exist(self.original_ohlcv_1min_table):
             latest_row = self.db_client.get_last_row(
                 self.original_ohlcv_1min_table)
-            if latest_row:
+            if latest_row.empty is not True:
                 start_time = self.calc_fetch_start_time(latest_row)
 
         else:
@@ -67,7 +67,7 @@ class Dataset:
 
     def calc_fetch_start_time(self, latest_row):
         print("[FIXME] adhock solution to timezone problem")
-        print("[FIXME] start time to fetch would be wrong below")
+        print("[FIXME] start time to fetch would be wrong below but the data in database have no problem.")
 
         latest_row_time = pd.to_datetime(
             latest_row['timestamp']).dt.to_pydatetime()[0]
@@ -90,7 +90,10 @@ class Dataset:
     def get_ohlcv(self, timeframe=None, start_time=None, end_time=None, round=True):
         query = "SELECT * FROM " + self.original_ohlcv_1min_table + ";"
 
+        print("Loading OHLCV data from " +
+              self.original_ohlcv_1min_table + " now...")
         all_data = self.db_client.exec_sql(query)
+        print("Done")
         all_data['timestamp'] = pd.to_datetime(all_data.timestamp)
         all_data.set_index('timestamp', inplace=True)
 
