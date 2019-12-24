@@ -88,8 +88,6 @@ class Dataset:
         all_data = self.db_client.exec_sql(query)
         print("Done")
         all_data['timestamp'] = pd.to_datetime(all_data.timestamp)
-        print(all_data[all_data.timestamp ==
-                       self.floor_datetime_to_ohlcv(end_time, "down")])
         all_data.set_index('timestamp', inplace=True)
 
         if round:
