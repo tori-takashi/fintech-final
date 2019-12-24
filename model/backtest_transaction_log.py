@@ -47,7 +47,6 @@ class BacktestTransactionLog(Base):
         self.current_balance = BacktestTransactionLog.current_balance
 
         self.entry_time = BacktestTransactionLog.entry_time
-        self.holding_time = BacktestTransactionLog.holding_time
         self.close_time = BacktestTransactionLog.close_time
 
         self.order_status = BacktestTransactionLog.order_status
@@ -67,6 +66,3 @@ class BacktestTransactionLog(Base):
         self.transaction_cost = BacktestTransactionLog.transaction_cost
         self.profit_size = BacktestTransactionLog.profit_size
         self.profit_percentage = BacktestTransactionLog.profit_percentage
-
-    def __repr__(self):
-        return "<'%s'('%s','%s')>" % (BacktestTransactionLog.__tablename__, self.info_name, self.description)

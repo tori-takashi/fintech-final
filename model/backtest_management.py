@@ -27,6 +27,3 @@ class BacktestManagement(Base):
         self.timeframe = BacktestManagement.timeframe
         self.close_position_on_do_nothing = BacktestManagement.close_position_on_do_nothing
         self.inverse_trading = BacktestManagement.inverse_trading
-
-    def __repr__(self):
-        return "<'%s'('%s','%s')>" % (BacktestManagement.__tablename__, self.info_name, self.description)

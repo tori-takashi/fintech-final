@@ -414,6 +414,3 @@ class BacktestSummary(Base):
         self.lose_short_skewness_percentage = BacktestSummary.lose_short_skewness_percentage
         self.lose_short_kurtosis_percentage = BacktestSummary.lose_short_kurtosis_percentage
         self.lose_short_median_percentage = BacktestSummary.lose_short_median_percentage
-
-    def __repr__(self):
-        return "<'%s'('%s','%s')>" % (BacktestSummary.__tablename__, self.info_name, self.description)
