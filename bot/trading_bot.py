@@ -290,7 +290,13 @@ class TradingBot:
         summary.total_kurtosis = float(self.closed_positions_df.profit_size.kurt())
         summary.total_median = float(self.closed_positions_df.profit_size.median())
 
-        summary.total_return_percentage  = float(self.closed_positions_df.profit_percentage.sum())
+        if self.closed_positions_df.iloc[-1].current_balance > 0:
+            summary.total_return_percentage = \
+                float(100 * (self.closed_positions_df.iloc[-1].current_balance / self.initial_balance))
+        else:
+            summary.total_return_percentage = \
+                float(-100 * (abs(self.closed_positions_df.iloc[-1].current_balance) + self.initial_balance) / self.initial_balance)
+        
         summary.total_return_average_percentage = float(self.closed_positions_df.profit_percentage.mean())
         summary.total_standard_deviation_percentage  = float(self.closed_positions_df.profit_percentage.std())
         summary.total_skewness_percentage = float(self.closed_positions_df.profit_percentage.skew())
@@ -303,15 +309,14 @@ class TradingBot:
         summary.win_entry = len(win_row)
         summary.win_average_holding_ms = win_row["holding_time"].mean().to_pytimedelta()
         summary.win_rate = (summary.win_entry / len(self.closed_positions_df)) * 100
-  
-        summary.win_return  = float(win_row.profit_size.sum())
+
+        summary.win_return = float(win_row.profit_size.sum())
         summary.win_return_average = float(win_row.profit_size.mean())
         summary.win_standard_deviation  = float(win_row.profit_size.std())
         summary.win_skewness = float(win_row.profit_size.skew())
         summary.win_kurtosis = float(win_row.profit_size.kurt())
         summary.win_median = float(win_row.profit_size.median())
 
-        summary.win_return_percentage  = float(win_row.profit_percentage.sum())
         summary.win_return_average_percentage = float(win_row.profit_percentage.mean())
         summary.win_standard_deviation_percentage  = float(win_row.profit_percentage.std())
         summary.win_skewness_percentage = float(win_row.profit_percentage.skew())
@@ -323,7 +328,6 @@ class TradingBot:
         win_consecutive = self.build_consecutive("win")
 
         summary.win_consecutive_max_entry = win_consecutive["consecutive_max_entry"]
-        print(summary,win_consecutive["consecutive_df"])
         summary.win_consecutive_average_entry = win_consecutive["consecutive_average_entry"]
         summary.win_consecutive_max_profit = float(win_consecutive["consecutive_df"].profit_size.sum())
 
@@ -342,7 +346,6 @@ class TradingBot:
         summary.lose_kurtosis = float(lose_row.profit_size.kurt())
         summary.lose_median = float(lose_row.profit_size.median())
 
-        summary.lose_return_percentage  = float(lose_row.profit_percentage.sum())
         summary.lose_return_average_percentage = float(lose_row.profit_percentage.mean())
         summary.lose_standard_deviation_percentage  = float(lose_row.profit_percentage.std())
         summary.lose_skewness_percentage = float(lose_row.profit_percentage.skew())
@@ -372,7 +375,6 @@ class TradingBot:
         summary.long_kurtosis = float(long_row.profit_size.kurt())
         summary.long_median = float(long_row.profit_size.median())
 
-        summary.long_return_percentage  = float(long_row.profit_percentage.sum())
         summary.long_return_average_percentage = float(long_row.profit_percentage.mean())
         summary.long_standard_deviation_percentage  = float(long_row.profit_percentage.std())
         summary.long_skewness_percentage = float(long_row.profit_percentage.skew())
@@ -397,7 +399,6 @@ class TradingBot:
         summary.short_kurtosis = float(short_row.profit_size.kurt())
         summary.short_median = float(short_row.profit_size.median())
 
-        summary.short_return_percentage  = float(short_row.profit_percentage.sum())
         summary.short_return_average_percentage = float(short_row.profit_percentage.mean())
         summary.short_standard_deviation_percentage  = float(short_row.profit_percentage.std())
         summary.short_skewness_percentage = float(short_row.profit_percentage.skew())
@@ -421,7 +422,6 @@ class TradingBot:
         summary.win_long_kurtosis = float(win_long_row.profit_size.kurt())
         summary.win_long_median = float(win_long_row.profit_size.median())
 
-        summary.win_long_return_percentage  = float(win_long_row.profit_percentage.sum())
         summary.win_long_return_average_percentage = float(win_long_row.profit_percentage.mean())
         summary.win_long_standard_deviation_percentage  = float(win_long_row.profit_percentage.std())
         summary.win_long_skewness_percentage = float(win_long_row.profit_percentage.skew())
@@ -439,7 +439,6 @@ class TradingBot:
         summary.win_short_kurtosis = float(win_short_row.profit_size.kurt())
         summary.win_short_median = float(win_short_row.profit_size.median())
 
-        summary.win_short_return_percentage  = float(win_short_row.profit_percentage.sum())
         summary.win_short_return_average_percentage = float(win_short_row.profit_percentage.mean())
         summary.win_short_standard_deviation_percentage  = float(win_short_row.profit_percentage.std())
         summary.win_short_skewness_percentage = float(win_short_row.profit_percentage.skew())
@@ -457,7 +456,6 @@ class TradingBot:
         summary.lose_long_kurtosis = float(lose_long_row.profit_size.kurt())
         summary.lose_long_median = float(lose_long_row.profit_size.median())
 
-        summary.lose_long_return_percentage  = float(lose_long_row.profit_percentage.sum())
         summary.lose_long_return_average_percentage = float(lose_long_row.profit_percentage.mean())
         summary.lose_long_standard_deviation_percentage  = float(lose_long_row.profit_percentage.std())
         summary.lose_long_skewness_percentage = float(lose_long_row.profit_percentage.skew())
@@ -475,7 +473,6 @@ class TradingBot:
         summary.lose_short_kurtosis = float(lose_short_row.profit_size.kurt())
         summary.lose_short_median = float(lose_short_row.profit_size.median())
 
-        summary.lose_short_return_percentage  = float(lose_short_row.profit_percentage.sum())
         summary.lose_short_return_average_percentage = float(lose_short_row.profit_percentage.mean())
         summary.lose_short_standard_deviation_percentage  = float(lose_short_row.profit_percentage.std())
         summary.lose_short_skewness_percentage = float(lose_short_row.profit_percentage.skew())
@@ -489,16 +486,58 @@ class TradingBot:
         summary.bot_name = self.bot_name
         summary.initial_balance = self.initial_balance
         summary.account_currency = self.account_currency
+
+        drawdowns = self.build_drawdowns()
+
+        summary.absolute_drawdown = float(drawdowns["absolute_drawdown"])
+        summary.maximal_drawdown = float(drawdowns["maximal_drawdown"])
+        summary.relative_drawdown = float(drawdowns["relative_drawdown"])
+
         summary.profit_factor = float(win_row.profit_size.sum() / abs(lose_row.profit_size.sum()))
-        #summary.recovery_factor  
-        #summary.absolute_drawdown
-        #summary.maximal_drawdown
-        #summary.relative_drawdown
-
-
+        summary.recovery_factor = summary.total_return / summary.maximal_drawdown
 
         self.db_client.session.add(summary)
         self.db_client.session.commit()
+
+    def build_drawdowns(self):
+        if self.closed_positions_df.current_balance.min() < 0:
+            absolute_drawdown = self.initial_balance + self.closed_positions_df.current_balance.min() 
+        else:
+            absolute_drawdown = self.initial_balance - self.closed_positions_df.current_balance.min() 
+
+        current_drawdown = 0
+        current_relative_drawdown = 0
+
+        max_balance = self.initial_balance
+
+        maximal_drawdown = 0
+        relative_drawdown = 0
+
+        for log in self.closed_positions_df.itertuples():
+            if max_balance < log.current_balance:
+                max_balance = log.current_balance
+            else:
+
+                if log.current_balance > 0:
+                    current_drawdown = max_balance - log.current_balance
+                else:
+                    current_drawdown = max_balance + log.current_balance
+
+                current_relative_drawdown = (abs(current_drawdown) / max_balance)*100
+
+                if maximal_drawdown < current_drawdown:
+                    maximal_drawdown = current_drawdown
+
+                if relative_drawdown < current_relative_drawdown:
+                    relative_drawdown = current_relative_drawdown
+        
+        result = {
+            "absolute_drawdown" : absolute_drawdown,
+            "maximal_drawdown": maximal_drawdown,
+            "relative_drawdown" : relative_drawdown
+        }
+
+        return result
         
 
     def build_consecutive(self, profit_status):
