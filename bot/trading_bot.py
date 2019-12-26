@@ -95,8 +95,13 @@ class TradingBot:
         self.close_position_on_do_nothing = default_params["close_position_on_do_nothing"]
         self.inverse_trading = default_params["inverse_trading"]
 
-    def run(self, backtest_start_time=datetime.now() - timedelta(days=90), backtest_end_time=datetime.now(), floor_time=True):
-        self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, backtest_start_time, backtest_end_time)
+    def run(self, ohlcv_df=None, backtest_start_time=datetime.now() - timedelta(days=90), backtest_end_time=datetime.now(),
+            floor_time=True):
+        if ohlcv_df is not None:
+            self.ohlcv_df = ohlcv_df
+        else:
+            self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, backtest_start_time, backtest_end_time)
+
         self.ohlcv_with_metrics = self.calculate_metrics_for_backtest()
 
         if self.is_backtest:
@@ -115,6 +120,18 @@ class TradingBot:
             self.insert_params_management()
             self.update_summary()
 
+    def reset_backtest_result_with_params(self, default_params, specific_params):
+        # for loop and serach optimal metrics value
+        self.ohlcv_with_metrics = None
+        self.ohlcv_with_signals = None
+        self.summary_id = None
+        self.closed_positions_df = None
+
+        self.default_params = default_params
+        self.extract_default_params(self.default_params)
+        self.specific_params = specific_params
+        self.combined_params = dict(**self.default_params, **self.specific_params)
+
     def insert_params_management(self):
         backtest_management = self.backtest_management_table()
 
@@ -122,10 +139,6 @@ class TradingBot:
         del self.combined_params["bot_name"]
 
         self.db_client.connector.execute(backtest_management.insert().values(self.combined_params))
-
-    def set_specific_params(self):
-        # need to be override
-        pass
 
     def init_summary(self):
         summary = BacktestSummary()
