@@ -15,6 +15,9 @@ class BacktestSummary(Base):
     backtest_management = relationship(
         "BacktestManagement", back_populates="backtest_summary")
 
+    backtest_start_time = Column(DateTime)
+    backtest_end_time = Column(DateTime)
+
     # params
     bot_name = Column(String(300))
     initial_balance = Column(Float)
@@ -220,6 +223,8 @@ class BacktestSummary(Base):
 
     def __init__(self):
         # other metrics
+        self.backtest_start_time = BacktestSummary.backtest_start_time
+        self.backtest_end_time = BacktestSummary.backtest_end_time
 
         # initial status and tag
         self.bot_name = BacktestSummary.bot_name
