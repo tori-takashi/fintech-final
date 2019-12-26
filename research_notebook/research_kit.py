@@ -1,9 +1,12 @@
-import pandas as pd
-from datetime import datetime, timedelta
-from pprint import pprint
 import sys
 from pathlib import Path
 sys.path.append("../tradingbot")
+
+from datetime import datetime, timedelta
+from pprint import pprint
+
+import pandas as pd
+import matplotlib.pyplot as plt
 
 from client.exchange_client import ExchangeClient
 from client.db_client import DBClient
