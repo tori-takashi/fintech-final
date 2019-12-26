@@ -538,7 +538,6 @@ class TradingBot:
         }
 
         return result
-        
 
     def build_consecutive(self, profit_status):
         current_start_index = 0
@@ -554,7 +553,6 @@ class TradingBot:
 
         profit_status_df = self.closed_positions_df.loc[:,["profit_status"]]
         profit_status_np = profit_status_df.to_numpy(copy=True)
-
 
         # for loop
         for row_id, row in enumerate(profit_status_np):
