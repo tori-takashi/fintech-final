@@ -81,10 +81,13 @@ class PandaMex:
         return ohlcv_df
 
     @classmethod
-    def to_timestamp(self, df, timestamp_column="timestamp"):
+    def to_timestamp(self, df, timestamp_ms_column="timestamp", timestamp_str_column=None):
         target = df
-        target[timestamp_column] = target[timestamp_column].apply(
-            lambda t: time_ms.TimeMS.fromtimestamp(t))
+        if timestamp_ms_column and timestamp_str_column is None:
+            target[timestamp_ms_column] = target[timestamp_ms_column].apply(
+                lambda t: time_ms.TimeMS.fromtimestamp(t))
+        elif timestamp_str_column:
+            pass
         return target
 
     def params_builder(self, reverse, count, start_time, end_time):
