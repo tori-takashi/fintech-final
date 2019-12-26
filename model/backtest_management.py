@@ -24,6 +24,7 @@ class BacktestManagement(Base):
 
     def __init__(self):
         # default params
+        self.backtest_summary_id = BacktestManagement.backtest_summary_id
         self.timeframe = BacktestManagement.timeframe
         self.close_position_on_do_nothing = BacktestManagement.close_position_on_do_nothing
         self.inverse_trading = BacktestManagement.inverse_trading

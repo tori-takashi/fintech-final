@@ -61,7 +61,7 @@ class DBClient:
             url = "mysql+pymysql://" + \
                 conf['username'] + ":" + conf['password'] + \
                 "@" + conf['host'] + "/" + conf['db_name']
-            return create_engine(url, echo=True)
+            return create_engine(url)
 
     def influxdb_establish_connection(self):
         return InfluxDBClient(

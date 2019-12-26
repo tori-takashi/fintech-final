@@ -5,8 +5,9 @@ import numpy as np
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import Column, Integer, Float
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, Float, Table, MetaData
+from sqlalchemy import update
+from sqlalchemy.orm import relationship, mapper
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -32,6 +33,8 @@ class TradingBot:
 
         self.specific_params = specific_params
 
+        self.combined_params = dict(**self.default_params, **self.specific_params)
+
         self.is_backtest = is_backtest
         
         if is_backtest:
@@ -49,8 +52,8 @@ class TradingBot:
 
 
     def create_backtest_management_table(self):
-        table_def = BacktestManagement
-        table_def = table_def.__table__
+        backtest_management_template = BacktestManagement
+        table_def = backtest_management_template.__table__
 
         # add specific params columns
         table_def = self.append_specific_params_column(table_def)
@@ -70,6 +73,11 @@ class TradingBot:
 
         with op.batch_alter_table(self.bot_name + "_backtest_management") as batch_op:
             batch_op.create_foreign_key("fk_management_summary", "backtest_summary", ["backtest_summary_id"], ["id"])
+
+    def backtest_management_table(self):
+        backtest_management_table = Table(self.backtest_management_table_name, MetaData(bind=self.db_client.connector),
+            autoload=True, autoload_with=self.db_client.connector)
+        return backtest_management_table
 
     def append_specific_params_column(self, table_def):
         return table_def
@@ -97,30 +105,35 @@ class TradingBot:
             self.backtest_end_time = backtest_end_time
 
             self.ohlcv_with_signals = self.calculate_signs_for_backtest()
-            print(self.ohlcv_with_signals)
             
             self.summary_id = self.init_summary()
             
             self.run_backtest()
-            print(self.insert_params_management())
-            
-            # build summary
+            self.insert_params_management()
+
 
     def insert_params_management(self):
-        all_params = {"backtest_summary_id" : self.summary_id}
-        all_params.update(self.default_params)
-        all_params.update(self.specific_params)
-        return pd.DataFrame(pd.Series(all_params))
+        backtest_management = self.backtest_management_table()
+
+        self.combined_params["backtest_summary_id"] = int(self.summary_id)
+        del self.combined_params["bot_name"]
+
+        self.db_client.connector.execute(backtest_management.insert().values(self.combined_params))
+
+    def set_specific_params(self):
+        # need to be override
+        pass
 
     def init_summary(self):
         summary = BacktestSummary()
         summary.bot_name = self.bot_name
         summary.initial_balance = self.initial_balance
         summary.account_currency = self.account_currency
+
         self.db_client.session.add(summary)
         self.db_client.session.commit()
-        # [FIXME] only for single task
-        return self.db_client.get_last_row("backtest_summary").index.array[0]
+        # [FIXME] only for single task processing, unable to parallel process
+        return int(self.db_client.get_last_row("backtest_summary").index.array[0])
         
     def calculate_lot(self):
         return 1 # 100 %
