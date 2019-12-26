@@ -1,11 +1,10 @@
-from configparser import SafeConfigParser
 from .tuned_bitmex_websocket import BitMEXWebsocket
+from .config import Config
 
 
 class WSClient:
-    def __init__(self):
-        self.config = SafeConfigParser()
-        self.config.read("config.ini")
+    def __init__(self, config_path):
+        self.config = Config(config_path).config
 
         self.ws = BitMEXWebsocket(
             endpoint="https://www.bitmex.com/api/v1",

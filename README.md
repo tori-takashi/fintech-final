@@ -87,8 +87,8 @@ If you're using anaconda, please replace `pip` to `conda`
 
 ### build database
 
-`$ python3 build_dataset.py`
-`$ cd research_notebook`
+`$ python3 tradingbot/build_dataset.py`
+If you move into tradingbot directory, it would be failed due to unable to read config.ini.
 `$ jupyter notebook`
 
 You might be faced with this error at first execution, it's a bug in sqlalchemy so please ignore and run again.

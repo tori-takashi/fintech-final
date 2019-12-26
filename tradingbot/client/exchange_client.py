@@ -2,6 +2,8 @@ from configparser import SafeConfigParser
 import ccxt
 import sys
 import os
+import pathlib
+from .config import Config
 
 
 class ExchangeClient:
@@ -14,12 +16,10 @@ class ExchangeClient:
     # return ccxt client after initialized
     #################################################
 
-    def __init__(self, name):
+    def __init__(self, name, config_path):
         self.name = name
-        self.config = SafeConfigParser()
 
-        # config.ini should be same place to executing file
-        self.config.read("config.ini")
+        self.config = Config(config_path).config
         self.client = self.establish_connection_to_exchange()
 
     # append name and establish function if you added exchanges

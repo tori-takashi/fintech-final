@@ -7,17 +7,14 @@ from sqlalchemy.interfaces import PoolListener
 from sqlalchemy.ext.declarative import declarative_base
 
 from model.base import Base
+from .config import Config
 
 from influxdb import InfluxDBClient
 
 
 class DBClient:
-    def __init__(self, db_type, opt=None):
-        self.config = SafeConfigParser()
-        self.opt = opt
-
-        # config.ini should be same place to executing file
-        self.config.read("config.ini")
+    def __init__(self, db_type, config_path):
+        self.config = Config(config_path).config
         self.db_type = db_type
         self.connector = self.establish_connection_to_db()
 
@@ -40,12 +37,11 @@ class DBClient:
             return self.influxdb_establish_connection()
 
     def mysql_establish_connection(self):
-        if self.opt == None:
-            conf = self.config['mysql']
-            url = "mysql+pymysql://" + \
-                conf['username'] + ":" + conf['password'] + \
-                "@" + conf['host'] + "/" + conf['db_name']
-            return create_engine(url)
+        conf = self.config['mysql']
+        url = "mysql+pymysql://" + \
+            conf['username'] + ":" + conf['password'] + \
+            "@" + conf['host'] + "/" + conf['db_name']
+        return create_engine(url)
 
     def influxdb_establish_connection(self):
         return InfluxDBClient(

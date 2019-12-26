@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from configparser import SafeConfigParser
 import pandas as pd
 import numpy as np
 
@@ -11,11 +10,6 @@ from model.ohlcv_1min import OHLCV_1min
 class Dataset:
     def __init__(self, db_client, data_provider_client=None):
         # data_provider_client should have exchange name
-        self.config = SafeConfigParser()
-
-        # config.ini should be same place to executing file
-        self.config.read("config.ini")
-
         self.data_provider_client = data_provider_client
         self.db_client = db_client
 
@@ -33,7 +27,8 @@ class Dataset:
         return PandaMex.to_timestamp(ohlcv_df)
 
     def download_ohlcv_data_from_bitmex(self, symbol, start_time, end_time):
-        asset_names = eval(self.config['bitmex_asset_names']['asset_names'])
+        asset_names = eval(
+            self.db_client.config['bitmex_asset_names']['asset_names'])
 
         ohlcv_df_list = []
         for asset_name in asset_names:
@@ -76,7 +71,7 @@ class Dataset:
 
     def update_all_ohlcv(self, start_time=None):
         data_provider_names = eval(
-            self.config['data_providers']['data_providers'])
+            self.db_client.config['data_providers']['data_providers'])
         for data_provider_name in data_provider_names:
             self.update_ohlcv(data_provider_name)
 
