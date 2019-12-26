@@ -81,9 +81,9 @@ class PandaMex:
         return ohlcv_df
 
     @classmethod
-    def to_timestamp(self, df):
+    def to_timestamp(self, df, timestamp_column="timestamp"):
         target = df
-        target["timestamp"] = target["timestamp"].apply(
+        target[timestamp_column] = target[timestamp_column].apply(
             lambda t: time_ms.TimeMS.fromtimestamp(t))
         return target
 
