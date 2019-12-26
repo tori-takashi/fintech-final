@@ -4,7 +4,12 @@ Fintech Final Project for Group 4
 
 ## installation
 
-### install MySQL
+### install Anaconda
+
+Follow this installation guide by official
+[Anaconda](https://docs.anaconda.com/anaconda/install/)
+
+### install MySQL(if you want)
 
 for backtest
 
@@ -71,7 +76,7 @@ Because probably you will face an error like below when you try to import talib.
 5. Then update `profile`
    `$ source ~/.profile`
 
-### install python packages
+### install python packages and build database
 
 install packages like below.
 Beforehand of installation, update setuptools.
@@ -80,9 +85,14 @@ If you're using anaconda, please replace `pip` to `conda`
 `$ sudo pip install -U setuptools`
 `$ pip install ccxt pandas ta-lib sqlalchemy influxdb alembic PyMySQL`
 
-###
+### build database
 
-`$ python3 demo.py`
+`$ python3 build_dataset.py`
+`$ cd research_notebook`
+`$ jupyter notebook`
+
+Default settings is sqlite3 that you don't need any settings.
+You can also choose MySQL with config.ini
 
 You might be faced with this error at first execution, it's a bug in sqlalchemy so please ignore and run again.
 
