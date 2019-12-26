@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, DateTime, String
+from sqlalchemy import Column, Integer, Float, DateTime, String, Interval
 from sqlalchemy.orm import relationship
 from .base import Base
 
@@ -26,9 +26,9 @@ class BacktestSummary(Base):
     # trade metrics
     total_entry = Column(Integer)
 
-    total_max_holding_ms = Column(Float)
-    total_average_holding_ms = Column(Float)
-    total_min_holding_ms = Column(Float)
+    total_max_holding_ms = Column(Interval)
+    total_average_holding_ms = Column(Interval)
+    total_min_holding_ms = Column(Interval)
 
     total_return = Column(Float)
     total_return_average = Column(Float)
@@ -48,10 +48,11 @@ class BacktestSummary(Base):
 
     # win
     win_entry = Column(Integer)
-    win_average_holding_ms = Column(Float)
+    win_rate = Column(Float)
+    win_average_holding_ms = Column(Interval)
 
     win_return = Column(Float)
-    win_average = Column(Float)
+    win_return_average = Column(Float)
     win_standard_deviation = Column(Float)
     win_skewness = Column(Float)
     win_kurtosis = Column(Float)
@@ -59,7 +60,7 @@ class BacktestSummary(Base):
 
     win_return_percentage = Column(Float)
     win_return_average_percentage = Column(Float)
-    win_return_standard_deviation_percentage = Column(Float)
+    win_standard_deviation_percentage = Column(Float)
     win_skewness_percentage = Column(Float)
     win_kurtosis_percentage = Column(Float)
     win_median_percentage = Column(Float)
@@ -73,10 +74,11 @@ class BacktestSummary(Base):
 
     # lose
     lose_entry = Column(Integer)
-    lose_average_holding_ms = Column(Float)
+    lose_rate = Column(Float)
+    lose_average_holding_ms = Column(Interval)
 
     lose_return = Column(Float)
-    lose_average = Column(Float)
+    lose_return_average = Column(Float)
     lose_standard_deviation = Column(Float)
     lose_skewness = Column(Float)
     lose_kurtosis = Column(Float)
@@ -84,7 +86,7 @@ class BacktestSummary(Base):
 
     lose_return_percentage = Column(Float)
     lose_return_average_percentage = Column(Float)
-    lose_return_standard_deviation_percentage = Column(Float)
+    lose_standard_deviation_percentage = Column(Float)
     lose_skewness_percentage = Column(Float)
     lose_kurtosis_percentage = Column(Float)
     lose_median_percentage = Column(Float)
@@ -98,17 +100,18 @@ class BacktestSummary(Base):
 
     # long
     long_entry = Column(Integer)
-    long_average_holding_ms = Column(Float)
+    long_rate = Column(Float)
+    long_average_holding_ms = Column(Interval)
 
     long_return = Column(Float)
-    long_average = Column(Float)
+    long_return_average = Column(Float)
     long_standard_deviation = Column(Float)
     long_skewness = Column(Float)
     long_kurtosis = Column(Float)
 
     long_return_percentage = Column(Float)
     long_return_average_percentage = Column(Float)
-    long_return_standard_deviation_percentage = Column(Float)
+    long_standard_deviation_percentage = Column(Float)
     long_skewness_percentage = Column(Float)
     long_kurtosis_percentage = Column(Float)
 
@@ -120,17 +123,18 @@ class BacktestSummary(Base):
 
     # short
     short_entry = Column(Integer)
-    short_average_holding_ms = Column(Float)
+    short_rate = Column(Float)
+    short_average_holding_ms = Column(Interval)
 
     short_return = Column(Float)
-    short_average = Column(Float)
+    short_return_average = Column(Float)
     short_standard_deviation = Column(Float)
     short_skewness = Column(Float)
     short_kurtosis = Column(Float)
 
     short_return_percentage = Column(Float)
     short_return_average_percentage = Column(Float)
-    short_return_standard_deviation_percentage = Column(Float)
+    short_standard_deviation_percentage = Column(Float)
     short_skewness_percentage = Column(Float)
     short_kurtosis_percentage = Column(Float)
 
@@ -142,10 +146,10 @@ class BacktestSummary(Base):
 
     # win long
     win_long_entry = Column(Integer)
-    win_long_average_holding_ms = Column(Float)
+    win_long_average_holding_ms = Column(Interval)
 
     win_long_return = Column(Float)
-    win_long_average = Column(Float)
+    win_long_return_average = Column(Float)
     win_long_standard_deviation = Column(Float)
     win_long_skewness = Column(Float)
     win_long_kurtosis = Column(Float)
@@ -153,17 +157,17 @@ class BacktestSummary(Base):
 
     win_long_return_percentage = Column(Float)
     win_long_return_average_percentage = Column(Float)
-    win_long_return_standard_deviation_percentage = Column(Float)
+    win_long_standard_deviation_percentage = Column(Float)
     win_long_skewness_percentage = Column(Float)
     win_long_kurtosis_percentage = Column(Float)
     win_long_median_percentage = Column(Float)
 
     # win short
     win_short_entry = Column(Integer)
-    win_short_average_holding_ms = Column(Float)
+    win_short_average_holding_ms = Column(Interval)
 
     win_short_return = Column(Float)
-    win_short_average = Column(Float)
+    win_short_return_average = Column(Float)
     win_short_standard_deviation = Column(Float)
     win_short_skewness = Column(Float)
     win_short_kurtosis = Column(Float)
@@ -171,17 +175,17 @@ class BacktestSummary(Base):
 
     win_short_return_percentage = Column(Float)
     win_short_return_average_percentage = Column(Float)
-    win_short_return_standard_deviation_percentage = Column(Float)
+    win_short_standard_deviation_percentage = Column(Float)
     win_short_skewness_percentage = Column(Float)
     win_short_kurtosis_percentage = Column(Float)
     win_short_median_percentage = Column(Float)
 
     # lose long
     lose_long_entry = Column(Integer)
-    lose_long_average_holding_ms = Column(Float)
+    lose_long_average_holding_ms = Column(Interval)
 
     lose_long_return = Column(Float)
-    lose_long_average = Column(Float)
+    lose_long_return_average = Column(Float)
     lose_long_standard_deviation = Column(Float)
     lose_long_skewness = Column(Float)
     lose_long_kurtosis = Column(Float)
@@ -189,17 +193,17 @@ class BacktestSummary(Base):
 
     lose_long_return_percentage = Column(Float)
     lose_long_return_average_percentage = Column(Float)
-    lose_long_return_standard_deviation_percentage = Column(Float)
+    lose_long_standard_deviation_percentage = Column(Float)
     lose_long_skewness_percentage = Column(Float)
     lose_long_kurtosis_percentage = Column(Float)
     lose_long_median_percentage = Column(Float)
 
     # lose short
     lose_short_entry = Column(Integer)
-    lose_short_average_holding_ms = Column(Float)
+    lose_short_average_holding_ms = Column(Interval)
 
     lose_short_return = Column(Float)
-    lose_short_average = Column(Float)
+    lose_short_return_average = Column(Float)
     lose_short_standard_deviation = Column(Float)
     lose_short_skewness = Column(Float)
     lose_short_kurtosis = Column(Float)
@@ -207,7 +211,7 @@ class BacktestSummary(Base):
 
     lose_short_return_percentage = Column(Float)
     lose_short_return_average_percentage = Column(Float)
-    lose_short_return_standard_deviation_percentage = Column(Float)
+    lose_short_standard_deviation_percentage = Column(Float)
     lose_short_skewness_percentage = Column(Float)
     lose_short_kurtosis_percentage = Column(Float)
     lose_short_median_percentage = Column(Float)
@@ -265,14 +269,14 @@ class BacktestSummary(Base):
         self.win_average_holding_ms = BacktestSummary.win_average_holding_ms
 
         self.win_return = BacktestSummary.win_return
-        self.win_average = BacktestSummary.win_average
+        self.win_return_average = BacktestSummary.win_return_average
         self.win_standard_deviation = BacktestSummary.win_standard_deviation
         self.win_skewness = BacktestSummary.win_skewness
         self.win_kurtosis = BacktestSummary.win_kurtosis
 
         self.win_return_percentage = BacktestSummary.win_return_percentage
         self.win_return_average_percentage = BacktestSummary.win_return_average_percentage
-        self.win_return_standard_deviation_percentage = BacktestSummary.win_return_standard_deviation_percentage
+        self.win_standard_deviation_percentage = BacktestSummary.win_standard_deviation_percentage
         self.win_skewness_percentage = BacktestSummary.win_skewness_percentage
         self.win_kurtosis_percentage = BacktestSummary.win_kurtosis_percentage
 
@@ -287,14 +291,14 @@ class BacktestSummary(Base):
         self.lose_average_holding_ms = BacktestSummary.lose_average_holding_ms
 
         self.lose_return = BacktestSummary.lose_return
-        self.lose_average = BacktestSummary.lose_average
+        self.lose_return_average = BacktestSummary.lose_return_average
         self.lose_standard_deviation = BacktestSummary.lose_standard_deviation
         self.lose_skewness = BacktestSummary.lose_skewness
         self.lose_kurtosis = BacktestSummary.lose_kurtosis
 
         self.lose_return_percentage = BacktestSummary.lose_return_percentage
         self.lose_return_average_percentage = BacktestSummary.lose_return_average_percentage
-        self.lose_return_standard_deviation_percentage = BacktestSummary.lose_return_standard_deviation_percentage
+        self.lose_standard_deviation_percentage = BacktestSummary.lose_standard_deviation_percentage
         self.lose_skewness_percentage = BacktestSummary.lose_skewness_percentage
         self.lose_kurtosis_percentage = BacktestSummary.lose_kurtosis_percentage
 
@@ -309,14 +313,14 @@ class BacktestSummary(Base):
         self.long_average_holding_ms = BacktestSummary.long_average_holding_ms
 
         self.long_return = BacktestSummary.long_return
-        self.long_average = BacktestSummary.long_average
+        self.long_return_average = BacktestSummary.long_return_average
         self.long_standard_deviation = BacktestSummary.long_standard_deviation
         self.long_skewness = BacktestSummary.long_skewness
         self.long_kurtosis = BacktestSummary.long_kurtosis
 
         self.long_return_percentage = BacktestSummary.long_return_percentage
         self.long_return_average_percentage = BacktestSummary.long_return_average_percentage
-        self.long_return_standard_deviation_percentage = BacktestSummary.long_return_standard_deviation_percentage
+        self.long_standard_deviation_percentage = BacktestSummary.long_standard_deviation_percentage
         self.long_skewness_percentage = BacktestSummary.long_skewness_percentage
         self.long_kurtosis_percentage = BacktestSummary.long_kurtosis_percentage
 
@@ -331,14 +335,14 @@ class BacktestSummary(Base):
         self.short_average_holding_ms = BacktestSummary.short_average_holding_ms
 
         self.short_return = BacktestSummary.short_return
-        self.short_average = BacktestSummary.short_average
+        self.short_return_average = BacktestSummary.short_return_average
         self.short_standard_deviation = BacktestSummary.short_standard_deviation
         self.short_skewness = BacktestSummary.short_skewness
         self.short_kurtosis = BacktestSummary.short_kurtosis
 
         self.short_return_percentage = BacktestSummary.short_return_percentage
         self.short_return_average_percentage = BacktestSummary.short_return_average_percentage
-        self.short_return_standard_deviation_percentage = BacktestSummary.short_return_standard_deviation_percentage
+        self.short_standard_deviation_percentage = BacktestSummary.short_standard_deviation_percentage
         self.short_skewness_percentage = BacktestSummary.short_skewness_percentage
         self.short_kurtosis_percentage = BacktestSummary.short_kurtosis_percentage
 
@@ -353,7 +357,7 @@ class BacktestSummary(Base):
         self.win_long_average_holding_ms = BacktestSummary.win_long_average_holding_ms
 
         self.win_long_return = BacktestSummary.win_long_return
-        self.win_long_average = BacktestSummary.win_long_average
+        self.win_long_return_average = BacktestSummary.win_long_return_average
         self.win_long_standard_deviation = BacktestSummary.win_long_standard_deviation
         self.win_long_skewness = BacktestSummary.win_long_skewness
         self.win_long_kurtosis = BacktestSummary.win_long_kurtosis
@@ -361,7 +365,7 @@ class BacktestSummary(Base):
 
         self.win_long_return_percentage = BacktestSummary.win_long_return_percentage
         self.win_long_return_average_percentage = BacktestSummary.win_long_return_average_percentage
-        self.win_long_return_standard_deviation_percentage = BacktestSummary.win_long_return_standard_deviation_percentage
+        self.win_long_standard_deviation_percentage = BacktestSummary.win_long_standard_deviation_percentage
         self.win_long_skewness_percentage = BacktestSummary.win_long_skewness_percentage
         self.win_long_kurtosis_percentage = BacktestSummary.win_long_kurtosis_percentage
         self.win_long_median_percentage = BacktestSummary.win_long_median_percentage
@@ -371,7 +375,7 @@ class BacktestSummary(Base):
         self.win_short_average_holding_ms = BacktestSummary.win_short_average_holding_ms
 
         self.win_short_return = BacktestSummary.win_short_return
-        self.win_short_average = BacktestSummary.win_short_average
+        self.win_short_return_average = BacktestSummary.win_short_return_average
         self.win_short_standard_deviation = BacktestSummary.win_short_standard_deviation
         self.win_short_skewness = BacktestSummary.win_short_skewness
         self.win_short_kurtosis = BacktestSummary.win_short_kurtosis
@@ -379,7 +383,7 @@ class BacktestSummary(Base):
 
         self.win_short_return_percentage = BacktestSummary.win_short_return_percentage
         self.win_short_return_average_percentage = BacktestSummary.win_short_return_average_percentage
-        self.win_short_return_standard_deviation_percentage = BacktestSummary.win_short_return_standard_deviation_percentage
+        self.win_short_standard_deviation_percentage = BacktestSummary.win_short_standard_deviation_percentage
         self.win_short_skewness_percentage = BacktestSummary.win_short_skewness_percentage
         self.win_short_kurtosis_percentage = BacktestSummary.win_short_kurtosis_percentage
         self.win_short_median_percentage = BacktestSummary.win_short_median_percentage
@@ -389,7 +393,7 @@ class BacktestSummary(Base):
         self.lose_long_average_holding_ms = BacktestSummary.lose_long_average_holding_ms
 
         self.lose_long_return = BacktestSummary.lose_long_return
-        self.lose_long_average = BacktestSummary.lose_long_average
+        self.lose_long_return_average = BacktestSummary.lose_long_return_average
         self.lose_long_standard_deviation = BacktestSummary.lose_long_standard_deviation
         self.lose_long_skewness = BacktestSummary.lose_long_skewness
         self.lose_long_kurtosis = BacktestSummary.lose_long_kurtosis
@@ -397,7 +401,7 @@ class BacktestSummary(Base):
 
         self.lose_long_return_percentage = BacktestSummary.lose_long_return_percentage
         self.lose_long_return_average_percentage = BacktestSummary.lose_long_return_average_percentage
-        self.lose_long_return_standard_deviation_percentage = BacktestSummary.lose_long_return_standard_deviation_percentage
+        self.lose_long_standard_deviation_percentage = BacktestSummary.lose_long_standard_deviation_percentage
         self.lose_long_skewness_percentage = BacktestSummary.lose_long_skewness_percentage
         self.lose_long_kurtosis_percentage = BacktestSummary.lose_long_kurtosis_percentage
         self.lose_long_median_percentage = BacktestSummary.lose_long_median_percentage
@@ -407,7 +411,7 @@ class BacktestSummary(Base):
         self.lose_short_average_holding_ms = BacktestSummary.lose_short_average_holding_ms
 
         self.lose_short_return = BacktestSummary.lose_short_return
-        self.lose_short_average = BacktestSummary.lose_short_average
+        self.lose_short_return_average = BacktestSummary.lose_short_return_average
         self.lose_short_standard_deviation = BacktestSummary.lose_short_standard_deviation
         self.lose_short_skewness = BacktestSummary.lose_short_skewness
         self.lose_short_kurtosis = BacktestSummary.lose_short_kurtosis
@@ -415,7 +419,7 @@ class BacktestSummary(Base):
 
         self.lose_short_return_percentage = BacktestSummary.lose_short_return_percentage
         self.lose_short_return_average_percentage = BacktestSummary.lose_short_return_average_percentage
-        self.lose_short_return_standard_deviation_percentage = BacktestSummary.lose_short_return_standard_deviation_percentage
+        self.lose_short_standard_deviation_percentage = BacktestSummary.lose_short_standard_deviation_percentage
         self.lose_short_skewness_percentage = BacktestSummary.lose_short_skewness_percentage
         self.lose_short_kurtosis_percentage = BacktestSummary.lose_short_kurtosis_percentage
         self.lose_short_median_percentage = BacktestSummary.lose_short_median_percentage
