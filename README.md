@@ -9,7 +9,7 @@ Fintech Final Project for Group 4
 Follow this installation guide by official
 [Anaconda](https://docs.anaconda.com/anaconda/install/)
 
-### install MySQL(if you want)
+### install MySQL
 
 for backtest
 
@@ -90,9 +90,6 @@ If you're using anaconda, please replace `pip` to `conda`
 `$ python3 build_dataset.py`
 `$ cd research_notebook`
 `$ jupyter notebook`
-
-Default settings is sqlite3 that you don't need any settings.
-You can also choose MySQL with config.ini
 
 You might be faced with this error at first execution, it's a bug in sqlalchemy so please ignore and run again.
 

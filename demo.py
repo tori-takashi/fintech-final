@@ -21,7 +21,6 @@ bitmex_exchange_client = ExchangeClient("bitmex")
 # influx_client = DBClient("influxdb")
 # print(influx_client.connector.get_list_database())
 
-sqlite3_client = DBClient("sqlite3")
 mysql_client = DBClient("mysql")
 
 # update database

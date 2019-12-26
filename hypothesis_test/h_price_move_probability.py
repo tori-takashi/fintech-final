@@ -14,11 +14,7 @@ class HPriceMovePlobability:
         self.bitmex = bitmex
         db_exisiting = False
 
-        db_path = "db/h_price_move_probability.sqlite3"
-        if os.path.exists(db_path):
-            db_exisiting = True
-
-        db = DBClient("sqlite3", opt=db_path)
+        db = DBClient("mysql")
         self.db_client = db.client
         self.db_cursor = db.cursor
 
