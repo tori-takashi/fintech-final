@@ -75,9 +75,8 @@ class TradingBot:
             batch_op.create_foreign_key("fk_management_summary", "backtest_summary", ["backtest_summary_id"], ["id"])
 
     def backtest_management_table(self):
-        backtest_management_table = Table(self.backtest_management_table_name, MetaData(bind=self.db_client.connector),
+        return Table(self.backtest_management_table_name, MetaData(bind=self.db_client.connector),
             autoload=True, autoload_with=self.db_client.connector)
-        return backtest_management_table
 
     def append_specific_params_column(self, table_def):
         return table_def
@@ -110,7 +109,6 @@ class TradingBot:
             
             self.run_backtest()
             self.insert_params_management()
-
 
     def insert_params_management(self):
         backtest_management = self.backtest_management_table()
