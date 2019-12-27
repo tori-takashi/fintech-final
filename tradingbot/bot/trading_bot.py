@@ -97,6 +97,7 @@ class TradingBot:
 
     def run(self, ohlcv_df=None, backtest_start_time=datetime.now() - timedelta(days=90), backtest_end_time=datetime.now(),
             floor_time=True):
+
         if ohlcv_df is not None:
             self.ohlcv_df = ohlcv_df
         else:
@@ -507,7 +508,10 @@ class TradingBot:
         summary.relative_drawdown = float(drawdowns["relative_drawdown"])
 
         summary.profit_factor = float(win_row.profit_size.sum() / abs(lose_row.profit_size.sum()))
-        summary.recovery_factor = summary.total_return / summary.maximal_drawdown
+        if summary.maximal_drawdown == 0:
+            summary.recovery_factor = 0
+        else:
+            summary.recovery_factor = summary.total_return / summary.maximal_drawdown
 
         self.db_client.session.add(summary)
         self.db_client.session.commit()

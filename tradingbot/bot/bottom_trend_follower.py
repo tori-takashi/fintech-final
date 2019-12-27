@@ -30,22 +30,23 @@ class BottomTrendFollow(TradingBot):
         super().__init__(exchange_client=exchange_client, db_client=db_client, default_params=self.default_params,
                          specific_params=self.specific_params, is_backtest=is_backtest)
 
-        # for metrics calculation
-        specific_params_values = list(self.specific_params.values())
-
-        self.bottom_trend_col = "ema_" + \
-            str(specific_params_values[0]) + "_trend"
-        self.middle_trend_col = "ema_" + \
-            str(specific_params_values[1]) + "_trend"
-        self.top_trend_col = "ema_" + str(specific_params_values[2]) + "_trend"
-
     def append_specific_params_column(self, table_def):
         table_def.append_column(Column("bottom_trend_tick", Integer))
         table_def.append_column(Column("middle_trend_tick", Integer))
         table_def.append_column(Column("top_trend_tick", Integer))
         return table_def
 
+    def set_trend_column(self):
+        specific_params_values = list(self.specific_params.values())
+        self.bottom_trend_col = "ema_" + \
+            str(specific_params_values[0]) + "_trend"
+        self.middle_trend_col = "ema_" + \
+            str(specific_params_values[1]) + "_trend"
+        self.top_trend_col = "ema_" + str(specific_params_values[2]) + "_trend"
+
     def calculate_metrics_for_backtest(self):
+        self.set_trend_column()
+
         ohlcv_with_metrics = self.ohlcv_df
         ta_ema = TechnicalAnalysisMACD(ohlcv_with_metrics)
 
