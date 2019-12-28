@@ -99,8 +99,3 @@ class DBClient:
             else:
                 result_rows = self.connector.execute(query)
                 return result_rows
-
-    def resultproxy_to_df(self, resultproxy):
-        df = pd.DataFrame(resultproxy.fetch_all)
-        df.columns = resultproxy.keys()
-        return df
