@@ -121,7 +121,7 @@ class TradingBot:
             self.insert_params_management()
             self.update_summary()
 
-    def bulk_insert_and_flush_transaction_log(self):
+    def bulk_insert(self):
         self.db_client.session.commit()
 
     def reset_backtest_result_with_params(self, default_params, specific_params):
