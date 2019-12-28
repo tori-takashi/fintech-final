@@ -278,8 +278,6 @@ class TradingBot:
         print(str(len(self.closed_positions_df)) + " transaction log added")
 
     def update_summary(self):
-        summary = self.db_client.session.query(BacktestSummary).filter(BacktestSummary.id==self.summary_id).first() 
-
         win_entries_condition = (self.closed_positions_df["profit_status"] == "win")
         win_row = self.closed_positions_df[(win_entries_condition)]
         lose_entries_condition = (self.closed_positions_df["profit_status"] == "lose")
@@ -295,230 +293,237 @@ class TradingBot:
         lose_long_row = self.closed_positions_df[(lose_entries_condition) & (long_entries_condition)]
         lose_short_row = self.closed_positions_df[(lose_entries_condition) & (short_entries_condition)]
 
-        # total
-        summary.total_entry = len(self.closed_positions_df)
-
-        summary.total_max_holding_ms = self.closed_positions_df["holding_time"].max().to_pytimedelta()
-        summary.total_average_holding_ms = self.closed_positions_df["holding_time"].mean().to_pytimedelta()
-        summary.total_min_holding_ms = self.closed_positions_df["holding_time"].min().to_pytimedelta()
-
-        summary.total_return  = float(self.closed_positions_df.profit_size.sum())
-        summary.total_return_average = float(self.closed_positions_df.profit_size.mean())
-        summary.total_standard_deviation  = float(self.closed_positions_df.profit_size.std())
-        summary.total_skewness = float(self.closed_positions_df.profit_size.skew())
-        summary.total_kurtosis = float(self.closed_positions_df.profit_size.kurt())
-        summary.total_median = float(self.closed_positions_df.profit_size.median())
+        total_return = float(self.closed_positions_df.profit_size.sum())
 
         if self.closed_positions_df.iloc[-1].current_balance > 0:
-            summary.total_return_percentage = \
-                float(100 * (self.closed_positions_df.iloc[-1].current_balance / self.initial_balance))
+            total_return_percentage = float(100 * (self.closed_positions_df.iloc[-1].current_balance / self.initial_balance))
         else:
-            summary.total_return_percentage = \
+            total_return_percentage = \
                 float(-100 * (abs(self.closed_positions_df.iloc[-1].current_balance) + self.initial_balance) / self.initial_balance)
-        
-        summary.total_return_average_percentage = float(self.closed_positions_df.profit_percentage.mean())
-        summary.total_standard_deviation_percentage  = float(self.closed_positions_df.profit_percentage.std())
-        summary.total_skewness_percentage = float(self.closed_positions_df.profit_percentage.skew())
-        summary.total_kurtosis_percentage = float(self.closed_positions_df.profit_percentage.kurt())
-        summary.total_median_percentage = float(self.closed_positions_df.profit_percentage.median())
 
-        summary.total_transaction_cost = float(self.closed_positions_df.transaction_cost.sum())
-
-        # win
-        summary.win_entry = len(win_row)
-        summary.win_average_holding_ms = win_row["holding_time"].mean().to_pytimedelta()
-        summary.win_rate = (summary.win_entry / len(self.closed_positions_df)) * 100
-
-        summary.win_return = float(win_row.profit_size.sum())
-        summary.win_return_average = float(win_row.profit_size.mean())
-        summary.win_standard_deviation  = float(win_row.profit_size.std())
-        summary.win_skewness = float(win_row.profit_size.skew())
-        summary.win_kurtosis = float(win_row.profit_size.kurt())
-        summary.win_median = float(win_row.profit_size.median())
-
-        summary.win_return_average_percentage = float(win_row.profit_percentage.mean())
-        summary.win_standard_deviation_percentage  = float(win_row.profit_percentage.std())
-        summary.win_skewness_percentage = float(win_row.profit_percentage.skew())
-        summary.win_kurtosis_percentage = float(win_row.profit_percentage.kurt())
-        summary.win_median_percentage = float(win_row.profit_percentage.median())
-
-        summary.win_transaction_cost = float(win_row.transaction_cost.sum())
-            
         win_consecutive = self.build_consecutive("win")
-
-        summary.win_consecutive_max_entry = win_consecutive["consecutive_max_entry"]
-        summary.win_consecutive_average_entry = win_consecutive["consecutive_average_entry"]
-        summary.win_consecutive_max_profit = float(win_consecutive["consecutive_df"].profit_size.sum())
-
-        summary.win_max_profit = float(win_row.profit_size.max())
-        summary.win_max_profit_percentage = float(win_row.profit_percentage.max())
-                
-        # lose
-        summary.lose_entry = len(lose_row)
-        summary.lose_rate = (summary.lose_entry / len(self.closed_positions_df)) * 100
-        summary.lose_average_holding_ms = lose_row["holding_time"].mean().to_pytimedelta()
-  
-        summary.lose_return  = float(lose_row.profit_size.sum())
-        summary.lose_return_average = float(lose_row.profit_size.mean())
-        summary.lose_standard_deviation  = float(lose_row.profit_size.std())
-        summary.lose_skewness = float(lose_row.profit_size.skew())
-        summary.lose_kurtosis = float(lose_row.profit_size.kurt())
-        summary.lose_median = float(lose_row.profit_size.median())
-
-        summary.lose_return_average_percentage = float(lose_row.profit_percentage.mean())
-        summary.lose_standard_deviation_percentage  = float(lose_row.profit_percentage.std())
-        summary.lose_skewness_percentage = float(lose_row.profit_percentage.skew())
-        summary.lose_kurtosis_percentage = float(lose_row.profit_percentage.kurt())
-        summary.lose_median_percentage = float(lose_row.profit_percentage.median())
-
-        summary.lose_transaction_cost = float(lose_row.transaction_cost.sum())
-            
         lose_consecutive = self.build_consecutive("lose")
-
-        summary.lose_consecutive_max_entry = lose_consecutive["consecutive_max_entry"]
-        summary.lose_consecutive_average_entry = lose_consecutive["consecutive_average_entry"]
-        summary.lose_consecutive_max_loss = float(lose_consecutive["consecutive_df"].profit_size.sum())
-
-        summary.lose_max_loss = float(lose_row.profit_size.min())
-        summary.lose_max_loss_percentage = float(lose_row.profit_percentage.min())
-
-        # long
-        summary.long_entry = len(long_row)
-        summary.long_rate = (summary.long_entry / len(self.closed_positions_df)) * 100
-        summary.long_average_holding_ms = long_row["holding_time"].mean().to_pytimedelta()
-
-        summary.long_return  = float(long_row.profit_size.sum())
-        summary.long_return_average = float(long_row.profit_size.mean())
-        summary.long_standard_deviation  = float(long_row.profit_size.std())
-        summary.long_skewness = float(long_row.profit_size.skew())
-        summary.long_kurtosis = float(long_row.profit_size.kurt())
-        summary.long_median = float(long_row.profit_size.median())
-
-        summary.long_return_average_percentage = float(long_row.profit_percentage.mean())
-        summary.long_standard_deviation_percentage  = float(long_row.profit_percentage.std())
-        summary.long_skewness_percentage = float(long_row.profit_percentage.skew())
-        summary.long_kurtosis_percentage = float(long_row.profit_percentage.kurt())
-        summary.long_median_percentage = float(long_row.profit_percentage.median())
-            
-        summary.long_max_profit = float(long_row.profit_size.max())
-        summary.long_max_profit_percentage = float(long_row.profit_percentage.max())
-
-        summary.long_max_loss = float(long_row.profit_size.min())
-        summary.long_max_loss_percentage = float(long_row.profit_percentage.min())
-
-        #short
-        summary.short_entry = len(short_row)
-        summary.short_rate = (summary.short_entry / len(self.closed_positions_df)) * 100
-        summary.short_average_holding_ms = short_row["holding_time"].mean().to_pytimedelta()
-
-        summary.short_return  = float(short_row.profit_size.sum())
-        summary.short_return_average = float(short_row.profit_size.mean())
-        summary.short_standard_deviation  = float(short_row.profit_size.std())
-        summary.short_skewness = float(short_row.profit_size.skew())
-        summary.short_kurtosis = float(short_row.profit_size.kurt())
-        summary.short_median = float(short_row.profit_size.median())
-
-        summary.short_return_average_percentage = float(short_row.profit_percentage.mean())
-        summary.short_standard_deviation_percentage  = float(short_row.profit_percentage.std())
-        summary.short_skewness_percentage = float(short_row.profit_percentage.skew())
-        summary.short_kurtosis_percentage = float(short_row.profit_percentage.kurt())
-        summary.short_median_percentage = float(short_row.profit_percentage.median())
-            
-        summary.short_max_profit = float(short_row.profit_size.max())
-        summary.short_max_profit_percentage = float(short_row.profit_percentage.max())
-
-        summary.short_max_loss = float(short_row.profit_size.min())
-        summary.short_max_loss_percentage = float(short_row.profit_percentage.min())
-
-        # win long
-        summary.win_long_entry = len(win_long_row)
-        summary.win_long_average_holding_ms = win_long_row["holding_time"].mean().to_pytimedelta()
-
-        summary.win_long_return  = float(win_long_row.profit_size.sum())
-        summary.win_long_return_average = float(win_long_row.profit_size.mean())
-        summary.win_long_standard_deviation  = float(win_long_row.profit_size.std())
-        summary.win_long_skewness = float(win_long_row.profit_size.skew())
-        summary.win_long_kurtosis = float(win_long_row.profit_size.kurt())
-        summary.win_long_median = float(win_long_row.profit_size.median())
-
-        summary.win_long_return_average_percentage = float(win_long_row.profit_percentage.mean())
-        summary.win_long_standard_deviation_percentage  = float(win_long_row.profit_percentage.std())
-        summary.win_long_skewness_percentage = float(win_long_row.profit_percentage.skew())
-        summary.win_long_kurtosis_percentage = float(win_long_row.profit_percentage.kurt())
-        summary.win_long_median_percentage = float(win_long_row.profit_percentage.median())
-
-        # win short
-        summary.win_short_entry = len(win_short_row)
-        summary.win_short_average_holding_ms = win_short_row["holding_time"].mean().to_pytimedelta()
-
-        summary.win_short_return  = float(win_short_row.profit_size.sum())
-        summary.win_short_return_average = float(win_short_row.profit_size.mean())
-        summary.win_short_standard_deviation  = float(win_short_row.profit_size.std())
-        summary.win_short_skewness = float(win_short_row.profit_size.skew())
-        summary.win_short_kurtosis = float(win_short_row.profit_size.kurt())
-        summary.win_short_median = float(win_short_row.profit_size.median())
-
-        summary.win_short_return_average_percentage = float(win_short_row.profit_percentage.mean())
-        summary.win_short_standard_deviation_percentage  = float(win_short_row.profit_percentage.std())
-        summary.win_short_skewness_percentage = float(win_short_row.profit_percentage.skew())
-        summary.win_short_kurtosis_percentage = float(win_short_row.profit_percentage.kurt())
-        summary.win_short_median_percentage = float(win_short_row.profit_percentage.median())
-
-        # lose long
-        summary.lose_long_entry = len(lose_long_row)
-        summary.lose_long_average_holding_ms = lose_long_row["holding_time"].mean().to_pytimedelta()
-
-        summary.lose_long_return  = float(lose_long_row.profit_size.sum())
-        summary.lose_long_returna_verage = float(lose_long_row.profit_size.mean())
-        summary.lose_long_standard_deviation  = float(lose_long_row.profit_size.std())
-        summary.lose_long_skewness = float(lose_long_row.profit_size.skew())
-        summary.lose_long_kurtosis = float(lose_long_row.profit_size.kurt())
-        summary.lose_long_median = float(lose_long_row.profit_size.median())
-
-        summary.lose_long_return_average_percentage = float(lose_long_row.profit_percentage.mean())
-        summary.lose_long_standard_deviation_percentage  = float(lose_long_row.profit_percentage.std())
-        summary.lose_long_skewness_percentage = float(lose_long_row.profit_percentage.skew())
-        summary.lose_long_kurtosis_percentage = float(lose_long_row.profit_percentage.kurt())
-        summary.lose_long_median_percentage = float(lose_long_row.profit_percentage.median())
-
-        # lose short
-        summary.lose_short_entry = len(lose_short_row)
-        summary.lose_short_average_holding_ms = lose_short_row["holding_time"].mean().to_pytimedelta()
-
-        summary.lose_short_return  = float(lose_short_row.profit_size.sum())
-        summary.lose_short_return_average = float(lose_short_row.profit_size.mean())
-        summary.lose_short_standard_deviation  = float(lose_short_row.profit_size.std())
-        summary.lose_short_skewness = float(lose_short_row.profit_size.skew())
-        summary.lose_short_kurtosis = float(lose_short_row.profit_size.kurt())
-        summary.lose_short_median = float(lose_short_row.profit_size.median())
-
-        summary.lose_short_return_average_percentage = float(lose_short_row.profit_percentage.mean())
-        summary.lose_short_standard_deviation_percentage  = float(lose_short_row.profit_percentage.std())
-        summary.lose_short_skewness_percentage = float(lose_short_row.profit_percentage.skew())
-        summary.lose_short_kurtosis_percentage = float(lose_short_row.profit_percentage.kurt())
-        summary.lose_short_median_percentage = float(lose_short_row.profit_percentage.median())
-
-        # other metrics
-        summary.backtest_start_time = self.backtest_start_time
-        summary.backtest_end_time = self.backtest_end_time
-
-        summary.bot_name = self.bot_name
-        summary.initial_balance = self.initial_balance
-        summary.account_currency = self.account_currency
 
         drawdowns = self.build_drawdowns()
 
-        summary.absolute_drawdown = float(drawdowns["absolute_drawdown"])
-        summary.maximal_drawdown = float(drawdowns["maximal_drawdown"])
-        summary.relative_drawdown = float(drawdowns["relative_drawdown"])
-
-        summary.profit_factor = float(win_row.profit_size.sum() / abs(lose_row.profit_size.sum()))
-        if summary.maximal_drawdown == 0:
-            summary.recovery_factor = 0
+        if drawdowns["maximal_drawdown"] == 0:
+            recovery_factor = 0
         else:
-            summary.recovery_factor = summary.total_return / summary.maximal_drawdown
+            recovery_factor = total_return / drawdowns["maximal_drawdown"]
 
-        self.db_client.session.bulk_save_objects([summary])
+        # total
+        summary_dict = {
+        "id": self.summary_id,
+        "total_entry": len(self.closed_positions_df),
+
+        "total_max_holding_ms": self.closed_positions_df["holding_time"].max().to_pytimedelta(),
+        "total_average_holding_ms": self.closed_positions_df["holding_time"].mean().to_pytimedelta(),
+        "total_min_holding_ms": self.closed_positions_df["holding_time"].min().to_pytimedelta(),
+
+        "total_return ": total_return,
+        "total_return_average": float(self.closed_positions_df.profit_size.mean()),
+        "total_standard_deviation ": float(self.closed_positions_df.profit_size.std()),
+        "total_skewness": float(self.closed_positions_df.profit_size.skew()),
+        "total_kurtosis": float(self.closed_positions_df.profit_size.kurt()),
+        "total_median": float(self.closed_positions_df.profit_size.median()),
+
+        "total_return_percentage": total_return_percentage,
+        "total_return_average_percentage": float(self.closed_positions_df.profit_percentage.mean()),
+        "total_standard_deviation_percentage ": float(self.closed_positions_df.profit_percentage.std()),
+        "total_skewness_percentage": float(self.closed_positions_df.profit_percentage.skew()),
+        "total_kurtosis_percentage": float(self.closed_positions_df.profit_percentage.kurt()),
+        "total_median_percentage": float(self.closed_positions_df.profit_percentage.median()),
+
+        "total_transaction_cost": float(self.closed_positions_df.transaction_cost.sum()),
+
+        # win
+        "win_entry": len(win_row),
+        "win_average_holding_ms": win_row["holding_time"].mean().to_pytimedelta(),
+        "win_rate": (len(win_row) / len(self.closed_positions_df)) * 100,
+
+        "win_return": float(win_row.profit_size.sum()),
+        "win_return_average": float(win_row.profit_size.mean()),
+        "win_standard_deviation ": float(win_row.profit_size.std()),
+        "win_skewness": float(win_row.profit_size.skew()),
+        "win_kurtosis": float(win_row.profit_size.kurt()),
+        "win_median": float(win_row.profit_size.median()),
+
+        "win_return_average_percentage": float(win_row.profit_percentage.mean()),
+        "win_standard_deviation_percentage ": float(win_row.profit_percentage.std()),
+        "win_skewness_percentage": float(win_row.profit_percentage.skew()),
+        "win_kurtosis_percentage": float(win_row.profit_percentage.kurt()),
+        "win_median_percentage": float(win_row.profit_percentage.median()),
+
+        "win_transaction_cost": float(win_row.transaction_cost.sum()),
+            
+        "win_consecutive_max_entry": win_consecutive["consecutive_max_entry"],
+        "win_consecutive_average_entry": win_consecutive["consecutive_average_entry"],
+        "win_consecutive_max_profit": float(win_consecutive["consecutive_df"].profit_size.sum()),
+
+        "win_max_profit": float(win_row.profit_size.max()),
+        "win_max_profit_percentage": float(win_row.profit_percentage.max()),
+                
+        # lose
+        "lose_entry": len(lose_row),
+        "lose_rate": (len(lose_row) / len(self.closed_positions_df)) * 100,
+        "lose_average_holding_ms": lose_row["holding_time"].mean().to_pytimedelta(),
+  
+        "lose_return ": float(lose_row.profit_size.sum()),
+        "lose_return_average": float(lose_row.profit_size.mean()),
+        "lose_standard_deviation ": float(lose_row.profit_size.std()),
+        "lose_skewness": float(lose_row.profit_size.skew()),
+        "lose_kurtosis": float(lose_row.profit_size.kurt()),
+        "lose_median": float(lose_row.profit_size.median()),
+
+        "lose_return_average_percentage": float(lose_row.profit_percentage.mean()),
+        "lose_standard_deviation_percentage ": float(lose_row.profit_percentage.std()),
+        "lose_skewness_percentage": float(lose_row.profit_percentage.skew()),
+        "lose_kurtosis_percentage": float(lose_row.profit_percentage.kurt()),
+        "lose_median_percentage": float(lose_row.profit_percentage.median()),
+
+        "lose_transaction_cost": float(lose_row.transaction_cost.sum()),
+            
+        "lose_consecutive_max_entry": lose_consecutive["consecutive_max_entry"],
+        "lose_consecutive_average_entry": lose_consecutive["consecutive_average_entry"],
+        "lose_consecutive_max_loss": float(lose_consecutive["consecutive_df"].profit_size.sum()),
+
+        "lose_max_loss": float(lose_row.profit_size.min()),
+        "lose_max_loss_percentage": float(lose_row.profit_percentage.min()),
+
+        # long
+        "long_entry": len(long_row),
+        "long_rate": (len(long_row) / len(self.closed_positions_df)) * 100,
+        "long_average_holding_ms": long_row["holding_time"].mean().to_pytimedelta(),
+
+        "long_return ": float(long_row.profit_size.sum()),
+        "long_return_average": float(long_row.profit_size.mean()),
+        "long_standard_deviation ": float(long_row.profit_size.std()),
+        "long_skewness": float(long_row.profit_size.skew()),
+        "long_kurtosis": float(long_row.profit_size.kurt()),
+        "long_median": float(long_row.profit_size.median()),
+
+        "long_return_average_percentage": float(long_row.profit_percentage.mean()),
+        "long_standard_deviation_percentage ": float(long_row.profit_percentage.std()),
+        "long_skewness_percentage": float(long_row.profit_percentage.skew()),
+        "long_kurtosis_percentage": float(long_row.profit_percentage.kurt()),
+        "long_median_percentage": float(long_row.profit_percentage.median()),
+            
+        "long_max_profit": float(long_row.profit_size.max()),
+        "long_max_profit_percentage": float(long_row.profit_percentage.max()),
+
+        "long_max_loss": float(long_row.profit_size.min()),
+        "long_max_loss_percentage": float(long_row.profit_percentage.min()),
+
+        #short
+        "short_entry": len(short_row),
+        "short_rate": (len(short_row) / len(self.closed_positions_df)) * 100,
+        "short_average_holding_ms": short_row["holding_time"].mean().to_pytimedelta(),
+
+        "short_return ": float(short_row.profit_size.sum()),
+        "short_return_average": float(short_row.profit_size.mean()),
+        "short_standard_deviation ": float(short_row.profit_size.std()),
+        "short_skewness": float(short_row.profit_size.skew()),
+        "short_kurtosis": float(short_row.profit_size.kurt()),
+        "short_median": float(short_row.profit_size.median()),
+
+        "short_return_average_percentage": float(short_row.profit_percentage.mean()),
+        "short_standard_deviation_percentage ": float(short_row.profit_percentage.std()),
+        "short_skewness_percentage": float(short_row.profit_percentage.skew()),
+        "short_kurtosis_percentage": float(short_row.profit_percentage.kurt()),
+        "short_median_percentage": float(short_row.profit_percentage.median()),
+            
+        "short_max_profit": float(short_row.profit_size.max()),
+        "short_max_profit_percentage": float(short_row.profit_percentage.max()),
+
+        "short_max_loss": float(short_row.profit_size.min()),
+        "short_max_loss_percentage": float(short_row.profit_percentage.min()),
+
+        # win long
+        "win_long_entry": len(win_long_row),
+        "win_long_average_holding_ms": win_long_row["holding_time"].mean().to_pytimedelta(),
+
+        "win_long_return ": float(win_long_row.profit_size.sum()),
+        "win_long_return_average": float(win_long_row.profit_size.mean()),
+        "win_long_standard_deviation ": float(win_long_row.profit_size.std()),
+        "win_long_skewness": float(win_long_row.profit_size.skew()),
+        "win_long_kurtosis": float(win_long_row.profit_size.kurt()),
+        "win_long_median": float(win_long_row.profit_size.median()),
+
+        "win_long_return_average_percentage": float(win_long_row.profit_percentage.mean()),
+        "win_long_standard_deviation_percentage ": float(win_long_row.profit_percentage.std()),
+        "win_long_skewness_percentage": float(win_long_row.profit_percentage.skew()),
+        "win_long_kurtosis_percentage": float(win_long_row.profit_percentage.kurt()),
+        "win_long_median_percentage": float(win_long_row.profit_percentage.median()),
+
+        # win short
+        "win_short_entry": len(win_short_row),
+        "win_short_average_holding_ms": win_short_row["holding_time"].mean().to_pytimedelta(),
+
+        "win_short_return ": float(win_short_row.profit_size.sum()),
+        "win_short_return_average": float(win_short_row.profit_size.mean()),
+        "win_short_standard_deviation ": float(win_short_row.profit_size.std()),
+        "win_short_skewness": float(win_short_row.profit_size.skew()),
+        "win_short_kurtosis": float(win_short_row.profit_size.kurt()),
+        "win_short_median": float(win_short_row.profit_size.median()),
+
+        "win_short_return_average_percentage": float(win_short_row.profit_percentage.mean()),
+        "win_short_standard_deviation_percentage ": float(win_short_row.profit_percentage.std()),
+        "win_short_skewness_percentage": float(win_short_row.profit_percentage.skew()),
+        "win_short_kurtosis_percentage": float(win_short_row.profit_percentage.kurt()),
+        "win_short_median_percentage": float(win_short_row.profit_percentage.median()),
+
+        # lose long
+        "lose_long_entry": len(lose_long_row),
+        "lose_long_average_holding_ms": lose_long_row["holding_time"].mean().to_pytimedelta(),
+
+        "lose_long_return ": float(lose_long_row.profit_size.sum()),
+        "lose_long_returna_verage": float(lose_long_row.profit_size.mean()),
+        "lose_long_standard_deviation ": float(lose_long_row.profit_size.std()),
+        "lose_long_skewness": float(lose_long_row.profit_size.skew()),
+        "lose_long_kurtosis": float(lose_long_row.profit_size.kurt()),
+        "lose_long_median": float(lose_long_row.profit_size.median()),
+
+        "lose_long_return_average_percentage": float(lose_long_row.profit_percentage.mean()),
+        "lose_long_standard_deviation_percentage ": float(lose_long_row.profit_percentage.std()),
+        "lose_long_skewness_percentage": float(lose_long_row.profit_percentage.skew()),
+        "lose_long_kurtosis_percentage": float(lose_long_row.profit_percentage.kurt()),
+        "lose_long_median_percentage": float(lose_long_row.profit_percentage.median()),
+
+        # lose short
+        "lose_short_entry": len(lose_short_row),
+        "lose_short_average_holding_ms": lose_short_row["holding_time"].mean().to_pytimedelta(),
+
+        "lose_short_return ": float(lose_short_row.profit_size.sum()),
+        "lose_short_return_average": float(lose_short_row.profit_size.mean()),
+        "lose_short_standard_deviation ": float(lose_short_row.profit_size.std()),
+        "lose_short_skewness": float(lose_short_row.profit_size.skew()),
+        "lose_short_kurtosis": float(lose_short_row.profit_size.kurt()),
+        "lose_short_median": float(lose_short_row.profit_size.median()),
+
+        "lose_short_return_average_percentage": float(lose_short_row.profit_percentage.mean()),
+        "lose_short_standard_deviation_percentage ": float(lose_short_row.profit_percentage.std()),
+        "lose_short_skewness_percentage": float(lose_short_row.profit_percentage.skew()),
+        "lose_short_kurtosis_percentage": float(lose_short_row.profit_percentage.kurt()),
+        "lose_short_median_percentage": float(lose_short_row.profit_percentage.median()),
+
+        # other metrics
+        "backtest_start_time": self.backtest_start_time,
+        "backtest_end_time": self.backtest_end_time,
+
+        "bot_name": self.bot_name,
+        "initial_balance": self.initial_balance,
+        "account_currency": self.account_currency,
+
+
+        "absolute_drawdown": float(drawdowns["absolute_drawdown"]),
+        "maximal_drawdown": float(drawdowns["maximal_drawdown"]),
+        "relative_drawdown": float(drawdowns["relative_drawdown"]),
+
+        "profit_factor": float(win_row.profit_size.sum() / abs(lose_row.profit_size.sum())),
+        "recovery_factor": recovery_factor
+        }
+
+        self.db_client.session.bulk_update_mappings(BacktestSummary, summary_dict)
 
     def build_drawdowns(self):
         if self.closed_positions_df.current_balance.min() < 0:
