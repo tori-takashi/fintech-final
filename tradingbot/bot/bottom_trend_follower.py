@@ -73,6 +73,7 @@ class BottomTrendFollow(TradingBot):
             return "downtrend"
 
     def calculate_sign(self, row):
+        # for real environment
         if (row[self.bottom_trend_col] == "uptrend"
             and row[self.middle_trend_col] == "uptrend"
                 and row[self.top_trend_col] == "uptrend"):
