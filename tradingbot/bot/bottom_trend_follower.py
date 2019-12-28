@@ -60,13 +60,17 @@ class BottomTrendFollow(TradingBot):
             # percentage of ema moving
             ohlcv_with_metrics[diff_col] = ohlcv_with_metrics[col].diff() / \
                 ohlcv_with_metrics[col] * 100
-
             # trend of ema moving
-            ohlcv_with_metrics.loc[(ohlcv_with_metrics[diff_col] > 0),
-                                   trend_col] = "uptrend"
-            ohlcv_with_metrics.loc[~(ohlcv_with_metrics[diff_col] > 0),
-                                   trend_col] = "downtrend"
+            ohlcv_with_metrics.loc[:, trend_col] = ohlcv_with_metrics[diff_col].map(
+                self.create_trend_col)
+
         return ohlcv_with_metrics
+
+    def create_trend_col(self, diff):
+        if diff > 0:
+            return "uptrend"
+        else:
+            return "downtrend"
 
     def calculate_sign(self, row):
         if (row[self.bottom_trend_col] == "uptrend"
