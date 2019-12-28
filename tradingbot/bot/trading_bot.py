@@ -116,7 +116,7 @@ class TradingBot:
             
             self.ohlcv_with_signals = self.calculate_signs_for_backtest().dropna()
             
-            self.summary_id = self.init_summary()            
+            self.summary_id = self.init_summary()
             self.insert_backtest_transaction_logs()
             self.insert_params_management()
             self.update_summary()
@@ -271,6 +271,8 @@ class TradingBot:
         self.closed_positions_df = self.db_client.exec_sql(get_transaction_logs_query)
         self.closed_positions_df["holding_time"] = self.closed_positions_df["close_time"] - \
             self.closed_positions_df["entry_time"]
+
+        print(str(len(self.closed_positions_df)) + " transaction log added")
 
     def update_summary(self):
         summary = self.db_client.session.query(BacktestSummary).filter(BacktestSummary.id==self.summary_id).first() 
