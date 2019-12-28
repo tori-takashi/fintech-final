@@ -85,11 +85,14 @@ class BottomTrendFollow(TradingBot):
             return "do_nothing"
 
     def calculate_signs_for_backtest(self):
-        self.ohlcv_df.loc[((self.ohlcv_df[self.bottom_trend_col] == "uptrend")
-                           & (self.ohlcv_df[self.middle_trend_col] == "uptrend")
-                           & (self.ohlcv_df[self.top_trend_col] == "uptrend")), "signal"] = "buy"
-        self.ohlcv_df.loc[((self.ohlcv_df[self.bottom_trend_col] == "downtrend")
-                           & (self.ohlcv_df[self.middle_trend_col] == "downtrend")
-                           & (self.ohlcv_df[self.top_trend_col] == "downtrend")), "signal"] = "sell"
-        self.ohlcv_df["signal"] = self.ohlcv_df["signal"].fillna("do_nothing")
+        bottom = self.ohlcv_df[self.bottom_trend_col]
+        middle = self.ohlcv_df[self.middle_trend_col]
+        top = self.ohlcv_df[self.top_trend_col]
+        self.ohlcv_df.loc[((bottom == "uptrend")
+                           & (middle == "uptrend")
+                           & (top == "uptrend")), "signal"] = "buy"
+        self.ohlcv_df.loc[((bottom == "downtrend")
+                           & (middle == "downtrend")
+                           & (top == "downtrend")), "signal"] = "sell"
+        self.ohlcv_df["signal"].fillna("do_nothing", inplace=True)
         return self.ohlcv_df
