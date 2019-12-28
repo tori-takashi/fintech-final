@@ -23,6 +23,13 @@ from model.backtest_management import BacktestManagement
 from model.backtest_transaction_log import BacktestTransactionLog
 from model.backtest_summary import BacktestSummary
 
+# option settings
+pd.set_option("display.max_columns", 250)
+pd.set_option("display.max_rows", 250)
+import warnings
+warnings.filterwarnings('ignore')
+plt.rcParams['figure.figsize'] = (10.0, 20.0)
+
 bitmex_exchange_client = ExchangeClient(
     "bitmex", Path("../tradingbot/config.ini"))
 mysql_client = DBClient("mysql", Path("../tradingbot/config.ini"))
