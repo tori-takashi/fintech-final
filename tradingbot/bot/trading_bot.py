@@ -121,6 +121,9 @@ class TradingBot:
             self.insert_params_management()
             self.update_summary()
 
+    def bulk_insert_and_flush_transaction_log(self):
+        self.db_client.session.commit()
+
     def reset_backtest_result_with_params(self, default_params, specific_params):
         # for loop and serach optimal metrics value
         self.ohlcv_with_metrics = None
@@ -142,13 +145,14 @@ class TradingBot:
         self.db_client.connector.execute(backtest_management.insert().values(self.combined_params))
 
     def init_summary(self):
-        summary = BacktestSummary()
-        summary.bot_name = self.bot_name
-        summary.initial_balance = self.initial_balance
-        summary.account_currency = self.account_currency
+        summary = BacktestSummary().__table__
+        init_summary = {
+            "bot_name": self.bot_name,
+            "initial_balance": self.initial_balance,
+            "account_currency": self.account_currency
+        }
 
-        self.db_client.session.add(summary)
-        self.db_client.session.commit()
+        self.db_client.connector.execute(summary.insert().values(init_summary))
         # [FIXME] only for single task processing, unable to parallel process
         return int(self.db_client.get_last_row("backtest_summary").index.array[0])
         
@@ -185,13 +189,15 @@ class TradingBot:
         position = None
         current_balance = self.initial_balance
 
+        transaction_logs = []
+
         for row in self.ohlcv_with_signals.itertuples(): # self.ohlcv_with_signals should be dataframe
             if row.signal == "buy":
                 if position is not None and position.order_type == "long":
                     # inverse => close position
                     if self.inverse_trading:
                         position.close_position(row)
-                        position.add_transaction_log(self.db_client, self.summary_id)
+                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
                     # normal => still holding
@@ -205,7 +211,7 @@ class TradingBot:
                     # normal => close position
                     else:
                         position.close_position(row)
-                        position.add_transaction_log(self.db_client, self.summary_id)
+                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
                 else:
@@ -226,7 +232,7 @@ class TradingBot:
                     # normal => close position
                     else:
                         position.close_position(row)
-                        position.add_transaction_log(self.db_client, self.summary_id)
+                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
 
@@ -234,7 +240,7 @@ class TradingBot:
                     # inverse => close position
                     if self.inverse_trading:
                         position.close_position(row)
-                        position.add_transaction_log(self.db_client, self.summary_id)
+                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
 
@@ -259,16 +265,13 @@ class TradingBot:
                     if position is not None:
                         # close position
                         position.close_position(row)
-                        position.add_transaction_log(self.db_client, self.summary_id)
+                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
 
-        self.db_client.session.commit()
-        # bulk insert transaction log to table
+        self.db_client.session.bulk_insert_mappings(BacktestTransactionLog, transaction_logs)
 
-        get_transaction_logs_query = "SELECT * FROM backtest_transaction_log WHERE backtest_summary_id=" + \
-             str(self.summary_id) + ";"
-        self.closed_positions_df = self.db_client.exec_sql(get_transaction_logs_query)
+        self.closed_positions_df = pd.DataFrame(transaction_logs)
         self.closed_positions_df["holding_time"] = self.closed_positions_df["close_time"] - \
             self.closed_positions_df["entry_time"]
 
@@ -515,8 +518,7 @@ class TradingBot:
         else:
             summary.recovery_factor = summary.total_return / summary.maximal_drawdown
 
-        self.db_client.session.add(summary)
-        self.db_client.session.commit()
+        self.db_client.session.bulk_save_objects([summary])
 
     def build_drawdowns(self):
         if self.closed_positions_df.current_balance.min() < 0:
@@ -596,7 +598,7 @@ class TradingBot:
         consecutive_average_entry = np.mean(consecutive_win_lose_entries)
 
         return_hash = {
-            "consecutive_df": self.closed_positions_df.reset_index().loc[max_start_index:max_end_index].set_index("id"),
+            "consecutive_df": self.closed_positions_df.loc[max_start_index:max_end_index],
             "consecutive_max_entry": int(consecutive_max_entry),
             "consecutive_average_entry": float(consecutive_average_entry)
         }
@@ -668,32 +670,25 @@ class OrderPosition:
 
         self.order_status = "closed"
 
-    def add_transaction_log(self, db_client, summary_id):
-        log = BacktestTransactionLog()
-
-        log.backtest_summary_id = int(summary_id)
-
-        log.exchange_name = self.exchange_name
-        log.asset_name = self.asset_name
-        log.current_balance = float(self.current_balance)
-
-        log.entry_time = self.entry_time.to_pydatetime()
-        log.close_time = self.close_time.to_pydatetime()
-
-        log.order_status = self.order_status
-        log.order_type = self.order_type
-        log.profit_status = self.profit_status
-
-        log.entry_price = float(self.entry_price)
-        log.price_difference = float(self.price_difference)
-        log.price_difference_percentage = float(self.price_difference_percentage)
-        log.close_price = float(self.close_price)
-
-        log.leverage = float(self.leverage)
-        log.lot = float(self.lot)
-
-        log.transaction_cost = float(self.transaction_cost)
-        log.profit_size = float(self.profit_size)
-        log.profit_percentage = float(self.profit_percentage)
-
-        db_client.session.add(log)
+    def generate_transaction_log(self, db_client, summary_id):
+        log_dict = {
+            "backtest_summary_id": int(summary_id),
+            "exchange_name": self.exchange_name,
+            "asset_name": self.asset_name,
+            "current_balance": float(self.current_balance),
+            "entry_time": self.entry_time.to_pydatetime(),
+            "close_time": self.close_time.to_pydatetime(),
+            "order_status": self.order_status,
+            "order_type": self.order_type,
+            "profit_status": self.profit_status,
+            "entry_price": float(self.entry_price),
+            "price_difference": float(self.price_difference),
+            "price_difference_percentage": float(self.price_difference_percentage),
+            "close_price": float(self.close_price),
+            "leverage": float(self.leverage),
+            "lot": float(self.lot),
+            "transaction_cost": float(self.transaction_cost),
+            "profit_size": float(self.profit_size),
+            "profit_percentage" : float(self.profit_percentage)
+        }
+        return log_dict
