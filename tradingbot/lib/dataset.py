@@ -76,14 +76,19 @@ class Dataset:
             self.update_ohlcv(data_provider_name)
 
     def get_ohlcv(self, timeframe=None, start_time=None, end_time=None, round=True):
-        query = "SELECT * FROM " + self.original_ohlcv_1min_table + ";"
-
         print("Loading OHLCV data from " +
               self.original_ohlcv_1min_table + " now...")
-        all_data = self.db_client.exec_sql(query)
-        print("Done")
-        all_data['timestamp'] = pd.to_datetime(all_data.timestamp)
+        ohlcv_1min_model = OHLCV_1min()
+        ohlcv_1min_model.__table__.name = self.original_ohlcv_1min_table
+
+        all_data_models = self.db_client.session.query(OHLCV_1min).filter(
+            start_time < ohlcv_1min_model.timestamp).filter(
+                ohlcv_1min_model.timestamp < end_time).all()
+
+        all_data = self.db_client.model_to_dataframe(all_data_models)
         all_data.set_index('timestamp', inplace=True)
+
+        print("Done")
 
         if round:
             rounded_start_time = self.floor_datetime_to_ohlcv(start_time, "up")
