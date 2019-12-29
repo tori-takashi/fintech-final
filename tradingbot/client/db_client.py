@@ -99,7 +99,7 @@ class DBClient:
 
     def get_last_row(self, table_name):
         id = "(SELECT MAX(id) FROM " + table_name + ")"
-        return self.get_row_by_id(table_name, id, return_type="dataframe")
+        return self.get_row_by_id(table_name, id)
 
     def exec_sql(self, query, return_df=True):
         if self.is_influxdb() is not True:
