@@ -38,4 +38,4 @@ class TechnicalAnalysisSAR:
     def get_psar_trend(self):
         return pd.concat([
             self.df["psar"],
-            self.df["trend"]], axis=1)
+            self.df["psar_trend"]], axis=1)
