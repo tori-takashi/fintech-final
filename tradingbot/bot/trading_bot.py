@@ -273,6 +273,7 @@ class TradingBot:
                         current_balance = position.current_balance
                         position = None
 
+        # the processing time is propotionate to the number of transaction logs
         self.db_client.session.bulk_insert_mappings(BacktestTransactionLog, transaction_logs)
 
         self.closed_positions_df = pd.DataFrame(transaction_logs)

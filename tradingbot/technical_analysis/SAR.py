@@ -20,10 +20,10 @@ class TechnicalAnalysisSAR:
 
         self.ta_SAR = ta.SAR(self.high, self.low, 0.02, 0.2)
         self.df["psar"] = self.ta_SAR
-        self.df["trend"] = None
-        self.df.loc[self.df["psar"] >= self.df["close"], "trend"] = "downtrend"
+        self.df.loc[self.df["psar"] >= self.df["close"],
+                    "psar_trend"] = "downtrend"
         self.df.loc[~(self.df["psar"] >= self.df["close"]),
-                    "trend"] = "uptrend"
+                    "psar_trend"] = "uptrend"
 
     def show_summary(self):
         plt.title('PSAR')
