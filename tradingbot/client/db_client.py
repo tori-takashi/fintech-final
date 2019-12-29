@@ -75,11 +75,20 @@ class DBClient:
         if self.is_influxdb():
             pass
 
-    def get_row_by_id(self, table_name, id, return_type):
+    def get_row_by_id(self, table_name, id):
         if self.is_mysql():
             query = "SELECT * FROM " + table_name + \
                 " WHERE id = " + str(id) + ";"
+        return self.query_return(query)
 
+    def get_row_by_backtest_summary_id(self, table_name, backtest_summary_id):
+        if self.is_mysql:
+            query = "SELECT * FROM " + table_name + \
+                " WHERE backtest_summary_id = " + \
+                    str(backtest_summary_id) + ";"
+        return self.query_return(query)
+
+    def query_return(self, query):
         return_df = pd.read_sql_query(
             query, self.connector, index_col="id")
 
