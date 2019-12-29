@@ -24,6 +24,3 @@ class OHLCV_1min(declarative_base()):
         self.low = OHLCV_1min.low
         self.close = OHLCV_1min.close
         self.volume = OHLCV_1min.volume
-
-    def __repr__(self):
-        return "<'%s'('%s','%s')>" % (OHLCV_1min.__tablename__, self.info_name, self.description)
