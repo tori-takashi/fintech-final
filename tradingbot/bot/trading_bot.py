@@ -452,7 +452,7 @@ class TradingBot:
         "win_long_kurtosis": float(win_long_row.profit_size.kurt()),
         "win_long_median": float(win_long_row.profit_size.median()),
 
-        "win_long_return_average": float(win_long_row.profit_size.mean())
+        "win_long_return_average": float(win_long_row.profit_size.mean()),
         "win_long_return_average_percentage": float(win_long_row.profit_percentage.mean()),
         "win_long_standard_deviation_percentage": float(win_long_row.profit_percentage.std()),
         "win_long_skewness_percentage": float(win_long_row.profit_percentage.skew()),
