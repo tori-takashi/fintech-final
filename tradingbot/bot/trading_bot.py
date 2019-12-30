@@ -452,6 +452,7 @@ class TradingBot:
         "win_long_kurtosis": float(win_long_row.profit_size.kurt()),
         "win_long_median": float(win_long_row.profit_size.median()),
 
+        "win_long_return_average": float(win_long_row.profit_size.mean())
         "win_long_return_average_percentage": float(win_long_row.profit_percentage.mean()),
         "win_long_standard_deviation_percentage": float(win_long_row.profit_percentage.std()),
         "win_long_skewness_percentage": float(win_long_row.profit_percentage.skew()),
@@ -470,7 +471,7 @@ class TradingBot:
         "win_short_median": float(win_short_row.profit_size.median()),
 
         "win_short_return_average_percentage": float(win_short_row.profit_percentage.mean()),
-        "win_short_standard_deviation_percentage ": float(win_short_row.profit_percentage.std()),
+        "win_short_standard_deviation_percentage": float(win_short_row.profit_percentage.std()),
         "win_short_skewness_percentage": float(win_short_row.profit_percentage.skew()),
         "win_short_kurtosis_percentage": float(win_short_row.profit_percentage.kurt()),
         "win_short_median_percentage": float(win_short_row.profit_percentage.median()),
@@ -480,7 +481,7 @@ class TradingBot:
         "lose_long_average_holding_ms": lose_long_row["holding_time"].mean().to_pytimedelta(),
 
         "lose_long_return": float(lose_long_row.profit_size.sum()),
-        "lose_long_returna_average": float(lose_long_row.profit_size.mean()),
+        "lose_long_return_average": float(lose_long_row.profit_size.mean()),
         "lose_long_standard_deviation": float(lose_long_row.profit_size.std()),
         "lose_long_skewness": float(lose_long_row.profit_size.skew()),
         "lose_long_kurtosis": float(lose_long_row.profit_size.kurt()),
