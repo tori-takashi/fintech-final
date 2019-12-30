@@ -1,11 +1,17 @@
 import sys
 from pathlib import Path
-sys.path.append("../tradingbot")
+
+# fix to adjust your directory
+tradingbot_dir = "../../tradingbot"
+config_ini = tradingbot_dir + "/config.ini"
+
+sys.path.append(tradingbot_dir)
 
 from datetime import datetime, timedelta
 from pprint import pprint
 
 from sklearn import linear_model
+from scipy import stats
 
 import pandas as pd
 import numpy as np
@@ -33,7 +39,7 @@ warnings.filterwarnings('ignore')
 plt.rcParams['figure.figsize'] = (10.0, 20.0)
 
 bitmex_exchange_client = ExchangeClient(
-    "bitmex", Path("../tradingbot/config.ini"))
-mysql_client = DBClient("mysql", Path("../tradingbot/config.ini"))
+    "bitmex", Path(config_ini))
+mysql_client = DBClient("mysql", Path(config_ini))
 dataset_manager = Dataset(mysql_client, bitmex_exchange_client)
 dataset_manager.update_ohlcv("bitmex")
