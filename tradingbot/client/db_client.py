@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from model.base import Base
 from .config import Config
 
-from influxdb import InfluxDBClient
+from influxdb import DataFrameClient
 
 
 class DBClient:
@@ -44,7 +44,7 @@ class DBClient:
         return create_engine(url)
 
     def influxdb_establish_connection(self):
-        return InfluxDBClient(
+        return DataFrameClient(
             host=self.config['influxdb']['host'],
             port=int(self.config['influxdb']['port']),
             username=self.config['influxdb']['username'],
@@ -53,9 +53,12 @@ class DBClient:
         )
 
     def write_to_table(self, table_name, dataframe, if_exists):
-        if self.is_influxdb() is not True:
+        if self.is_mysql():
             dataframe.to_sql(table_name, self.connector,
                              if_exists=if_exists, index=False)
+        if self.is_influxdb():
+            # put all tags and fields before passing dataframe
+            return self.connector.write_points(dataframe, table_name)
 
     def overwrite_to_table(self, table_name, dataframe):
         # for influx db is not available
@@ -78,12 +81,14 @@ class DBClient:
             return table_name in self.connector.get_list_measurements()
 
     def get_row_by_id(self, table_name, id):
+        # only for mysql
         if self.is_mysql():
             query = "SELECT * FROM " + table_name + \
                 " WHERE id = " + str(id) + ";"
         return self.query_return(query)
 
     def get_row_by_backtest_summary_id(self, table_name, backtest_summary_id):
+        # only for mysql
         if self.is_mysql:
             query = "SELECT * FROM " + table_name + \
                 " WHERE backtest_summary_id = " + \
@@ -100,8 +105,16 @@ class DBClient:
             return False
 
     def get_last_row(self, table_name):
+        # inly for mysql
         id = "(SELECT MAX(id) FROM " + table_name + ")"
         return self.get_row_by_id(table_name, id)
+
+    def get_last_row_with_tags(self, measurement_name, tags):
+        # only for influxdb
+        results = self.connector.query("SELECT * FROM " + measurement_name)
+        last_row = list(results.get_points(
+            measurement=measurement_name, tags=tags))[-1]
+        return last_row
 
     def exec_sql(self, query, return_df=True):
         if self.is_influxdb() is not True:

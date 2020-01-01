@@ -39,21 +39,36 @@ class Dataset:
 
     def update_ohlcv(self, data_provider_name, start_time=None, asset_name=None):
         # if ohlcv table is existing, start time will be ignored
-        if self.db_client.is_table_exist(self.original_ohlcv_1min_table):
-            latest_row = self.db_client.get_last_row(
-                self.original_ohlcv_1min_table)
-            if latest_row.empty is not True:
-                start_time = self.calc_fetch_start_time(latest_row)
+        if self.db_client.is_mysql():
+            if self.db_client.is_table_exist(self.original_ohlcv_1min_table):
+                latest_row = self.db_client.get_last_row(
+                    self.original_ohlcv_1min_table)
+                if latest_row.empty is not True:
+                    start_time = self.calc_fetch_start_time(latest_row)
+            else:
+                self.build_ohlcv_1min_table()
 
-        else:
-            self.build_ohlcv_1min_table()
+        if self.db_client.is_influxdb():
+            # {FIXME} Hard coding
+            if self.db_client.is_table_exist("OHLCV_data"):
+                latest_row = self.db_client.get_last_row_with_tags(
+                    "OHLCV_data", {"exchange_name": "bitmex", "asset_name": "BTC/USD"})
+                print(latest_row)
 
         if data_provider_name == "bitmex":
             ohlcv_df = self.download_ohlcv_data_from_bitmex(
                 "1m", start_time, end_time=datetime.now())
 
-        self.db_client.append_to_table(
-            self.original_ohlcv_1min_table, ohlcv_df)
+        if self.db_client.is_mysql():
+            self.db_client.append_to_table(
+                self.original_ohlcv_1min_table, ohlcv_df)
+        if self.db_client.is_influxdb():
+            self.db_client.append_to_table(
+                "OHLCV_data", ohlcv_df
+            )
+
+        if self.db_client.get_last_row_with_tags(
+                "OHLCV_data", {"exchange_name": "bitmex", "asset_name": "BTC/USD"}):
 
     def build_ohlcv_1min_table(self):
         ohlcv_1min_table = OHLCV_1min.__table__

@@ -35,6 +35,8 @@ class TradingBot:
         self.specific_params = specific_params
         self.combined_params = dict(**self.default_params, **self.specific_params)
 
+        self.dataset_manipulator = Dataset(self.db_client, self.exchange_client)
+
         if is_backtest:
             # for params table
             self.backtest_management_table_name = self.bot_name + "_backtest_management"
@@ -42,8 +44,6 @@ class TradingBot:
             # backtest configure
             self.initial_balance = 100.0  # USD
             self.account_currency = "USD"
-        
-            self.dataset_manipulator = Dataset(self.db_client, self.exchange_client)
 
             if self.db_client.is_table_exist(self.backtest_management_table_name) is not True:
                 self.create_backtest_management_table()
@@ -51,7 +51,6 @@ class TradingBot:
                 # delete useless template table
                 drop_query = "DROP TABLE backtest_management;"
                 self.db_client.exec_sql(drop_query, return_df=False)
-                    
 
     def create_backtest_management_table(self):
         backtest_management_template = BacktestManagement
