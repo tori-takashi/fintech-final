@@ -101,7 +101,12 @@ class TradingBot:
 
         if self.is_backtest is not True:
             print("running on real environment")
-            self.dataset_manipulator.update_ohlcv("bitmex", start_time=datetime.now() - timedelta(days=1), asset_name="BTC/USD")
+
+            while True:
+                download_start = datetime.now()
+                self.dataset_manipulator.update_ohlcv("bitmex", start_time=datetime.now() - timedelta(days=1), asset_name="BTC/USD")
+                if datetime.now() - download_start < timedelta(minutes=29):
+                    break
 
         if ohlcv_df is not None:
             self.ohlcv_df = ohlcv_df
@@ -124,6 +129,10 @@ class TradingBot:
             self.insert_backtest_transaction_logs()
             self.insert_params_management()
             self.update_summary()
+
+        else:
+            pass
+            # for real environment
 
     def bulk_insert(self):
         self.db_client.session.commit()

@@ -62,6 +62,7 @@ class Dataset:
         if self.db_client.is_mysql():
             self.db_client.append_to_table(
                 self.original_ohlcv_1min_table, ohlcv_df)
+
         if self.db_client.is_influxdb():
             time_indexed_ohlcv_df = ohlcv_df.set_index('timestamp')
             self.db_client.append_to_table(
@@ -78,7 +79,8 @@ class Dataset:
             latest_row_time = pd.to_datetime(
                 latest_row['timestamp']).dt.to_pydatetime()[0]
         elif self.db_client.is_influxdb():
-            latest_row_time = pd.to_datetime(latest_row.index.values[0])
+            latest_row_time = pd.to_datetime(
+                latest_row.index.values[0]).to_pydatetime()
 
         append_offset = timedelta(minutes=1, seconds=30)
         start_time = latest_row_time + append_offset
