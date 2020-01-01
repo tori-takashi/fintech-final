@@ -104,8 +104,9 @@ class TradingBot:
 
             while True:
                 download_start = datetime.now()
-                self.dataset_manipulator.update_ohlcv("bitmex", start_time=datetime.now() - timedelta(days=1), asset_name="BTC/USD")
-                if datetime.now() - download_start < timedelta(minutes=29):
+                self.dataset_manipulator.update_ohlcv("bitmex", start_time=datetime.now() - timedelta(days=6),
+                asset_name="BTC/USD", with_ta=True)
+                if datetime.now() - download_start < timedelta(seconds=29):
                     break
 
         if ohlcv_df is not None:
@@ -133,6 +134,13 @@ class TradingBot:
         else:
             pass
             # for real environment
+
+            # loop
+            # get the OHLCV
+            # calc metrics and judge buy or sell or donothing
+            # follow the signal
+            # manage the order
+            # record the order
 
     def bulk_insert(self):
         self.db_client.session.commit()

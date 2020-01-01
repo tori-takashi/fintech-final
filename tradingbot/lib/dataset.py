@@ -6,6 +6,18 @@ from .pandamex import PandaMex
 
 from model.ohlcv_1min import OHLCV_1min
 
+from technical_analysis.ad import TechnicalAnalysisAD
+from technical_analysis.atr import TechnicalAnalysisATR
+from technical_analysis.bollinger_band import TechnicalAnalysisBB
+from technical_analysis.MACD import TechnicalAnalysisMACD
+from technical_analysis.SAR import TechnicalAnalysisSAR
+from technical_analysis.obv import TechnicalAnalysisOBV
+from technical_analysis.roc import TechnicalAnalysisROC
+from technical_analysis.rsi import TechnicalAnalysisRSI
+from technical_analysis.so import TechnicalAnalysisSTOCH
+from technical_analysis.williamsr import TechnicalAnalysisWilliamsR
+from technical_analysis.wma import TechnicalAnalysisWMA
+
 
 class Dataset:
     def __init__(self, db_client, data_provider_client=None):
@@ -37,7 +49,7 @@ class Dataset:
 
         return pd.concat(ohlcv_df_list)
 
-    def update_ohlcv(self, data_provider_name, start_time=None, asset_name=None):
+    def update_ohlcv(self, data_provider_name, start_time=None, asset_name=None, with_ta=False):
         # if ohlcv table is existing, start time will be ignored
         if self.db_client.is_mysql():
             if self.db_client.is_table_exist(self.original_ohlcv_1min_table):
@@ -59,6 +71,9 @@ class Dataset:
             ohlcv_df = self.download_ohlcv_data_from_bitmex(
                 "1m", start_time, end_time=datetime.now())
 
+        if with_ta:
+            ohlcv_df = self.add_technical_statistics_to_ohlcv_df(ohlcv_df)
+
         if self.db_client.is_mysql():
             self.db_client.append_to_table(
                 self.original_ohlcv_1min_table, ohlcv_df)
@@ -68,6 +83,49 @@ class Dataset:
             self.db_client.append_to_table(
                 "OHLCV_data", time_indexed_ohlcv_df
             )
+
+    def add_technical_statistics_to_ohlcv_df(self, df):
+        ta_ad = TechnicalAnalysisAD(df)
+        ad_df = ta_ad.get_ad()
+
+        ta_atr = TechnicalAnalysisATR(df)
+        atr_df = ta_atr.get_atr()
+
+        ta_sar = TechnicalAnalysisSAR(df)
+        sar_df = ta_sar.get_psar_trend()
+        # already append these cols
+
+        ta_macd = TechnicalAnalysisMACD(df)
+        # already append these 3 cols
+        ema_5 = ta_macd.append_ema_close(5)
+        ema_3 = ta_macd.append_ema_close(3)
+        ema_2 = ta_macd.append_ema_close(2)
+        ema_1 = ta_macd.append_ema_close(1)
+
+        ta_obv = TechnicalAnalysisOBV(df)
+        obv_df = ta_obv.get_obv()
+
+        ta_roc = TechnicalAnalysisROC(df)
+        roc_df = ta_roc.get_roc()
+
+        ta_rsi = TechnicalAnalysisRSI(df)
+        rsi_df = ta_rsi.get_rsi()
+
+        ta_so = TechnicalAnalysisSTOCH(df)
+        so_df = ta_so.get_so()
+
+        ta_williamsr = TechnicalAnalysisWilliamsR(df)
+        williamsr_df = ta_williamsr.get_williams_r()
+
+        ta_wma = TechnicalAnalysisWMA(df)
+        wma_df = ta_wma.get_wma()
+
+        ta_applied_df = pd.concat(
+            [df, ad_df, atr_df, obv_df, roc_df, rsi_df, so_df, williamsr_df, wma_df], axis=1)
+        # sar has already append on above
+        ta_applied_df.dropna(inplace=True)
+
+        return ta_applied_df
 
     def build_ohlcv_1min_table(self):
         ohlcv_1min_table = OHLCV_1min.__table__
