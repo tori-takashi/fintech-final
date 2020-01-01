@@ -31,7 +31,7 @@ class DBClient:
         return self.db_type == "influxdb"
 
     def establish_connection_to_db(self):
-        if self.is_mysql:
+        if self.is_mysql():
             return self.mysql_establish_connection()
         elif self.is_influxdb():
             return self.influxdb_establish_connection()
@@ -57,6 +57,7 @@ class DBClient:
                              if_exists=if_exists, index=False)
 
     def overwrite_to_table(self, table_name, dataframe):
+        # for influx db is not available
         self.write_to_table(table_name, dataframe, if_exists="replace")
 
     def append_to_table(self, table_name, dataframe):
