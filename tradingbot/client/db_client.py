@@ -75,7 +75,7 @@ class DBClient:
                     return False
 
         if self.is_influxdb():
-            pass
+            return table_name in self.connector.get_list_measurements()
 
     def get_row_by_id(self, table_name, id):
         if self.is_mysql():
@@ -110,6 +110,12 @@ class DBClient:
             else:
                 result_rows = self.connector.execute(query)
                 return result_rows
+
+        if self.is_influxdb():
+            if return_df:
+                pass
+            else:
+                return self.connector.query(query)
 
     def model_to_dataframe(self, model_list):
         return pd.DataFrame([model.__dict__ for model in model_list]).drop("_sa_instance_state", axis=1)
