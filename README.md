@@ -136,7 +136,11 @@ If you move into tradingbot directory, it would be failed due to unable to read 
 You might be faced with this error at first execution, it's a bug in sqlalchemy so please ignore and run again.
 
 ```
-sqlalchemy.exc.ArgumentError: Could not locate any simple equality expressions involving locally mapped foreign key columns for primary join condition 'bottom_trend_follow_backtest_management.backtest_summary_id = backtest_summary.id' on relationship BacktestManagement.backtest_summary.  Ensure that referencing columns are associated with a ForeignKey or ForeignKeyConstraint, or are annotated in the join condition with the foreign() annotation. To allow comparison operators other than '==', the relationship can be marked as viewonly=True.
+sqlalchemy.exc.ArgumentError: Could not locate any simple equality expressions involving locally mapped foreign key columns
+ for primary join condition 'bottom_trend_follow_backtest_management.backtest_summary_id = backtest_summary.id' on
+ relationship BacktestManagement.backtest_summary.  Ensure that referencing columns are associated with a ForeignKey or
+ ForeignKeyConstraint, or are annotated in the join condition with the foreign() annotation. To allow comparison operators
+ other than '==', the relationship can be marked as viewonly=True.
 ```
 
 ## Error
