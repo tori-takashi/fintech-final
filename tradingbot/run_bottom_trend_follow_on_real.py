@@ -31,3 +31,4 @@ bottom_trend_follow = BottomTrendFollow(
     bitmex_client, influx_client, default_params=default_params, specific_params=specific_params, is_backtest=False)
 bottom_trend_follow.set_bot_identity_for_real(
     "bottom_trend_follow_ver1_1_5_3_1_1_0")
+bottom_trend_follow.run()
