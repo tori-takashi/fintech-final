@@ -53,7 +53,7 @@ class Dataset:
             if self.db_client.is_table_exist("OHLCV_data"):
                 latest_row = self.db_client.get_last_row_with_tags(
                     "OHLCV_data", {"exchange_name": "bitmex", "asset_name": "BTC/USD"})
-                print(latest_row)
+                start_time = self.calc_fetch_start_time(latest_row)
 
         if data_provider_name == "bitmex":
             ohlcv_df = self.download_ohlcv_data_from_bitmex(
@@ -63,12 +63,10 @@ class Dataset:
             self.db_client.append_to_table(
                 self.original_ohlcv_1min_table, ohlcv_df)
         if self.db_client.is_influxdb():
+            time_indexed_ohlcv_df = ohlcv_df.set_index('timestamp')
             self.db_client.append_to_table(
-                "OHLCV_data", ohlcv_df
+                "OHLCV_data", time_indexed_ohlcv_df
             )
-
-        if self.db_client.get_last_row_with_tags(
-                "OHLCV_data", {"exchange_name": "bitmex", "asset_name": "BTC/USD"}):
 
     def build_ohlcv_1min_table(self):
         ohlcv_1min_table = OHLCV_1min.__table__
@@ -76,8 +74,11 @@ class Dataset:
         ohlcv_1min_table.create(bind=self.db_client.connector)
 
     def calc_fetch_start_time(self, latest_row):
-        latest_row_time = pd.to_datetime(
-            latest_row['timestamp']).dt.to_pydatetime()[0]
+        if self.db_client.is_mysql():
+            latest_row_time = pd.to_datetime(
+                latest_row['timestamp']).dt.to_pydatetime()[0]
+        elif self.db_client.is_influxdb():
+            latest_row_time = pd.to_datetime(latest_row.index.values[0])
 
         append_offset = timedelta(minutes=1, seconds=30)
         start_time = latest_row_time + append_offset
@@ -90,20 +91,28 @@ class Dataset:
         for data_provider_name in data_provider_names:
             self.update_ohlcv(data_provider_name)
 
-    def get_ohlcv(self, timeframe=None, start_time=None, end_time=None, round=True):
-        print("Loading OHLCV data from " +
-              self.original_ohlcv_1min_table + " now...")
-        ohlcv_1min_model = OHLCV_1min()
-        ohlcv_1min_model.__table__.name = self.original_ohlcv_1min_table
+    def get_ohlcv(self, timeframe=None, start_time=None, end_time=None, exchange_name=None, asset_name=None, round=True):
+        if self.db_client.is_mysql():
+            print("Loading OHLCV data from " +
+                  self.original_ohlcv_1min_table + " now...")
+            ohlcv_1min_model = OHLCV_1min()
+            ohlcv_1min_model.__table__.name = self.original_ohlcv_1min_table
 
-        all_data_models = self.db_client.session.query(OHLCV_1min).filter(
-            start_time < ohlcv_1min_model.timestamp).filter(
-                ohlcv_1min_model.timestamp < end_time).all()
+            all_data_models = self.db_client.session.query(OHLCV_1min).filter(
+                start_time < ohlcv_1min_model.timestamp).filter(
+                    ohlcv_1min_model.timestamp < end_time).all()
 
-        all_data = self.db_client.model_to_dataframe(all_data_models)
-        all_data.set_index('timestamp', inplace=True)
+            all_data = self.db_client.model_to_dataframe(all_data_models)
+            all_data.set_index('timestamp', inplace=True)
 
-        print("Done")
+        if self.db_client.is_influxdb():
+            # [FIXME] Hard coding
+            print("Loading OHLCV_data now...")
+            all_data_default_dict = self.db_client.exec_sql(
+                "SELECT * FROM OHLCV_data WHERE exchange_name='bitmex' and asset_name='BTC/USD'")
+            all_data = self.db_client.default_dict_to_dataframe(
+                "OHLCV_data", all_data_default_dict)
+            print("Done")
 
         if round:
             rounded_start_time = self.floor_datetime_to_ohlcv(start_time, "up")

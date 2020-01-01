@@ -99,14 +99,17 @@ class TradingBot:
     def run(self, ohlcv_df=None, backtest_start_time=datetime.now() - timedelta(days=90), backtest_end_time=datetime.now(),
             floor_time=True):
 
+        if self.is_backtest is not True:
+            print("running on real environment")
+            self.dataset_manipulator.update_ohlcv("bitmex", start_time=datetime.now() - timedelta(days=1), asset_name="BTC/USD")
+
         if ohlcv_df is not None:
             self.ohlcv_df = ohlcv_df
         else:
             self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, backtest_start_time, backtest_end_time)
 
-        self.ohlcv_with_metrics = self.calculate_metrics_for_backtest()
-
         if self.is_backtest:
+            self.ohlcv_with_metrics = self.calculate_metrics_for_backtest()
             # for summary
             if floor_time:
                 backtest_start_time = self.dataset_manipulator.floor_datetime_to_ohlcv(backtest_start_time, "up")

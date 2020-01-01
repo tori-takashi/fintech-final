@@ -78,7 +78,7 @@ class DBClient:
                     return False
 
         if self.is_influxdb():
-            return table_name in self.connector.get_list_measurements()
+            return {"name": table_name} in self.connector.get_list_measurements()
 
     def get_row_by_id(self, table_name, id):
         # only for mysql
@@ -89,7 +89,7 @@ class DBClient:
 
     def get_row_by_backtest_summary_id(self, table_name, backtest_summary_id):
         # only for mysql
-        if self.is_mysql:
+        if self.is_mysql():
             query = "SELECT * FROM " + table_name + \
                 " WHERE backtest_summary_id = " + \
                     str(backtest_summary_id) + ";"
@@ -107,17 +107,22 @@ class DBClient:
     def get_last_row(self, table_name):
         # inly for mysql
         id = "(SELECT MAX(id) FROM " + table_name + ")"
-        return self.get_row_by_id(table_name, id)
+        return self.get_row_by_backtest_summary_id(table_name, id)
 
     def get_last_row_with_tags(self, measurement_name, tags):
         # only for influxdb
-        results = self.connector.query("SELECT * FROM " + measurement_name)
-        last_row = list(results.get_points(
-            measurement=measurement_name, tags=tags))[-1]
-        return last_row
+        query = "SELECT * FROM " + measurement_name + " WHERE "
+        for column, tag in tags.items():
+            query += column + " = '" + tag + "' and "
+        query = query[:-4]
+
+        results = self.exec_sql(query)
+        results_df = self.default_dict_to_dataframe(measurement_name, results)
+
+        return results_df.tail(1)
 
     def exec_sql(self, query, return_df=True):
-        if self.is_influxdb() is not True:
+        if self.is_mysql():
             if return_df:
                 return pd.read_sql(query, self.connector, index_col="id")
             else:
@@ -125,10 +130,14 @@ class DBClient:
                 return result_rows
 
         if self.is_influxdb():
+            # return df always
             if return_df:
-                pass
-            else:
                 return self.connector.query(query)
 
     def model_to_dataframe(self, model_list):
+        # from sqlalchemy
         return pd.DataFrame([model.__dict__ for model in model_list]).drop("_sa_instance_state", axis=1)
+
+    def default_dict_to_dataframe(self, measurement, defaultdict):
+        # from influxdb especially exec_sql
+        return defaultdict[measurement]
