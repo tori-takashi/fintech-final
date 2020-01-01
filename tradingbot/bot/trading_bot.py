@@ -27,16 +27,14 @@ class TradingBot:
 
         self.exchange_client = exchange_client
         self.db_client = db_client
+        self.is_backtest = is_backtest
 
         self.default_params = default_params
         self.extract_default_params(self.default_params)
 
         self.specific_params = specific_params
-
         self.combined_params = dict(**self.default_params, **self.specific_params)
 
-        self.is_backtest = is_backtest
-        
         if is_backtest:
             # for params table
             self.backtest_management_table_name = self.bot_name + "_backtest_management"
@@ -53,7 +51,7 @@ class TradingBot:
                 # delete useless template table
                 drop_query = "DROP TABLE backtest_management;"
                 self.db_client.exec_sql(drop_query, return_df=False)
-
+                    
 
     def create_backtest_management_table(self):
         backtest_management_template = BacktestManagement
@@ -139,6 +137,9 @@ class TradingBot:
         self.extract_default_params(self.default_params)
         self.specific_params = specific_params
         self.combined_params = dict(**self.default_params, **self.specific_params)
+
+    def set_bot_identity_for_real(self, bot_identity):
+        self.bot_identity = bot_identity
 
     def insert_params_management(self):
         backtest_management = self.backtest_management_table()

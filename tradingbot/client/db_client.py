@@ -48,7 +48,8 @@ class DBClient:
             host=self.config['influxdb']['host'],
             port=int(self.config['influxdb']['port']),
             username=self.config['influxdb']['username'],
-            password=self.config['influxdb']['password']
+            password=self.config['influxdb']['password'],
+            database=self.config['influxdb']['db_name']
         )
 
     def write_to_table(self, table_name, dataframe, if_exists):

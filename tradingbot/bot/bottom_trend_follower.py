@@ -7,8 +7,9 @@ from technical_analysis.MACD import TechnicalAnalysisMACD
 
 
 class BottomTrendFollow(TradingBot):
-    def __init__(self, exchange_client, db_client, is_backtest=False):
+    def __init__(self, exchange_client, db_client, default_params=None, specific_params=None, is_backtest=False):
         # default hyper parameters
+        # please follow this order to name on real environment
         self.default_params = {
             "bot_name": "bottom_trend_follow",
             "timeframe": 60,
@@ -27,6 +28,9 @@ class BottomTrendFollow(TradingBot):
             "top_trend_tick": self.top_trend_tick
         }
 
+        if default_params is not None and specific_params is not None:
+            self.default_params = default_params
+            self.specific_params = specific_params
         super().__init__(exchange_client=exchange_client, db_client=db_client, default_params=self.default_params,
                          specific_params=self.specific_params, is_backtest=is_backtest)
 
