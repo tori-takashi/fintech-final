@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from bot.bottom_trend_follower import BottomTrendFollow
 
 from client.db_client import DBClient
@@ -31,4 +33,4 @@ bottom_trend_follow = BottomTrendFollow(
     bitmex_client, influx_client, default_params=default_params, specific_params=specific_params, is_backtest=False)
 bottom_trend_follow.set_bot_identity_for_real(
     "bottom_trend_follow_ver1_1_5_3_1_1_0")
-bottom_trend_follow.run()
+bottom_trend_follow.run(ohlcv_start_time=datetime.now() - timedelta(hours=2))

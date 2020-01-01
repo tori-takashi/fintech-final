@@ -96,7 +96,7 @@ class TradingBot:
         self.close_position_on_do_nothing = default_params["close_position_on_do_nothing"]
         self.inverse_trading = default_params["inverse_trading"]
 
-    def run(self, ohlcv_df=None, backtest_start_time=datetime.now() - timedelta(days=90), backtest_end_time=datetime.now(),
+    def run(self, ohlcv_df=None, ohlcv_start_time=datetime.now() - timedelta(days=90), ohlcv_end_time=datetime.now(),
             floor_time=True):
 
         if self.is_backtest is not True:
@@ -112,17 +112,17 @@ class TradingBot:
         if ohlcv_df is not None:
             self.ohlcv_df = ohlcv_df
         else:
-            self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, backtest_start_time, backtest_end_time)
+            self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, ohlcv_start_time, ohlcv_end_time)
 
         if self.is_backtest:
             self.ohlcv_with_metrics = self.calculate_metrics_for_backtest()
             # for summary
             if floor_time:
-                backtest_start_time = self.dataset_manipulator.floor_datetime_to_ohlcv(backtest_start_time, "up")
-                backtest_end_time = self.dataset_manipulator.floor_datetime_to_ohlcv(backtest_end_time, "down")
+                ohlcv_start_time = self.dataset_manipulator.floor_datetime_to_ohlcv(ohlcv_start_time, "up")
+                ohlcv_end_time = self.dataset_manipulator.floor_datetime_to_ohlcv(ohlcv_end_time, "down")
             
-            self.backtest_start_time = backtest_start_time
-            self.backtest_end_time = backtest_end_time
+            self.ohlcv_start_time = ohlcv_start_time
+            self.ohlcv_end_time = ohlcv_end_time
             
             self.ohlcv_with_signals = self.calculate_signs_for_backtest().dropna()
             
@@ -134,13 +134,20 @@ class TradingBot:
         else:
             pass
             # for real environment
+            start_end_range = ohlcv_end_time - ohlcv_start_time
 
             # loop
             # get the OHLCV
+            self.dataset_manipulator.update_ohlcv("bitmex", asset_name="BTC/USD", with_ta=True)
+            self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe,
+                datetime.now() - start_end_range, datetime.now())
+            
             # calc metrics and judge buy or sell or donothing
+            
             # follow the signal
             # manage the order
             # record the order
+
 
     def bulk_insert(self):
         self.db_client.session.commit()
