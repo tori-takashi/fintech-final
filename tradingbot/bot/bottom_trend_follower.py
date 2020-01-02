@@ -70,24 +70,42 @@ class BottomTrendFollow(TradingBot):
 
         return ohlcv_with_metrics
 
+    def calculate_metrics_for_real(self, df):
+        # [FIXME] almost copy and paste
+        self.set_trend_column()
+        for tick in list(self.specific_params.values()):
+            col = "ema_" + str(tick)
+            diff_col = col + "_diff"
+            trend_col = col + "_trend"
+
+            # get diff of ema
+            df[diff_col] = (df[col].diff() / df[col]) * 100
+            # trend of ema moving
+            df.loc[:, trend_col] = df[diff_col].map(
+                self.create_trend_col)
+        return df
+
     def create_trend_col(self, diff):
         if diff > 0:
             return "uptrend"
         else:
             return "downtrend"
 
-    def calculate_sign(self, row):
+    def calculate_signs_for_real(self, df):
         # for real environment
-        if (row[self.bottom_trend_col] == "uptrend"
-            and row[self.middle_trend_col] == "uptrend"
-                and row[self.top_trend_col] == "uptrend"):
-            return "buy"
-        elif (row[self.bottom_trend_col] == "downtrend"
-              and row[self.middle_trend_col] == "downtrend"
-                and row[self.top_trend_col] == "downtrend"):
-            return "sell"
-        else:
-            return "do_nothing"
+        # [FIXME] almost copy and paste
+
+        bottom = df[self.bottom_trend_col]
+        middle = df[self.middle_trend_col]
+        top = df[self.top_trend_col]
+        df.loc[((bottom == "uptrend")
+                & (middle == "uptrend")
+                & (top == "uptrend")), "signal"] = "buy"
+        df.loc[((bottom == "downtrend")
+                & (middle == "downtrend")
+                & (top == "downtrend")), "signal"] = "sell"
+        df["signal"].fillna("do_nothing", inplace=True)
+        return df
 
     def calculate_signs_for_backtest(self):
         bottom = self.ohlcv_df[self.bottom_trend_col]

@@ -4,6 +4,7 @@ import numpy as np
 
 import logging
 from datetime import datetime, timedelta
+from time import sleep
 
 from sqlalchemy import Column, Integer, Float, Table, MetaData
 from sqlalchemy import update
@@ -104,7 +105,7 @@ class TradingBot:
 
             while True:
                 download_start = datetime.now()
-                self.dataset_manipulator.update_ohlcv("bitmex", start_time=datetime.now() - timedelta(days=6),
+                self.dataset_manipulator.update_ohlcv("bitmex", start_time=datetime.now() - timedelta(days=1),
                 asset_name="BTC/USD", with_ta=True)
                 if datetime.now() - download_start < timedelta(seconds=29):
                     break
@@ -137,16 +138,26 @@ class TradingBot:
             start_end_range = ohlcv_end_time - ohlcv_start_time
 
             # loop
+            while True:
             # get the OHLCV
-            self.dataset_manipulator.update_ohlcv("bitmex", asset_name="BTC/USD", with_ta=True)
-            self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe,
-                datetime.now() - start_end_range, datetime.now())
+                while True:
+                    sleep(1)
+                    current_sec = datetime.now().second
+                    if current_sec == 0:
+                        break
+
+                self.dataset_manipulator.update_ohlcv("bitmex", asset_name="BTC/USD", with_ta=True)
+                ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe,
+                    datetime.now() - start_end_range, datetime.now(), exchange_name="bitmex",
+                    asset_name="BTC/USD", round=False)
             
-            # calc metrics and judge buy or sell or donothing
-            
-            # follow the signal
-            # manage the order
-            # record the order
+                # calc metrics and judge buy or sell or donothing
+                ohlcv_df_with_metrics = self.calculate_metrics_for_real(ohlcv_df)
+                ohlcv_df_with_signals = self.calculate_signs_for_real(ohlcv_df_with_metrics)
+
+                # follow the signal
+                # manage the order
+                # record the order
 
 
     def bulk_insert(self):
@@ -196,14 +207,14 @@ class TradingBot:
         return 1 # 1 times
         # if you need, you can override
 
-    def calculate_metric(self):
+    def calculate_metrics_for_real(self, df):
         return "metric"
 
     def calculate_metrics_for_backtest(self):
         return "ohlcv_with_metric_dataframe"
         # need to override
 
-    def calculate_sign(self):
+    def calculate_signs_for_real(self, df):
         return "signal"
         # need to override
         # return ["buy", "sell", "do_nothing"]

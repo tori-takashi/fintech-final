@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 import numpy as np
 
@@ -71,17 +71,36 @@ class Dataset:
             ohlcv_df = self.download_ohlcv_data_from_bitmex(
                 "1m", start_time, end_time=datetime.now())
 
-        if with_ta:
-            ohlcv_df = self.add_technical_statistics_to_ohlcv_df(ohlcv_df)
+        if with_ta and ohlcv_df.empty is not True:
+            if self.db_client.is_influxdb() and self.db_client.is_table_exist("OHLCV_data"):
+                padding_df = self.get_ohlcv(timeframe=1, start_time=datetime.now() - timedelta(minutes=200),
+                                            end_time=datetime.now(), round=False)
+
+                ohlcv_df["timestamp"] = ohlcv_df["timestamp"].dt.tz_localize(
+                    timezone.utc)
+                ohlcv_df.set_index('timestamp', inplace=True)
+
+                concatnated_df = pd.concat(
+                    [padding_df, ohlcv_df], axis=0, sort=False)
+                concatnated_df.index = concatnated_df.index.map(np.datetime64)
+
+                ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
+                    concatnated_df)
+
+            else:
+                ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
+                    ohlcv_df)
 
         if self.db_client.is_mysql():
             self.db_client.append_to_table(
                 self.original_ohlcv_1min_table, ohlcv_df)
 
         if self.db_client.is_influxdb():
-            time_indexed_ohlcv_df = ohlcv_df.set_index('timestamp')
+            if self.db_client.is_table_exist("OHLCV_data") is not True:
+                ohlcv_df.set_index('timestamp', inplace=True)
+
             self.db_client.append_to_table(
-                "OHLCV_data", time_indexed_ohlcv_df
+                "OHLCV_data", ohlcv_df
             )
 
     def add_technical_statistics_to_ohlcv_df(self, df):
@@ -120,12 +139,13 @@ class Dataset:
         ta_wma = TechnicalAnalysisWMA(df)
         wma_df = ta_wma.get_wma()
 
-        ta_applied_df = pd.concat(
-            [df, ad_df, atr_df, obv_df, roc_df, rsi_df, so_df, williamsr_df, wma_df], axis=1)
-        # sar has already append on above
-        ta_applied_df.dropna(inplace=True)
+        tas = pd.concat([ad_df, atr_df, sar_df, ema_5, ema_3, ema_2,
+                         ema_1, obv_df, roc_df, rsi_df, so_df, williamsr_df, wma_df], axis=1)
+        df.update(tas)
 
-        return ta_applied_df
+        df.dropna(inplace=True)
+
+        return df
 
     def build_ohlcv_1min_table(self):
         ohlcv_1min_table = OHLCV_1min.__table__
