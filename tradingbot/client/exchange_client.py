@@ -19,6 +19,9 @@ class ExchangeClient:
     def __init__(self, name, config_path):
         self.name = name
 
+        self.config_path = config_path
+        # for bitcoin ws
+
         self.config = Config(config_path).config
         self.client = self.establish_connection_to_exchange()
 

@@ -43,8 +43,8 @@ class TradingBot:
             self.backtest_management_table_name = self.bot_name + "_backtest_management"
 
             # backtest configure
-            self.initial_balance = 100.0  # USD
-            self.account_currency = "USD"
+            self.initial_balance = 0.1  # USD
+            self.account_currency = "BTC"
 
             if self.db_client.is_table_exist(self.backtest_management_table_name) is not True:
                 self.create_backtest_management_table()
@@ -143,9 +143,8 @@ class TradingBot:
             while True:
             # get the OHLCV
                 while True:
-                    sleep(1)
+                    sleep(0.5)
                     current_sec = datetime.now().second
-                    print(current_sec)
                     if current_sec == 0:
                         break
 
@@ -239,25 +238,111 @@ class TradingBot:
 
     def open_position_for_real(self, row, order_type):
         # [FIXME] actually ordertype is no need
-        lot = self.calculate_lot()
-        leverage = self.calculate_leverage()
+
+        lot = self.calculate_lot(row) # always 100 USD
+        leverage = self.calculate_leverage(row)  # always 1 times
+
+        self.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(leverage)})
+
+        # generate order instance
         position_test = {
             "order_type": order_type,
-        } 
+        }
         print(position_test)
         print("Entry in " + order_type)
-        return position_test
+        id = self.slippage_adjuster_order_slide(row=row,lot=lot, leverage=leverage, position=position_test, order_method="maker",
+             total_loss_tolerance=1, onetime_duration=50, onetime_loss_tolerance=0.0, force_order=False, through_time=50)
+        if id:
+            position_test["position_id"] = id
+            return position_test
+        return None
+
         #return OrderPosition(row, "short", current_balance, lot, leverage, is_backtest=True)
 
     def close_position_for_real(self, row, position):
-        print("close in " + position["order_type"])
+        leverage = self.calculate_leverage()
+        lot = self.calculate_lot()
+        print(position)
+        self.slippage_adjuster_order_slide(row=row, lot=lot, leverage=leverage, position=position, order_method="maker",
+            total_loss_tolerance=1, onetime_duration=30, onetime_loss_tolerance=0.0, force_order=True)
         # position.close
 
-    def slippage_adjuster_order_slide(self, row, position, order_method, total_loss_tolerance,
+    def slippage_adjuster_order_slide(self, row, lot, leverage, position, order_method, total_loss_tolerance,
         onetime_duration, onetime_loss_tolerance, force_order=False, through_time=None):
-        entry_close_price = row.close_price
-        order_type = position.order_type
+        # {FIXME} copy and paste
+        order_type = position["order_type"]
         atemmpted_time = 0
+
+        order_start_time = datetime.now()
+
+        if order_type == "long":
+            best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["bid"]
+        elif order_type == "short":
+            best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["ask"]
+
+        slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
+
+        if force_order:
+            while True:
+                # for close
+                print("<<<<close>>>>")
+                if order_type == "short":
+                    order_price = best_price + slippage * atemmpted_time
+                    print("try order_price" + str(round(order_price, 1)))
+                    order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
+                        side="Buy", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
+
+                elif order_type == "long":
+                    order_price = best_price - slippage * atemmpted_time
+                    print("try order_price" + str(round(order_price,1)))
+                    order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
+                        side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
+                    
+                sleep(onetime_duration) # wait a certain seconds
+                order_info = self.exchange_client.client.fetch_order(order["id"])
+                print(order["id"])
+
+                if order_info["status"] == "open":  # Order failed
+                    self.exchange_client.client.cancel_order(order["id"])
+                    print("Order Failed, Retrying. time:" + str(atemmpted_time))
+                    atemmpted_time += 1
+                else:  # Order sucessed
+                    print("Order Commited" + order_info["status"])
+                    break
+
+        else:
+            # for entry
+            finally_status = ""
+            print("<<<<entry>>>>")
+            while datetime.now() - order_start_time < timedelta(seconds=through_time):
+                if order_type == "long":
+                    order_price = best_price + slippage * atemmpted_time
+                    print("order_price" + str(round(order_price,1)))
+                    order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
+                        side="Buy", amount=lot, price=str(order_price), params={'execInst': 'ParticipateDoNotInitiate'})
+
+                elif order_type == "short":
+                    order_price = best_price - slippage * atemmpted_time
+                    print("order_price" + str(round(order_price)))
+                    order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
+                        side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
+
+                sleep(onetime_duration)
+                order_info = self.exchange_client.client.fetch_order(order["id"])
+                print(order["id"])
+
+                if order_info["status"] == "open":    # 注文が通らなかった時
+                    print("Order Failed, Retrying. time:" + str(atemmpted_time))
+                    self.exchange_client.client.cancel_order(order["id"])
+                    atemmpted_time += 1
+                    finally_status = "open"
+                elif order_info["status"] == "closed":
+                    print("Order Commited" + order_info["status"])
+                    finally_status = "closed"
+                    return order["id"]
+
+            if finally_status == "open":
+                print("All attempt failed, skip order")
 
     
     def bulk_insert(self):
@@ -294,12 +379,12 @@ class TradingBot:
         # [FIXME] only for single task processing, unable to parallel process
         return int(self.db_client.get_last_row("backtest_summary").index.array[0])
         
-    def calculate_lot(self):
-        return 1 # 100 %
+    def calculate_lot(self, row):
+        return 100 # USD
         # if you need, you can override
         # default is invest all that you have
 
-    def calculate_leverage(self):
+    def calculate_leverage(self, row):
         return 1 # 1 times
         # if you need, you can override
 
