@@ -275,10 +275,6 @@ class TradingBot:
         self.specific_params = specific_params
         self.combined_params = dict(**self.default_params, **self.specific_params)
 
-    def set_bot_identity_for_real(self, bot_identity):
-        self.bot_identity = bot_identity
-
-    def insert_params_management(self):
         backtest_management = self.backtest_management_table()
 
         self.combined_params["backtest_summary_id"] = int(self.summary_id)
