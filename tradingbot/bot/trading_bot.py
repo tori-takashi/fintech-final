@@ -93,6 +93,7 @@ class TradingBot:
         #    "inverse_trading": inverse_trading
         # }
         self.bot_name = default_params["bot_name"]
+        self.version = default_params["version"]
         self.timeframe = default_params["timeframe"]
         self.close_position_on_do_nothing = default_params["close_position_on_do_nothing"]
         self.inverse_trading = default_params["inverse_trading"]
@@ -154,6 +155,15 @@ class TradingBot:
                 # calc metrics and judge buy or sell or donothing
                 ohlcv_df_with_metrics = self.calculate_metrics_for_real(ohlcv_df)
                 ohlcv_df_with_signals = self.calculate_signs_for_real(ohlcv_df_with_metrics)
+
+                # log signals
+
+                for tag, param in self.default_params.items():
+                    ohlcv_df_with_signals[tag] = param
+                for tag, param in self.specific_params.items():
+                    ohlcv_df_with_signals[tag] = param
+                
+                #self.db_client.append_to_table("signals", ohlcv_df_with_signals)
 
                 # follow the signal
                 # manage the order

@@ -12,6 +12,7 @@ class BottomTrendFollow(TradingBot):
         # please follow this order to name on real environment
         self.default_params = {
             "bot_name": "bottom_trend_follow",
+            "version": "v1.0.0",
             "timeframe": 60,
             "close_position_on_do_nothing": True,
             "inverse_trading": False

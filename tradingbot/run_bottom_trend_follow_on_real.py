@@ -9,6 +9,7 @@ bitmex_client = ExchangeClient("bitmex", "config.ini")
 influx_client = DBClient("influxdb", "config.ini")
 
 bot_name = "bottom_trend_follow"
+version = "v1.0.0"
 timeframe = 1
 bottom_trend_tick = 5
 middle_trend_tick = 3
@@ -18,6 +19,7 @@ inverse_trading = False
 
 default_params = {
     "bot_name": bot_name,
+    "version": version,
     "timeframe": timeframe,
     "close_position_on_do_nothing": close_position_on_do_nothing,
     "inverse_trading": inverse_trading
