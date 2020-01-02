@@ -137,8 +137,10 @@ class TradingBot:
             pass
             # for real environment
             start_end_range = ohlcv_end_time - ohlcv_start_time
-
-            # loop
+            # [FIXME] having only one position 
+            position = None
+    
+            # loop insesantly
             while True:
             # get the OHLCV
                 while True:
@@ -162,13 +164,101 @@ class TradingBot:
                     ohlcv_df_with_signals[tag] = param
                 for tag, param in self.specific_params.items():
                     ohlcv_df_with_signals[tag] = param
-                
-                #self.db_client.append_to_table("signals", ohlcv_df_with_signals)
+
+                self.db_client.append_to_table("signals", ohlcv_df_with_signals)
+                row = ohlcv_df_with_signals.tail(1).itertuples()[0]
 
                 # follow the signal
-                # manage the order
-                # record the order
+                # [FIXME] almost copy and paste
+                if row.signal == "buy":
+                    if position is not None and position.order_type == "long":
+                        # inverse => close position
+                        if self.inverse_trading:
+                            position.close_position(row)
+                            position.generate_transaction_log(self.db_client, self.summary_id)
+                            current_balance = position.current_balance
+                            position = None
+                        # normal => still holding
+                        else:
+                            pass
+                    
+                    elif position is not None and position.order_type == "short":
+                        # inverse => still holding
+                        if self.inverse_trading:
+                            pass
+                            # normal => close position
+                        else:
+                            position.close_position(row)
+                            position.generate_transaction_log(self.db_client, self.summary_id)
+                            current_balance = position.current_balance
+                            position = None
+            
+                    else:
+                        # for no position
+                        lot = self.calculate_lot()
+                        leverage = self.calculate_leverage()
+                        # inverse => open short position
+                        if self.inverse_trading:
+                            position = OrderPosition(row, "short", current_balance, lot, leverage, is_backtest=True)
+                        else:
+                            # normal => open long position
+                            position = OrderPosition(row, "long", current_balance, lot, leverage, is_backtest=True)
 
+                elif row.signal == "sell":
+                    if position is not None and position.order_type == "long":
+                        # inverse => still holding
+                        if self.inverse_trading:
+                            pass
+                        # normal => close position
+                        else:
+                            position.close_position(row)
+                            position.generate_transaction_log(self.db_client, self.summary_id)
+                            current_balance = position.current_balance
+                            position = None
+
+                    elif position is not None and position.order_type == "short":
+                        # inverse => close position
+                        if self.inverse_trading:
+                            position.close_position(row)
+                            position.generate_transaction_log(self.db_client, self.summary_id)
+                            current_balance = position.current_balance
+                            position = None
+
+                        # normal => still holding
+                        else:
+                            pass
+
+                    else:
+                        lot = self.calculate_lot()
+                        leverage = self.calculate_leverage()
+                        # inverse => open long position
+                        if self.inverse_trading:
+                            position = OrderPosition(row, "long",current_balance, lot, leverage, is_backtest=True)
+                        else:
+                            # normal => open short position
+                            position = OrderPosition(row, "short",current_balance, lot, leverage, is_backtest=True)
+
+                elif row.signal == "do_nothing":
+                    if self.close_position_on_do_nothing:
+                        # if do nothing option is true
+                        # and you get do nothing from signal, then close out the position
+                        if position is not None:
+                            # close position
+                            position.close_position(row)
+                            position.generate_transaction_log(self.db_client, self.summary_id)
+                            current_balance = position.current_balance
+                            position = None
+
+                    # record the order
+
+    def open_position_for_real(self, row, position):
+        pass
+
+    def close_position_for_real(self, row, position):
+        pass
+
+    def slippage_adjuster_order_slide(self, row, position):
+        pass
 
     def bulk_insert(self):
         self.db_client.session.commit()
@@ -666,21 +756,57 @@ class OrderPosition:
     def __init__(self, row_open, order_type, current_balance, lot, leverage, is_backtest=False):
         self.is_backtest = is_backtest
 
-        self.transaction_fee_by_order = 0.0005 # profit * transaction fee
-        
-        # for transaction log
-        self.order_status = "open"
-
         self.exchange_name = row_open.exchange_name
         self.asset_name = row_open.asset_name
         self.current_balance = current_balance
-
-        self.entry_price = row_open.close
-        self.entry_time = row_open.Index
-
+        
         self.order_type = order_type
         self.lot = lot
         self.leverage = leverage
+
+        if self.is_backtest:
+            self.transaction_fee_by_order = 0.0005  # profit * transaction fee, please update to 2 times 
+            # because transaction fee is charged for both open and close order.
+            self.order_status = "open"
+
+            self.entry_price = row_open.close
+            self.entry_time = row_open.Index
+
+        else:
+            # for real environment
+            self.transaction_fee_by_order = -0.0025 # both open and close are limit order 
+            self.order_status = "pass"
+            self.total_transaction_cost = None
+
+            # for open
+            self.entry_judged_price = row_open.close
+            self.entry_judged_time = row_open.Index
+
+            self.entry_price = None
+            self.entry_price_difference = None
+            self.entry_time = None
+
+            self.open_attempt_time = None
+            self.open_attempt_period = None
+
+            self.open_maker_profit_usage_percentage = None
+            self.open_transaction_cost = None
+
+            # for close
+            self.close_judged_price = None
+            self.close_judged_time = None
+
+            self.close_price = None
+            self.close_price_difference = None
+            self.close_time = None
+
+            self.close_attempt_time = None
+            self.close_attempt_period = None
+
+            self.close_maker_profit_usage_percentage = None
+            self.close_transaction_cost = None
+
+        # for transaction log
 
         self.open_position()
 
