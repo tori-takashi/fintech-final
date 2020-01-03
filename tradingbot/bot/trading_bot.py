@@ -170,7 +170,7 @@ class TradingBot:
                 # follow the signal
                 # [FIXME] almost copy and paste
                 if row.signal == "buy":
-                    if position is not None and position["order_type"] == "long":
+                    if position is not None and position.order_type == "long":
                         # inverse => close position
                         if self.inverse_trading:
                             self.close_position_for_real(row, position)
@@ -179,7 +179,7 @@ class TradingBot:
                         else:
                             pass
                     
-                    elif position is not None and position["order_type"] == "short":
+                    elif position is not None and position.order_type == "short":
                         # inverse => still holding
                         if self.inverse_trading:
                             pass
@@ -198,7 +198,7 @@ class TradingBot:
                             position = self.open_position_for_real(row, order_type="long")
 
                 elif row.signal == "sell":
-                    if position is not None and position["order_type"] == "long":
+                    if position is not None and position.order_type == "long":
                         # inverse => still holding
                         if self.inverse_trading:
                             pass
@@ -207,7 +207,7 @@ class TradingBot:
                             self.close_position_for_real(row, position)
                             position = None
 
-                    elif position is not None and position["order_type"] == "short":
+                    elif position is not None and position.order_type == "short":
                         # inverse => close position
                         if self.inverse_trading:
                             self.close_position_for_real(row, position)
@@ -243,106 +243,145 @@ class TradingBot:
         leverage = self.calculate_leverage(row)  # always 1 times
 
         self.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(leverage)})
+        self.current_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
 
-        # generate order instance
-        position_test = {
-            "order_type": order_type,
-        }
-        print(position_test)
-        print("Entry in " + order_type)
-        id = self.slippage_adjuster_order_slide(row=row,lot=lot, leverage=leverage, position=position_test, order_method="maker",
+        position = OrderPosition(row, order_type, self.current_balance, lot, leverage)
+
+        position = self.slippage_adjuster_order_slide(row=row,lot=lot, leverage=leverage, position=position, order_method="maker",
              total_loss_tolerance=1, onetime_duration=50, onetime_loss_tolerance=0.0, force_order=False, through_time=50)
-        if id:
-            position_test["position_id"] = id
-            return position_test
-        return None
 
-        #return OrderPosition(row, "short", current_balance, lot, leverage, is_backtest=True)
+        if position is not None and position.order_status == "open":
+            return position
+        else:
+            return None
 
     def close_position_for_real(self, row, position):
-        leverage = self.calculate_leverage()
-        lot = self.calculate_lot()
-        print(position)
+        leverage = self.calculate_leverage(row)
+        lot = self.calculate_lot(row)
         self.slippage_adjuster_order_slide(row=row, lot=lot, leverage=leverage, position=position, order_method="maker",
-            total_loss_tolerance=1, onetime_duration=30, onetime_loss_tolerance=0.0, force_order=True)
+            total_loss_tolerance=1, onetime_duration=50, onetime_loss_tolerance=0.0, force_order=True)
         # position.close
 
     def slippage_adjuster_order_slide(self, row, lot, leverage, position, order_method, total_loss_tolerance,
         onetime_duration, onetime_loss_tolerance, force_order=False, through_time=None):
+        print("\n")
         # {FIXME} copy and paste
-        order_type = position["order_type"]
+        # [FIXME] too order price is too rough
+        order_type = position.order_type
         atemmpted_time = 0
 
         order_start_time = datetime.now()
 
-        if order_type == "long":
-            best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["bid"]
-        elif order_type == "short":
-            best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["ask"]
-
-        slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
 
         if force_order:
             while True:
+                order=None
+                if order_type == "long":
+                    best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["ask"]
+                elif order_type == "short":
+                    best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["bid"]
+
+                slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
                 # for close
                 print("<<<<close>>>>")
                 if order_type == "short":
-                    order_price = best_price + slippage * atemmpted_time
-                    print("try order_price" + str(round(order_price, 1)))
-                    order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
+                    order_price = best_price - slippage * atemmpted_time
+                    #order_price = self.exchange_client.client.fetch_ticker(row.asset_name)["close"]
+                    print("try close short order :" + str(round(order_price, 1)))
+                    close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Buy", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
 
                 elif order_type == "long":
-                    order_price = best_price - slippage * atemmpted_time
-                    print("try order_price" + str(round(order_price,1)))
-                    order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
+                    order_price = best_price + slippage * atemmpted_time
+                    #order_price = self.exchange_client.client.fetch_ticker(row.asset_name)["close"]
+                    print("try close long order :" + str(round(order_price,1)))
+                    close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
-                    
-                sleep(onetime_duration) # wait a certain seconds
-                order_info = self.exchange_client.client.fetch_order(order["id"])
-                print(order["id"])
 
-                if order_info["status"] == "open":  # Order failed
-                    self.exchange_client.client.cancel_order(order["id"])
-                    print("Order Failed, Retrying. time:" + str(atemmpted_time))
-                    atemmpted_time += 1
-                else:  # Order sucessed
-                    print("Order Commited" + order_info["status"])
+                sleep(onetime_duration) # wait a certain seconds
+                close_order_info = self.exchange_client.client.fetch_order(close_order["id"])
+                position.close_order_id = close_order["id"]
+                
+                if close_order_info["status"] == "closed":  # Order failed
+                    print("Order Commited" + close_order_info["status"])
+                    cur = self.exchange_client.client.fetch_balance()["BTC"]["total"]
+                    print("##########  current balance is " + str(cur))
+                    print("##########  asset moving : " + str((cur - self.current_balance) / self.current_balance*100) + "%")
+                    self.current_balance = cur
                     break
+                else:  # Failed
+                    try:
+                        self.exchange_client.client.cancel_order(close_order["id"])
+                        print("<<<<<<<<Close Failed, Retrying. total attempted time:" + str(atemmpted_time))
+                        atemmpted_time += 1
+                    except:
+                        print("ORDER ERROR, DELETED")
+                        continue
+                    #close_params = {
+                    #    "close_judged_price": row.close,
+                    #    "close_judged_time": row.index,
+                    #    "close_price": order_price,
+                    #    "close_attempt_time": atemmpted_time,
+                    #    "close_attempt_period": datetime.now() - order_start_time,
+                    #    "close_order_method": "maker",
+                    #    "current_balance": self.exchange_client.client.fetch_balance()["BTC"]["total"]
+                    #}
+                    #position.set_close_log(close_params)
+                    #self.db_client.append_to_table("real_transaction_log", position.get_combined_log())
 
         else:
             # for entry
             finally_status = ""
+            order=None
             print("<<<<entry>>>>")
             while datetime.now() - order_start_time < timedelta(seconds=through_time):
                 if order_type == "long":
+                    best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["bid"]
+                elif order_type == "short":
+                    best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["ask"]
+
+                slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
+                if order_type == "long":
                     order_price = best_price + slippage * atemmpted_time
-                    print("order_price" + str(round(order_price,1)))
-                    order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
+                    print("long order entry" + str(round(order_price,1)))
+                    entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Buy", amount=lot, price=str(order_price), params={'execInst': 'ParticipateDoNotInitiate'})
 
                 elif order_type == "short":
                     order_price = best_price - slippage * atemmpted_time
-                    print("order_price" + str(round(order_price)))
-                    order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
+                    print("short order entry" + str(round(order_price)))
+                    entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
 
                 sleep(onetime_duration)
-                order_info = self.exchange_client.client.fetch_order(order["id"])
-                print(order["id"])
+                entry_order_info = self.exchange_client.client.fetch_order(entry_order["id"])
+                position.open_order_id = entry_order["id"]
+                print(entry_order["id"])
 
-                if order_info["status"] == "open":    # 注文が通らなかった時
-                    print("Order Failed, Retrying. time:" + str(atemmpted_time))
-                    self.exchange_client.client.cancel_order(order["id"])
-                    atemmpted_time += 1
-                    finally_status = "open"
-                elif order_info["status"] == "closed":
-                    print("Order Commited" + order_info["status"])
-                    finally_status = "closed"
-                    return order["id"]
+                if entry_order_info["status"] == "open":    # 注文が通らなかった時
+                    print("<<<<<<Order Failed, Retrying. time:" + str(atemmpted_time))
+                    try:
+                        self.exchange_client.client.cancel_order(position.open_order_id)
+                        atemmpted_time += 1
+                        finally_status = "open"
+                    except:
+                        print("ORDER ERROR, DELETED")
+                        break
+                elif entry_order_info["status"] == "closed":
+                    position.order_status = "open"
+                    print("Order opened")
+                    open_log = {
+                        "open_attempt_time": atemmpted_time,
+                        "order_method": "maker"
+                    }
+                    #position.set_open_log(open_log)
+                    return position
 
             if finally_status == "open":
                 print("All attempt failed, skip order")
+                return None
+                #position.set_pass_log()
+                #self.db_client.append_to_table("real_transaction_log", position.get_pass_log())
 
     
     def bulk_insert(self):
@@ -380,7 +419,7 @@ class TradingBot:
         return int(self.db_client.get_last_row("backtest_summary").index.array[0])
         
     def calculate_lot(self, row):
-        return 100 # USD
+        return 500 # USD
         # if you need, you can override
         # default is invest all that you have
 
@@ -420,7 +459,7 @@ class TradingBot:
                     # inverse => close position
                     if self.inverse_trading:
                         position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
+                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
                     # normal => still holding
@@ -434,7 +473,7 @@ class TradingBot:
                     # normal => close position
                     else:
                         position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
+                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
                 else:
@@ -455,7 +494,7 @@ class TradingBot:
                     # normal => close position
                     else:
                         position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
+                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
 
@@ -463,7 +502,7 @@ class TradingBot:
                     # inverse => close position
                     if self.inverse_trading:
                         position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
+                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
 
@@ -488,7 +527,7 @@ class TradingBot:
                     if position is not None:
                         # close position
                         position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log(self.db_client, self.summary_id))
+                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
                         current_balance = position.current_balance
                         position = None
 
@@ -855,12 +894,14 @@ class OrderPosition:
 
         else:
             # for real environment
+            self.open_position_id = None
+            self.closed_position_id = None
             self.order_status = "pass"
             self.total_transaction_cost = None
 
             # for open
             self.entry_judged_price = row_open.close
-            self.entry_judged_time = row_open.Index
+            self.entry_judged_time = datetime.now()
 
             self.entry_price = None
             self.entry_price_difference = None
@@ -870,12 +911,6 @@ class OrderPosition:
             self.open_attempt_period = None
 
             self.entry_order_method = None # maker or taker
-            if entry_order_method == "maker":
-                self.open_transaction_fee = -0.0025  # both open and close are limit order
-            elif entry_order_method == "taker":
-                self.open_transaction_fee = 0.0005
-                
-            self.open_maker_profit_usage_percentage = None
             self.open_transaction_cost = None
 
             # for close
@@ -890,9 +925,9 @@ class OrderPosition:
             self.close_attempt_period = None
 
             self.close_order_method = None # maker or taker
-            if close_order_method == "maker":
+            if self.close_order_method == "maker":
                 self.close_transaction_fee = -0.0025  # both open and close are limit order
-            elif close_order_method == "taker":
+            elif self.close_order_method == "taker":
                 self.close_transaction_fee = 0.0005
 
             self.close_maker_profit_usage_percentage = None
@@ -906,21 +941,161 @@ class OrderPosition:
         if self.is_backtest:
             pass
 
+    def get_pass_log(self):
+        log = pd.DataFrame([self.pass_log], index=["entry_judged_time"])
+        log.set_index("entry_judged_time")
+        print(log)
+        print(log.dtypes)
+        log.index = log.index.map(pd.to_datetime)
+
+        return log
+    
+
+    def get_combined_log(self):
+        log = pd.DataFrame([self.open_log.update(self.close_log)], index=["entry_judged_time"])
+        log.set_index("entry_judged_time")
+        log.index = log.index.map(pd.to_datetime)
+        return log
+
+    def set_pass_log(self):
+        self.order_cancel_time = datetime.now()
+        self.pass_log = {
+            "open_position_id": self.open_position_id,
+            "exchange_name": self.exchange_name,
+            "asset_name": self.asset_name,
+            "current_balance": self.current_balance,
+            "order_type": self.order_type,
+            "lot": self.lot,
+            "leverage": self.leverage,
+            "entry_judged_price": self.entry_judged_price,
+            "entry_judged_time": self.entry_judged_time,
+            "order_status": self.order_status,
+            "open_attempt_time": self.open_attempt_time,
+            "open_attempt_period": self.open_attempt_period,
+            "order_cancel_time": self.order_cancel_time
+        }
+
+    def set_open_log(self, open_log):
+        # open paramaters is a hash
+        self.entry_time = datetime.now()
+        self.order_status = "open"
+
+        self.open_attempt_time = open_log["open_attempt_time"]
+        self.open_attempt_period = self.entry_time - self.entry_judged_time
+
+        self.entry_order_method = open_log["order_method"]
+        if self.entry_order_method == "maker":
+            self.open_transaction_fee = -0.0025  # both open and close are limit order
+        elif self.entry_order_method == "taker":
+            self.open_transaction_fee = 0.0005
+        
+        self.open_transaction_cost = self.open_transaction_fee * self.lot
+
+        self.open_log = {
+            "open_position_id": self.open_position_id,
+            "exchange_name": self.exchange_name,
+            "asset_name": self.asset_name,
+            "order_type": self.order_type,
+            "lot": self.lot,
+            "leverage": self.leverage,
+            "entry_judged_price": self.entry_judged_price,
+            "entry_judged_time": self.entry_judged_time,
+            "entry_time": self.entry_time,
+            "position_id": self.position_id,
+            "order_status": self.order_status,
+            "order_method": self.entry_order_method, # maker or taker
+            "open_attempt_time": self.open_attempt_time,
+            "open_attempt_period": self.open_attempt_period,
+            "open_transaction_cost": self.open_transaction_cost
+        }
+
+    def set_close_log(self, close_log):
+        # close paramaters is a hash
+        self.close_position_id = close_log["close_position_id"]
+        self.close_judged_price = close_log["close_judged_price"]
+        self.close_judged_time = close_log["close_judged_time"]
+
+        self.close_price = close_log["close_price"]
+        self.close_price_difference = self.close_price - self.close_judged_price
+        self.close_time = datetime.now()
+
+        self.close_attempt_time = close_log["close_attempt_time"]
+        self.close_attempt_period = close_log["close_attempt_period"]
+
+        self.close_order_method = close_log["close_order_method"] # maker or taker
+        if self.close_order_method == "maker":
+            self.close_transaction_fee = -0.0025  # both open and close are limit order
+        elif self.close_order_method == "taker":
+            self.close_transaction_fee = 0.0005
+
+        self.close_transaction_cost = self.close_transaction_fee * self.lot
+        
+        self.total_transaction_cost = self.open_transaction_cost + self.close_transaction_cost  # unit is BTC
+        self.open_close_price_difference = self.close_price - self.entry_judged_price
+        self.open_close_price_difference_percentage = self.open_close_price_difference / self.entry_judged_price
+
+        if self.order_type == "long":
+            self.gross_profit = (self.close_price - self.entry_judged_price) * self.lot * self.leverage # USD
+            self.profit_size = self.gross_profit - (self.total_transaction_cost * self.close_price) # USD convert
+        elif self.order_type == "short":
+            self.gross_profit = (self.entry_judged_price - self.close_price) * self.lot * self.leverage
+            self.profit_size = self.gross_profit - (self.total_transaction_cost * self.close_price)
+
+        if self.profit_size > 0:
+            self.profit_status = "win"
+        else:
+            self.profit_status = "lose"
+
+        if self.current_balance > 0:
+            self.profit_percentage = ((self.profit_size / self.current_balance) + 1 )*100
+        elif self.current_balance == 0:
+            self.profit_percentage = None
+        else:
+            profit_percentage = (abs(self.profit_size + self.current_balance) / abs(self.current_balance))
+            if self.profit_status == "win":
+                self.profit_percentage = profit_percentage
+            else:
+                self.profit_percentage = -1 * profit_percentage
+
+        self.current_balance = close_log["current_balance"]
+        self.order_status = "closed"
+
+        self.close_log = {
+            "close_position_id": self.close_position_id,
+            "close_judged_price": self.close_judged_price,
+            "close_judged_time": self.close_judged_time ,
+            "close_price": self.close_price,
+            "close_price_difference": self.close_price_difference, 
+            "close_time": self.close_time,
+            "close_attempt_time": self.close_attempt_time,
+            "close_attempt_period" :self.close_attempt_period, 
+            "profit_size": self.profit_size,
+            "profit_status": self.profit_status,
+            "profit_percentage": self.profit_percentage,
+            "current_balance": self.current_balance,
+            "order_status": self.order_status
+        }
+
+        self.profit_percentage = (((self.current_balance + self.profit_size) / self.current_balance) - 1)*100
+        self.current_balance += self.profit_size
+
+        self.order_status = "closed"
+
     def close_position(self, row_close):
         # for summary
         self.close_price = row_close.close
         self.close_time = row_close.Index
 
-        self.price_difference = self.close_price - self.entry_price
-        self.price_difference_percentage = ((self.close_price / self.entry_price) - 1)*100
+        self.price_difference = self.close_price - self.entry_judged_price
+        self.price_difference_percentage = ((self.close_price / self.entry_judged_price) - 1)*100
 
         if self.order_type == "long":
-            self.gross_profit = self.close_price - self.entry_price * self.lot * self.leverage
-            self.transaction_cost = (self.close_price - self.entry_price) * self.transaction_fee_by_order * self.lot * self.leverage
+            self.gross_profit = self.close_price - self.entry_judged_price * self.lot * self.leverage
+            self.transaction_cost = (self.close_price - self.entry_judged_price) * self.transaction_fee_by_order * self.lot * self.leverage
             self.profit_size = self.gross_profit - self.transaction_cost
         elif self.order_type == "short":
-            self.gross_profit = self.entry_price - self.close_price * self.lot * self.leverage
-            self.transaction_cost = (self.entry_price - self.close_price) * self.transaction_fee_by_order * self.lot * self.leverage
+            self.gross_profit = self.entry_judged_price - self.close_price * self.lot * self.leverage
+            self.transaction_cost = (self.entry_judged_price - self.close_price) * self.transaction_fee_by_order * self.lot * self.leverage
             self.profit_size = self.gross_profit - self.transaction_cost
 
         if self.profit_size > 0:
@@ -945,7 +1120,7 @@ class OrderPosition:
 
         self.order_status = "closed"
 
-    def generate_transaction_log(self, db_client, summary_id):
+    def generate_transaction_log_for_backtest(self, db_client, summary_id):
         log_dict = {
             "backtest_summary_id": int(summary_id),
             "exchange_name": self.exchange_name,

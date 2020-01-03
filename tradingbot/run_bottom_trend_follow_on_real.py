@@ -13,7 +13,7 @@ version = "v1.0.0"
 timeframe = 1
 bottom_trend_tick = 5
 middle_trend_tick = 3
-top_trend_tick = 2
+top_trend_tick = 1
 close_position_on_do_nothing = True
 inverse_trading = False
 
