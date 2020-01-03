@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from model.base import Base
 from .config import Config
 
-from influxdb import DataFrameClient
+from influxdb import DataFrameClient, InfluxDBClient
 
 
 class DBClient:
@@ -19,11 +19,14 @@ class DBClient:
         self.db_type = db_type
         self.connector = self.establish_connection_to_db()
 
-        if self.is_influxdb() is not True:
+        if self.is_mysql():
             Session = sessionmaker(self.connector)
             self.session = Session()
 
             Base.metadata.create_all(bind=self.connector)
+
+        elif self.is_influxdb():
+            self.influx_raw_connector = self.influxdb_establish_connection(raw=True)
 
     def is_mysql(self):
         return self.db_type == "mysql"
@@ -44,14 +47,23 @@ class DBClient:
             "@" + conf['host'] + "/" + conf['db_name']
         return create_engine(url)
 
-    def influxdb_establish_connection(self):
-        return DataFrameClient(
-            host=self.config['influxdb']['host'],
-            port=int(self.config['influxdb']['port']),
-            username=self.config['influxdb']['username'],
-            password=self.config['influxdb']['password'],
-            database=self.config['influxdb']['db_name']
-        )
+    def influxdb_establish_connection(self, raw=False):
+        if raw:
+            return DataFrameClient(
+                host=self.config['influxdb']['host'],
+                port=int(self.config['influxdb']['port']),
+                username=self.config['influxdb']['username'],
+                password=self.config['influxdb']['password'],
+                database=self.config['influxdb']['db_name']
+            )
+        else:
+            return InfluxDBClient(
+                host=self.config['influxdb']['host'],
+                port=int(self.config['influxdb']['port']),
+                username=self.config['influxdb']['username'],
+                password=self.config['influxdb']['password'],
+                database=self.config['influxdb']['db_name']
+            )
 
     def write_to_table(self, table_name, dataframe, if_exists):
         if self.is_mysql():
