@@ -10,8 +10,8 @@ class LineNotification:
         self.url = "https://notify-api.line.me/api/notify"
         self.headers = {"Authorization": "Bearer " + self.token}
 
-    def notify(self, text, print=True):
-        if print:
+    def notify(self, text, print_console=True):
+        if print_console:
             print(text)
         data = {"message": text}
         requests.post(self.url, data=data, headers=self.headers)
