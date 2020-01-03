@@ -106,7 +106,7 @@ class TradingBot:
             floor_time=True):
 
         if self.is_backtest is not True:
-            print("running on real environment")
+            self.line.notify({**self.default_params, **self.specific_params}.items())
 
             while True:
                 download_start = datetime.now()
@@ -229,7 +229,7 @@ class TradingBot:
                 self.close_position_for_real(row, position)
 
     def receive_do_nothing_signal_for_real(self, row, position=None):
-        if position is not True and self.close_position_on_do_nothing:
+        if position and self.close_position_on_do_nothing:
             # position open and True => close position
             self.close_position_for_real(row, position)
 
@@ -410,7 +410,7 @@ class TradingBot:
         return int(self.db_client.get_last_row("backtest_summary").index.array[0])
         
     def calculate_lot(self, row):
-        return 500 # USD
+        return 60 # USD
         # if you need, you can override
         # default is invest all that you have
 
@@ -868,6 +868,7 @@ class TradingBot:
 class OrderPosition:
     def __init__(self, row_open, order_type, current_balance, lot, leverage, is_backtest=False):
         self.is_backtest = is_backtest
+        self.common_log(row_open, order_type, current_balance, lot, leverage, )
 
         if self.is_backtest:
             self.transaction_fee_by_order = 0.0005  # profit * transaction fee, please update to 2 times 
@@ -922,7 +923,7 @@ class OrderPosition:
 
         self.open_position()
 
-    def common_log(self):
+    def common_log(self, row_open, order_type, lot, leverage, current_balance):
         self.exchange_name = row_open.exchange_name
         self.asset_name = row_open.asset_name
         self.current_balance = current_balance
@@ -954,10 +955,10 @@ class OrderPosition:
         self.order_cancel_time = datetime.now()
         self.pass_log = {
         'fields': {
-            "current_balance": self.current_balance,
+            "current_balance": float(self.current_balance),
             "lot": self.lot,
-            "leverage": self.leverage,
-            "entry_judged_price": self.entry_judged_price,
+            "leverage": float(self.leverage),
+            "entry_judged_price": float(self.entry_judged_price),
             "entry_judged_time": str(self.entry_judged_time),
             "open_attempt_time": self.open_attempt_time,
             "open_attempt_period": str(self.open_attempt_period),
@@ -991,13 +992,13 @@ class OrderPosition:
         self.open_log = {
         'fields': {
             "lot": self.lot,
-            "leverage": self.leverage,
-            "entry_judged_price": self.entry_judged_price,
+            "leverage": float(self.leverage),
+            "entry_judged_price": float(self.entry_judged_price),
             "entry_judged_time": str(self.entry_judged_time),
             "entry_time": str(self.entry_time),
             "open_attempt_time": self.open_attempt_time,
             "open_attempt_period": str(self.open_attempt_period),
-            "open_transaction_cost": self.open_transaction_cost
+            "open_transaction_cost": float(self.open_transaction_cost)
             },
         'tags': {
             "open_position_id": self.open_position_id,
@@ -1049,16 +1050,16 @@ class OrderPosition:
 
         self.close_log = {
         'fields': {
-            "close_judged_price": self.close_judged_price,
+            "close_judged_price": float(self.close_judged_price),
             "close_judged_time": str(self.close_judged_time) ,
-            "close_price": self.close_price,
-            "close_price_difference": self.close_price_difference, 
+            "close_price": float(self.close_price),
+            "close_price_difference": float(self.close_price_difference), 
             "close_time": str(self.close_time),
             "close_attempt_time": self.close_attempt_time,
             "close_attempt_period" : str(self.close_attempt_period), 
-            "profit_size": self.profit_size,
-            "profit_percentage": self.profit_percentage,
-            "current_balance": self.current_balance,
+            "profit_size": float(self.profit_size),
+            "profit_percentage": float(self.profit_percentage),
+            "current_balance": float(self.current_balance),
             },
         'tags': {
             "close_position_id": self.close_position_id,

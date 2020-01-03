@@ -10,10 +10,10 @@ influx_client = DBClient("influxdb", "config.ini")
 
 bot_name = "bottom_trend_follow"
 version = "v1.0.0"
-timeframe = 1
+timeframe = 30
 bottom_trend_tick = 5
 middle_trend_tick = 3
-top_trend_tick = 1
+top_trend_tick = 2
 close_position_on_do_nothing = True
 inverse_trading = True
 
@@ -34,4 +34,4 @@ specific_params = {
 bottom_trend_follow = BottomTrendFollow(
     bitmex_client, influx_client, default_params=default_params, specific_params=specific_params, is_backtest=False)
 bottom_trend_follow.run(
-    ohlcv_start_time=datetime.now() - timedelta(minutes=4))
+    ohlcv_start_time=datetime.now() - timedelta(days=6))

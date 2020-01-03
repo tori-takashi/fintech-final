@@ -35,6 +35,11 @@ class BottomTrendFollow(TradingBot):
         super().__init__(exchange_client=exchange_client, db_client=db_client, default_params=self.default_params,
                          specific_params=self.specific_params, is_backtest=is_backtest)
 
+    def calculate_lot(self, row):
+        return 60  # USD
+        # if you need, you can override
+        # default is invest all that you have
+
     def append_specific_params_column(self, table_def):
         table_def.append_column(Column("bottom_trend_tick", Integer))
         table_def.append_column(Column("middle_trend_tick", Integer))
