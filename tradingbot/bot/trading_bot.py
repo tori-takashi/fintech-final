@@ -161,6 +161,7 @@ class TradingBot:
 
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
         position = None
+        self.line.notify("trade loop start")
         while True:
         # loop insesantly
             while True:
@@ -308,7 +309,7 @@ class TradingBot:
                     close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
 
-                self.line.notify("try closing " + order_type + " order at: $ " + str(round(order_price, 1)) + " lot: $" + \
+                self.line.notify("try closing " + order_type + " order at: $" + str(round(order_price, 1)) + " lot: $" + \
                         str(lot) + " leverage: " + str(leverage))
 
                 sleep(onetime_duration) # wait a certain seconds
@@ -316,36 +317,39 @@ class TradingBot:
                 position.close_order_id = close_order["id"]
                 
                 if close_order_info["status"] == "closed":  # order sucess
-                    cur = self.exchange_client.client.fetch_balance()["BTC"]["total"]
+                    updated_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
                     self.line.notify("order was successfully closed.\n \
-                        current_balance: " + str(round(cur, 5)) + "BTC\nasset moving : " + \
-                                     str(round((cur - self.current_balance) / self.current_balance*100, 5)) + "%")
-                    self.current_balance = cur
+                        current_balance: " + str(round(updated_balance, 5)) + "BTC\nasset moving : " + \
+                                     str(round((updated_balance - self.current_balance) / self.current_balance*100, 5)) + "%")
+
+                    close_params = {
+                        "close_position_id": close_order["id"],
+                        "close_judged_price": row.close,
+                        "close_judged_time": row.index,
+                        "close_price": order_price,
+                        "close_attempt_time": atemmpted_time,
+                        "close_attempt_period": datetime.now() - order_start_time,
+                        "close_order_method": "maker",
+                        "current_balance": updated_balance
+                    }
+                    position.set_close_log(close_params)
+                    self.db_client.influx_raw_connector.write_points([position.get_combined_log()])
+
+                    self.current_balance = updated_balance
                     break
                 else:  # order Failed
                     try:
                         self.exchange_client.client.cancel_order(close_order["id"])
                         self.line.notify("position closing failed. retry. total attempted time:" + str(atemmpted_time))
                         atemmpted_time += 1
+                        continue
                     except:
                         self.line.notify("order was deleted. retry")
                         continue
-                        close_params = {
-                            "close_judged_price": row.close,
-                            "close_judged_time": row.index,
-                            "close_price": order_price,
-                            "close_attempt_time": atemmpted_time,
-                            "close_attempt_period": datetime.now() - order_start_time,
-                            "close_order_method": "maker",
-                            "current_balance": self.exchange_client.client.fetch_balance()["BTC"]["total"]
-                        }
-                    position.set_close_log(close_params)
-                    self.db_client.influx_raw_connctor.write_points([position.get_combined_log()])
 
         else:
             # for entry
             finally_status = ""
-            order=None
             while datetime.now() - order_start_time < timedelta(seconds=through_time):
                 if order_type == "long":
                     best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["bid"]
@@ -355,13 +359,13 @@ class TradingBot:
                 slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
                 if order_type == "long":
                     order_price = best_price + slippage * atemmpted_time
-                    self.line.notify("entry long order at : $ " + str(round(order_price,1)))
+                    self.line.notify("entry long order at : $" + str(round(order_price,1)))
                     entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Buy", amount=lot, price=str(order_price), params={'execInst': 'ParticipateDoNotInitiate'})
 
                 elif order_type == "short":
                     order_price = best_price - slippage * atemmpted_time
-                    self.line.notify("entry short order at :$ " + str(round(order_price)))
+                    self.line.notify("entry short order at : $" + str(round(order_price)))
                     entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
 
@@ -369,7 +373,7 @@ class TradingBot:
                 entry_order_info = self.exchange_client.client.fetch_order(entry_order["id"])
                 position.open_order_id = entry_order["id"]
 
-                if entry_order_info["status"] == "open":    # 注文が通らなかった時
+                if entry_order_info["status"] == "open":    # order failed
                     self.line.notify("entry order failed, retrying. time:" + str(atemmpted_time))
                     try:
                         self.exchange_client.client.cancel_order(position.open_order_id)
@@ -390,17 +394,10 @@ class TradingBot:
 
             if finally_status == "open":
                 self.line.notify("all attempts are failed, skip")
-                return None
                 position.set_pass_log()
-                self.db_client.influx_raw_connctor.write_points([position.get_combined_log()])
-                #self.db_client.append_to_table("real_transaction_log", position.get_pass_log())
+                self.db_client.influx_raw_connector.write_points([position.get_pass_log()])
+                return None
 
-    def influx_raw_log_builder(self, transaction_log):
-        log = {
-
-        }
-
-    
     def bulk_insert(self):
         self.db_client.session.commit()
 
@@ -960,9 +957,17 @@ class OrderPosition:
 
     def get_pass_log(self):
         return self.pass_log
-
+    
     def get_combined_log(self):
-        return self.open_log.update(self.close_log)
+        combined_fields = {**self.open_log["fields"], **self.close_log["fields"]}
+        combined_tags = {**self.open_log["tags"], **self.close_log["tags"]}
+        self.combined_log = {
+            "fields": combined_fields,
+            "measurement": "real_transaction_log",
+            "tags": combined_tags
+        }
+
+        return self.combined_log
 
     def set_pass_log(self):
         self.order_cancel_time = datetime.now()
@@ -972,12 +977,12 @@ class OrderPosition:
             "lot": self.lot,
             "leverage": self.leverage,
             "entry_judged_price": self.entry_judged_price,
-            "entry_judged_time": self.entry_judged_time,
+            "entry_judged_time": str(self.entry_judged_time),
             "open_attempt_time": self.open_attempt_time,
-            "open_attempt_period": self.open_attempt_period,
-            "order_cancel_time": self.order_cancel_time
+            "open_attempt_period": str(self.open_attempt_period),
+            "order_cancel_time": str(self.order_cancel_time)
             },
-        'measurement': "test",
+        'measurement': "real_transaction_log",
         'tags': {
             "open_position_id": self.open_position_id,
             "exchange_name": self.exchange_name,
@@ -1007,13 +1012,12 @@ class OrderPosition:
             "lot": self.lot,
             "leverage": self.leverage,
             "entry_judged_price": self.entry_judged_price,
-            "entry_judged_time": self.entry_judged_time,
-            "entry_time": self.entry_time,
+            "entry_judged_time": str(self.entry_judged_time),
+            "entry_time": str(self.entry_time),
             "open_attempt_time": self.open_attempt_time,
-            "open_attempt_period": self.open_attempt_period,
+            "open_attempt_period": str(self.open_attempt_period),
             "open_transaction_cost": self.open_transaction_cost
             },
-        'measurement': "test",
         'tags': {
             "open_position_id": self.open_position_id,
             "exchange_name": self.exchange_name,
@@ -1047,7 +1051,8 @@ class OrderPosition:
         
         self.total_transaction_cost = self.open_transaction_cost + self.close_transaction_cost  # unit is BTC
         self.open_close_price_difference = self.close_price - self.entry_judged_price
-        self.open_close_price_difference_percentage = self.open_close_price_difference / self.entry_judged_price
+        self.open_close_price_difference_percentage = \
+            self.open_close_price_difference / self.entry_judged_price * 100
 
         if self.order_type == "long":
             self.gross_profit = (self.close_price - self.entry_judged_price) * self.lot * self.leverage # USD
@@ -1078,17 +1083,16 @@ class OrderPosition:
         self.close_log = {
         'fields': {
             "close_judged_price": self.close_judged_price,
-            "close_judged_time": self.close_judged_time ,
+            "close_judged_time": str(self.close_judged_time) ,
             "close_price": self.close_price,
             "close_price_difference": self.close_price_difference, 
-            "close_time": self.close_time,
+            "close_time": str(self.close_time),
             "close_attempt_time": self.close_attempt_time,
-            "close_attempt_period" :self.close_attempt_period, 
+            "close_attempt_period" : str(self.close_attempt_period), 
             "profit_size": self.profit_size,
             "profit_percentage": self.profit_percentage,
             "current_balance": self.current_balance,
             },
-        'measurement':"test",
         'tags': {
             "close_position_id": self.close_position_id,
             "profit_status": self.profit_status,
