@@ -16,6 +16,9 @@ secret=
     password=
     db_name=tradingbot
 
+[line_notification]
+    token=
+
 ; eval interpret exchanges as list
 [data_providers]
     data_providers=["bitmex"]
