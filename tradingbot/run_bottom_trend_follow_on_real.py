@@ -15,7 +15,7 @@ bottom_trend_tick = 5
 middle_trend_tick = 3
 top_trend_tick = 1
 close_position_on_do_nothing = True
-inverse_trading = False
+inverse_trading = True
 
 default_params = {
     "bot_name": bot_name,

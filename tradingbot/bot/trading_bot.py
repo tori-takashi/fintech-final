@@ -162,99 +162,76 @@ class TradingBot:
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
         position = None
         self.line.notify("trade loop start")
+        
         while True:
-        # loop insesantly
-            while True:
-                sleep(0.5)
-                current_sec = datetime.now().second
-                if current_sec == 0:
-                    break
+           self.execute_with_sec_0() 
 
-            self.dataset_manipulator.update_ohlcv("bitmex", asset_name="BTC/USD", with_ta=True)
+            # load ohlcv
             ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe,
                 datetime.now() - start_end_range, datetime.now(), exchange_name="bitmex",
                 asset_name="BTC/USD", round=False)
         
-            # calc metrics and judge buy or sell or donothing
+            # calc metrics, judge buy or sell or donothing and params
             ohlcv_df_with_metrics = self.calculate_metrics_for_real(ohlcv_df)
             ohlcv_df_with_signals = self.calculate_signs_for_real(ohlcv_df_with_metrics)
+            full_ohlcv_df = self.attach_params(ohlcv_df_with_signals, self.default_params, self.specific_params)
 
-            # log signals
-            for tag, param in self.default_params.items():
-                ohlcv_df_with_signals[tag] = param
-            for tag, param in self.specific_params.items():
-                ohlcv_df_with_signals[tag] = param
+            # write newest ohlcv, signal and params into signals measurement
+            self.db_client.append_to_table("signals", full_ohlcv_df)
 
-            self.db_client.append_to_table("signals", ohlcv_df_with_signals)
-            row = ohlcv_df_with_signals.tail(1).iloc[0,:]
+            # follow the latest signal
+            latest_row = ohlcv_df.tail(1).iloc[0,:]
 
-            # follow the signal
-            # [FIXME] almost copy and paste
-            if row.signal == "buy":
-                if position is not None and position.order_type == "long":
-                    # inverse => close position
-                    if self.inverse_trading:
-                        self.close_position_for_real(row, position)
-                        position = None
-                    # normal => still holding
-                    else:
-                        pass
-                
-                elif position is not None and position.order_type == "short":
-                    # inverse => still holding
-                    if self.inverse_trading:
-                        pass
-                        # normal => close position
-                    else:
-                        self.close_position_for_real(row, position)
-                        position = None
-        
-                else:
-                    # for no position
-                    # inverse => open short position
-                    if self.inverse_trading:
-                        position = self.open_position_for_real(row, order_type="short")
-                    else:
-                        # normal => open long position
-                        position = self.open_position_for_real(row, order_type="long")
+            if latest_row.signal == "buy":
+                position = self.receive_buy_signal_for_real(latest_row, position)
+            elif latest_row.signal == "sell":
+                position = self.receive_sell_signal_for_real(latest_row, position)
+            elif latest_row.signal == "do_nothing":
+                self.receive_do_nothing_signal_for_real(latest_row, position)
 
-            elif row.signal == "sell":
-                if position is not None and position.order_type == "long":
-                # inverse => still holding
-                    if self.inverse_trading:
-                        pass
-                    # normal => close position
-                    else:
-                        self.close_position_for_real(row, position)
-                        position = None
+    def attach_params(self, ohlcv_df_with_signals, default_params, specific_params):
+        for tag, param in default_params.items():
+            ohlcv_df_with_signals[tag] = param
+        for tag, param in specific_params.items():
+            ohlcv_df_with_signals[tag] = param
 
-                elif position is not None and position.order_type == "short":
-                    # inverse => close position
-                    if self.inverse_trading:
-                        self.close_position_for_real(row, position)
-                        position = None
+        return ohlcv_df_with_signals
 
-                    # normal => still holding
-                    else:
-                        pass
+    def execute_with_sec_0(self, interval=0.5):
+        while datetime.now().second == 0:
+            sleep(interval)
+            break
 
-                else:
-                    # inverse => open long position
-                    if self.inverse_trading:
-                        position = self.open_position_for_real(row, order_type="long")
-                    else:
-                        # normal => open short position
-                        position = self.open_position_for_real(row, order_type="short")
+    def receive_buy_signal_for_real(self, row, position=None):
+        if position is None:
+            # inverse => open short position
+            # normal  => open long  position
+            order_type = "short" if self.inverse_trading else "long"
+            return self.open_position_for_real(row, order_type)
+            
+        else:
+            if (position.order_type == "long"  and self.inverse_trading) or\
+               (position.order_type == "short" and self.inverse_trading is not True):
+                # long and inverse, short and normal => close position
+                self.close_position_for_real(row, position)
 
-            elif row.signal == "do_nothing":
-                if self.close_position_on_do_nothing:
-                    # if do nothing option is true
-                    # and you get do nothing from signal, then close out the position
-                    if position is not None:
-                        # close position
-                        self.close_position_for_real(row, position)
-                        position = None
+    def receive_sell_signal_for_real(self, row, position=None):
+        if position is None:
+            # inverse => open long position
+            # normal  => open short position
+            order_type = "long" if self.inverse_trading else "short"
+            return self.open_position_for_real(row, order_type)
 
+        else:
+            if (position.order_type == "long"  and self.inverse_trading is not True) or\
+                position.order_type == "short" and self.inverse_trading:
+                # long and normal, short and inverse  => close position
+                self.close_position_for_real(row, position)
+
+    def receive_do_nothing_signal_for_real(self, row, position=None):
+        if position is not True and self.close_position_on_do_nothing:
+            # position open and True => close position
+            self.close_position_for_real(row, position)
 
     def open_position_for_real(self, row, order_type):
         # [FIXME] actually ordertype is no need
@@ -471,6 +448,7 @@ class TradingBot:
             if row.signal == "buy":
                 if position is not None and position.order_type == "long":
                     # inverse => close position
+                    # backtest
                     if self.inverse_trading:
                         position.close_position(row)
                         transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
@@ -479,6 +457,7 @@ class TradingBot:
                     # normal => still holding
                     else:
                         pass
+                    # backtest end
 
                 elif position is not None and position.order_type == "short":
                     # inverse => still holding
@@ -890,14 +869,6 @@ class OrderPosition:
     def __init__(self, row_open, order_type, current_balance, lot, leverage, is_backtest=False):
         self.is_backtest = is_backtest
 
-        self.exchange_name = row_open.exchange_name
-        self.asset_name = row_open.asset_name
-        self.current_balance = current_balance
-        
-        self.order_type = order_type
-        self.lot = lot
-        self.leverage = leverage
-
         if self.is_backtest:
             self.transaction_fee_by_order = 0.0005  # profit * transaction fee, please update to 2 times 
             # because transaction fee is charged for both open and close order.
@@ -950,6 +921,16 @@ class OrderPosition:
         # for transaction log
 
         self.open_position()
+
+    def common_log(self):
+        self.exchange_name = row_open.exchange_name
+        self.asset_name = row_open.asset_name
+        self.current_balance = current_balance
+        
+        self.order_type = order_type
+        self.lot = lot
+        self.leverage = leverage
+
 
     def open_position(self):
         if self.is_backtest:
@@ -1054,29 +1035,15 @@ class OrderPosition:
         self.open_close_price_difference_percentage = \
             self.open_close_price_difference / self.entry_judged_price * 100
 
-        if self.order_type == "long":
-            self.gross_profit = (self.close_price - self.entry_judged_price) * self.lot * self.leverage # USD
-            self.profit_size = self.gross_profit - (self.total_transaction_cost * self.close_price) # USD convert
-        elif self.order_type == "short":
-            self.gross_profit = (self.entry_judged_price - self.close_price) * self.lot * self.leverage
-            self.profit_size = self.gross_profit - (self.total_transaction_cost * self.close_price)
+        self.profit_size = close_log["current_balance"] - self.current_balance
 
         if self.profit_size > 0:
             self.profit_status = "win"
         else:
             self.profit_status = "lose"
 
-        if self.current_balance > 0:
-            self.profit_percentage = ((self.profit_size / self.current_balance) + 1 )*100
-        elif self.current_balance == 0:
-            self.profit_percentage = None
-        else:
-            profit_percentage = (abs(self.profit_size + self.current_balance) / abs(self.current_balance))
-            if self.profit_status == "win":
-                self.profit_percentage = profit_percentage
-            else:
-                self.profit_percentage = -1 * profit_percentage
-
+        self.profit_percentage = (self.profit_size / self.current_balance)*100
+        
         self.current_balance = close_log["current_balance"]
         self.order_status = "closed"
 
