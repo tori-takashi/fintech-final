@@ -14,6 +14,7 @@ from influxdb import DataFrameClient
 
 class DBClient:
     def __init__(self, db_type, config_path):
+        self.config_path = config_path
         self.config = Config(config_path).config
         self.db_type = db_type
         self.connector = self.establish_connection_to_db()

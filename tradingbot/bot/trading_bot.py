@@ -15,6 +15,7 @@ from alembic.operations import Operations
 
 from lib.pandamex import PandaMex
 from lib.dataset import Dataset
+from lib.line_notification import LineNotification
 
 from model.backtest_management import BacktestManagement
 from model.backtest_summary import BacktestSummary
@@ -25,7 +26,6 @@ class TradingBot:
     def __init__(self, default_params, specific_params, db_client, exchange_client=None, is_backtest=False):
         # initialize status and settings of bot.
         # if you try backtest, db_client is in need.
-
         self.exchange_client = exchange_client
         self.db_client = db_client
         self.is_backtest = is_backtest
@@ -52,6 +52,9 @@ class TradingBot:
                 # delete useless template table
                 drop_query = "DROP TABLE backtest_management;"
                 self.db_client.exec_sql(drop_query, return_df=False)
+
+        else:
+            self.line = LineNotification(db_client.config_path)
 
     def create_backtest_management_table(self):
         backtest_management_template = BacktestManagement
@@ -264,7 +267,6 @@ class TradingBot:
 
     def slippage_adjuster_order_slide(self, row, lot, leverage, position, order_method, total_loss_tolerance,
         onetime_duration, onetime_loss_tolerance, force_order=False, through_time=None):
-        print("\n")
         # {FIXME} copy and paste
         # [FIXME] too order price is too rough
         order_type = position.order_type
@@ -275,7 +277,6 @@ class TradingBot:
 
         if force_order:
             while True:
-                order=None
                 if order_type == "long":
                     best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["ask"]
                 elif order_type == "short":
@@ -283,18 +284,19 @@ class TradingBot:
 
                 slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
                 # for close
-                print("<<<<close>>>>")
                 if order_type == "short":
                     order_price = best_price - slippage * atemmpted_time
                     #order_price = self.exchange_client.client.fetch_ticker(row.asset_name)["close"]
-                    print("try close short order :" + str(round(order_price, 1)))
+                    self.line.notify("try closing short order at : $ " + str(round(order_price, 1)))
+                    print("try closing short order at : $ " + str(round(order_price, 1)))
                     close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Buy", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
 
                 elif order_type == "long":
                     order_price = best_price + slippage * atemmpted_time
                     #order_price = self.exchange_client.client.fetch_ticker(row.asset_name)["close"]
-                    print("try close long order :" + str(round(order_price,1)))
+                    self.line.notify("try closing long order at : $ " + str(round(order_price,1)))
+                    print("try closing long order at : $ " + str(round(order_price,1)))
                     close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
 
@@ -302,20 +304,25 @@ class TradingBot:
                 close_order_info = self.exchange_client.client.fetch_order(close_order["id"])
                 position.close_order_id = close_order["id"]
                 
-                if close_order_info["status"] == "closed":  # Order failed
-                    print("Order Commited" + close_order_info["status"])
+                if close_order_info["status"] == "closed":  # order sucess
                     cur = self.exchange_client.client.fetch_balance()["BTC"]["total"]
-                    print("##########  current balance is " + str(cur))
-                    print("##########  asset moving : " + str((cur - self.current_balance) / self.current_balance*100) + "%")
+                    self.line.notify("order was successfully closed.\n \
+                        current_balance: " + str(cur) + "BTC\nasset moving : " + \
+                                     str((cur - self.current_balance) / self.current_balance*100) + "%")
+                    print("order was successfully closed. \n \
+                        current_balance: $ " + str(cur) + "\nasset moving : $" + \
+                                     str((cur - self.current_balance) / self.current_balance*100) + "%")
                     self.current_balance = cur
                     break
-                else:  # Failed
+                else:  # order Failed
                     try:
                         self.exchange_client.client.cancel_order(close_order["id"])
-                        print("<<<<<<<<Close Failed, Retrying. total attempted time:" + str(atemmpted_time))
+                        self.line.notify("position closing failed. retry. total attempted time:" + str(atemmpted_time))
+                        print("position closing failed. retry. total attempted time:" + str(atemmpted_time))
                         atemmpted_time += 1
                     except:
-                        print("ORDER ERROR, DELETED")
+                        self.line.notify("order was deleted. retry")
+                        print("order was deleted. retry")
                         continue
                     #close_params = {
                     #    "close_judged_price": row.close,
@@ -333,7 +340,6 @@ class TradingBot:
             # for entry
             finally_status = ""
             order=None
-            print("<<<<entry>>>>")
             while datetime.now() - order_start_time < timedelta(seconds=through_time):
                 if order_type == "long":
                     best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["bid"]
@@ -343,33 +349,37 @@ class TradingBot:
                 slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
                 if order_type == "long":
                     order_price = best_price + slippage * atemmpted_time
-                    print("long order entry" + str(round(order_price,1)))
+                    self.line.notify("entry long order at : $ " + str(round(order_price,1)))
+                    print("entry long order at : $" + str(round(order_price,1)))
                     entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Buy", amount=lot, price=str(order_price), params={'execInst': 'ParticipateDoNotInitiate'})
 
                 elif order_type == "short":
                     order_price = best_price - slippage * atemmpted_time
-                    print("short order entry" + str(round(order_price)))
+                    print("entry short order at :$ " + str(round(order_price)))
+                    self.line.notify("entry short order at :$ " + str(round(order_price)))
                     entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
 
                 sleep(onetime_duration)
                 entry_order_info = self.exchange_client.client.fetch_order(entry_order["id"])
                 position.open_order_id = entry_order["id"]
-                print(entry_order["id"])
 
                 if entry_order_info["status"] == "open":    # 注文が通らなかった時
-                    print("<<<<<<Order Failed, Retrying. time:" + str(atemmpted_time))
+                    self.line.notify("entry order failed, retrying. time:" + str(atemmpted_time))
+                    print("entry order failed, retrying. time:" + str(atemmpted_time))
                     try:
                         self.exchange_client.client.cancel_order(position.open_order_id)
                         atemmpted_time += 1
                         finally_status = "open"
                     except:
-                        print("ORDER ERROR, DELETED")
+                        self.line.notify("entry order was deleted, skip")
+                        print("entry order was deleted, skip")
                         break
                 elif entry_order_info["status"] == "closed":
                     position.order_status = "open"
-                    print("Order opened")
+                    self.line.notify("entry order was successfully opened")
+                    print("entry order was successfully opened")
                     open_log = {
                         "open_attempt_time": atemmpted_time,
                         "order_method": "maker"
@@ -378,7 +388,8 @@ class TradingBot:
                     return position
 
             if finally_status == "open":
-                print("All attempt failed, skip order")
+                self.line.notify("all attempts are failed, skip")
+                print("all attempts are failed, skip")
                 return None
                 #position.set_pass_log()
                 #self.db_client.append_to_table("real_transaction_log", position.get_pass_log())
