@@ -162,9 +162,9 @@ class TradingBot:
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
         position = None
         self.line.notify("trade loop start")
-        
+
         while True:
-           self.execute_with_sec_0() 
+            self.execute_with_sec_0() 
 
             # load ohlcv
             ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe,
