@@ -26,7 +26,8 @@ class DBClient:
             Base.metadata.create_all(bind=self.connector)
 
         elif self.is_influxdb():
-            self.influx_raw_connector = self.influxdb_establish_connection(raw=True)
+            self.influx_raw_connector = self.influxdb_establish_connection(
+                raw=True)
 
     def is_mysql(self):
         return self.db_type == "mysql"
@@ -49,7 +50,7 @@ class DBClient:
 
     def influxdb_establish_connection(self, raw=False):
         if raw:
-            return DataFrameClient(
+            return InfluxDBClient(
                 host=self.config['influxdb']['host'],
                 port=int(self.config['influxdb']['port']),
                 username=self.config['influxdb']['username'],
@@ -57,7 +58,7 @@ class DBClient:
                 database=self.config['influxdb']['db_name']
             )
         else:
-            return InfluxDBClient(
+            return DataFrameClient(
                 host=self.config['influxdb']['host'],
                 port=int(self.config['influxdb']['port']),
                 username=self.config['influxdb']['username'],
