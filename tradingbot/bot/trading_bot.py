@@ -274,7 +274,6 @@ class TradingBot:
 
         order_start_time = datetime.now()
 
-
         if force_order:
             while True:
                 if order_type == "long":
@@ -284,19 +283,15 @@ class TradingBot:
 
                 slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
                 # for close
+                self.line.notify("try closing " + order_type + " order at: $ " + str(round(order_price, 1)) + " lot: $" + \
+                        str(lot) + " leverage: " + str(leverage))
                 if order_type == "short":
                     order_price = best_price - slippage * atemmpted_time
-                    #order_price = self.exchange_client.client.fetch_ticker(row.asset_name)["close"]
-                    self.line.notify("try closing short order at : $ " + str(round(order_price, 1)))
-                    print("try closing short order at : $ " + str(round(order_price, 1)))
                     close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Buy", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
 
                 elif order_type == "long":
                     order_price = best_price + slippage * atemmpted_time
-                    #order_price = self.exchange_client.client.fetch_ticker(row.asset_name)["close"]
-                    self.line.notify("try closing long order at : $ " + str(round(order_price,1)))
-                    print("try closing long order at : $ " + str(round(order_price,1)))
                     close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
 
@@ -307,22 +302,17 @@ class TradingBot:
                 if close_order_info["status"] == "closed":  # order sucess
                     cur = self.exchange_client.client.fetch_balance()["BTC"]["total"]
                     self.line.notify("order was successfully closed.\n \
-                        current_balance: " + str(cur) + "BTC\nasset moving : " + \
-                                     str((cur - self.current_balance) / self.current_balance*100) + "%")
-                    print("order was successfully closed. \n \
-                        current_balance: $ " + str(cur) + "\nasset moving : $" + \
-                                     str((cur - self.current_balance) / self.current_balance*100) + "%")
+                        current_balance: " + str(round(cur, 5)) + "BTC\nasset moving : " + \
+                                     str(round((cur - self.current_balance) / self.current_balance*100, 5)) + "%")
                     self.current_balance = cur
                     break
                 else:  # order Failed
                     try:
                         self.exchange_client.client.cancel_order(close_order["id"])
                         self.line.notify("position closing failed. retry. total attempted time:" + str(atemmpted_time))
-                        print("position closing failed. retry. total attempted time:" + str(atemmpted_time))
                         atemmpted_time += 1
                     except:
                         self.line.notify("order was deleted. retry")
-                        print("order was deleted. retry")
                         continue
                     #close_params = {
                     #    "close_judged_price": row.close,
