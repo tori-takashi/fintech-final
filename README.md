@@ -76,6 +76,37 @@ Because probably you will face an error like below when you try to import talib.
 5. Then update `profile`
    `$ source ~/.profile`
 
+### install Grafana
+
+1. install and configuration
+   [Grafana official page](https://grafana.com/grafana/download?platform=linux)
+
+```
+wget https://dl.grafana.com/oss/release/grafana_6.5.2_amd64.deb
+sudo dpkg -i grafana_6.5.2_amd64.deb
+```
+
+2. access to local server
+
+```
+$ service grafana-server start
+$ service grafana-server status
+```
+
+Then open your browser and access to http://localhost:3000/
+
+Initial user id and password are
+
+```
+username: admin
+password: admin
+```
+
+4. add influxdb as data source
+   If you success in save and test, then move on the next step.
+
+5. create graph
+
 ### install python packages and build database
 
 install packages like below.

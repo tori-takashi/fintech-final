@@ -20,6 +20,17 @@
   - 注文を管理する
   - 注文を決済する
 
+  - OHLCV_data
+
+    - ohlcv
+    - 取引所名
+    - 資産名
+    - 時刻
+
+  - WS data
+
+    - あとで
+
   - 注文を出した時には
 
     - transaction log と共通のものとしては
@@ -37,11 +48,13 @@
         - timeframe1, bottom5, middle3, top1, close_position_on_do_nothing=True, inverse_trading=False
           にデフォルトオプションを加えた形
         - 仕様として明文化しなければならなそう
+        - row_open, close にのっけてある
       - order status(open close pass)
       - トレンド(uptrend downtrend)
+        - row_open にのってる
       - 実際のエントリー時刻
       - 実際のエントリー価格
-        　- 実際のエントリーと判断価格の差
+        　- 実際のエントリーと判断価格の差 = 滑りの幅
       - 滑りの幅
       - 滑りの総秒数
       - 発生した滑りの回数
@@ -88,3 +101,7 @@
 - 1 時間、1 日、1 週間、1 ヶ月おきのの口座情報とトレードサマリーを LINE の別のグループで通知する
 
 influxdb
+
+### pass と open と close のテクニカル指標比較できるように measurement 追加する
+
+row を dict にしてつないでやればいい
