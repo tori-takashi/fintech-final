@@ -5,6 +5,7 @@ import numpy as np
 import logging
 from datetime import datetime, timedelta
 from time import sleep
+from ccxt import ExchangeNotAvailable
 
 from sqlalchemy import Column, Integer, Float, Table, MetaData
 from sqlalchemy import update
@@ -140,104 +141,110 @@ class TradingBot:
             # for real environment
             start_end_range = ohlcv_end_time - ohlcv_start_time
             # [FIXME] having only one position 
-            position = None
-    
-            # loop insesantly
+
             while True:
-            # get the OHLCV
-                while True:
-                    sleep(0.5)
-                    current_sec = datetime.now().second
-                    if current_sec == 0:
-                        break
+                try:
+                    self.trade_loop_for_real(ohlcv_df, start_end_range)
+                except ExchangeNotAvailable:
+                    self.line.notify("Exchange Not Available Error, Retry after 15 seconds")
+                    sleep(15)
+                    self.line.notify("loop restart...")
 
-                self.dataset_manipulator.update_ohlcv("bitmex", asset_name="BTC/USD", with_ta=True)
-                ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe,
-                    datetime.now() - start_end_range, datetime.now(), exchange_name="bitmex",
-                    asset_name="BTC/USD", round=False)
-            
-                # calc metrics and judge buy or sell or donothing
-                ohlcv_df_with_metrics = self.calculate_metrics_for_real(ohlcv_df)
-                ohlcv_df_with_signals = self.calculate_signs_for_real(ohlcv_df_with_metrics)
+    def trade_loop_for_real(self, ohlcv_df, start_end_range):
+        position = None
+        while True:
+        # loop insesantly
+            while True:
+                sleep(0.5)
+                current_sec = datetime.now().second
+                if current_sec == 0:
+                    break
 
-                # log signals
+            self.dataset_manipulator.update_ohlcv("bitmex", asset_name="BTC/USD", with_ta=True)
+            ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe,
+                datetime.now() - start_end_range, datetime.now(), exchange_name="bitmex",
+                asset_name="BTC/USD", round=False)
+        
+            # calc metrics and judge buy or sell or donothing
+            ohlcv_df_with_metrics = self.calculate_metrics_for_real(ohlcv_df)
+            ohlcv_df_with_signals = self.calculate_signs_for_real(ohlcv_df_with_metrics)
 
-                for tag, param in self.default_params.items():
-                    ohlcv_df_with_signals[tag] = param
-                for tag, param in self.specific_params.items():
-                    ohlcv_df_with_signals[tag] = param
+            # log signals
+            for tag, param in self.default_params.items():
+                ohlcv_df_with_signals[tag] = param
+            for tag, param in self.specific_params.items():
+                ohlcv_df_with_signals[tag] = param
 
-                self.db_client.append_to_table("signals", ohlcv_df_with_signals)
-                row = ohlcv_df_with_signals.tail(1).iloc[0,:]
+            self.db_client.append_to_table("signals", ohlcv_df_with_signals)
+            row = ohlcv_df_with_signals.tail(1).iloc[0,:]
 
-                # follow the signal
-                # [FIXME] almost copy and paste
-                if row.signal == "buy":
-                    if position is not None and position.order_type == "long":
-                        # inverse => close position
-                        if self.inverse_trading:
-                            self.close_position_for_real(row, position)
-                            position = None
-                        # normal => still holding
-                        else:
-                            pass
-                    
-                    elif position is not None and position.order_type == "short":
-                        # inverse => still holding
-                        if self.inverse_trading:
-                            pass
-                            # normal => close position
-                        else:
-                            self.close_position_for_real(row, position)
-                            position = None
-            
+            # follow the signal
+            # [FIXME] almost copy and paste
+            if row.signal == "buy":
+                if position is not None and position.order_type == "long":
+                    # inverse => close position
+                    if self.inverse_trading:
+                        self.close_position_for_real(row, position)
+                        position = None
+                    # normal => still holding
                     else:
-                        # for no position
-                        # inverse => open short position
-                        if self.inverse_trading:
-                            position = self.open_position_for_real(row, order_type="short")
-                        else:
-                            # normal => open long position
-                            position = self.open_position_for_real(row, order_type="long")
-
-                elif row.signal == "sell":
-                    if position is not None and position.order_type == "long":
-                        # inverse => still holding
-                        if self.inverse_trading:
-                            pass
+                        pass
+                
+                elif position is not None and position.order_type == "short":
+                    # inverse => still holding
+                    if self.inverse_trading:
+                        pass
                         # normal => close position
-                        else:
-                            self.close_position_for_real(row, position)
-                            position = None
-
-                    elif position is not None and position.order_type == "short":
-                        # inverse => close position
-                        if self.inverse_trading:
-                            self.close_position_for_real(row, position)
-                            position = None
-
-                        # normal => still holding
-                        else:
-                            pass
-
                     else:
-                        # inverse => open long position
-                        if self.inverse_trading:
-                            position = self.open_position_for_real(row, order_type="long")
-                        else:
-                            # normal => open short position
-                            position = self.open_position_for_real(row, order_type="short")
+                        self.close_position_for_real(row, position)
+                        position = None
+        
+                else:
+                    # for no position
+                    # inverse => open short position
+                    if self.inverse_trading:
+                        position = self.open_position_for_real(row, order_type="short")
+                    else:
+                        # normal => open long position
+                        position = self.open_position_for_real(row, order_type="long")
 
-                elif row.signal == "do_nothing":
-                    if self.close_position_on_do_nothing:
-                        # if do nothing option is true
-                        # and you get do nothing from signal, then close out the position
-                        if position is not None:
-                            # close position
-                            self.close_position_for_real(row, position)
-                            position = None
+            elif row.signal == "sell":
+                if position is not None and position.order_type == "long":
+                # inverse => still holding
+                    if self.inverse_trading:
+                        pass
+                    # normal => close position
+                    else:
+                        self.close_position_for_real(row, position)
+                        position = None
 
-                    # record the order
+                elif position is not None and position.order_type == "short":
+                    # inverse => close position
+                    if self.inverse_trading:
+                        self.close_position_for_real(row, position)
+                        position = None
+
+                    # normal => still holding
+                    else:
+                        pass
+
+                else:
+                    # inverse => open long position
+                    if self.inverse_trading:
+                        position = self.open_position_for_real(row, order_type="long")
+                    else:
+                        # normal => open short position
+                        position = self.open_position_for_real(row, order_type="short")
+
+            elif row.signal == "do_nothing":
+                if self.close_position_on_do_nothing:
+                    # if do nothing option is true
+                    # and you get do nothing from signal, then close out the position
+                    if position is not None:
+                        # close position
+                        self.close_position_for_real(row, position)
+                        position = None
+
 
     def open_position_for_real(self, row, order_type):
         # [FIXME] actually ordertype is no need
