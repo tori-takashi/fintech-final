@@ -4,11 +4,11 @@ from client.config import Config
 
 class LineNotification:
     def __init__(self, config_path):
-        self.url = "https://notify-api.line.me/api/notify"
-        self.headers = {"Authorization": "Bearer " + self.token}
-
         self.config = Config(config_path).config
         self.token = self.config["line_notification"]["token"]
+
+        self.url = "https://notify-api.line.me/api/notify"
+        self.headers = {"Authorization": "Bearer " + self.token}
 
     def notify(self, text):
         data = {"message": text}
