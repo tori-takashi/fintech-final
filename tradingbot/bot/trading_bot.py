@@ -5,7 +5,7 @@ import numpy as np
 import logging
 from datetime import datetime, timedelta
 from time import sleep
-from ccxt import ExchangeNotAvailable
+from ccxt import ExchangeNotAvailable, RequestTimeout, BaseError
 
 from sqlalchemy import Column, Integer, Float, Table, MetaData
 from sqlalchemy import update
@@ -149,6 +149,15 @@ class TradingBot:
                     self.line.notify("Exchange Not Available Error, Retry after 15 seconds")
                     sleep(15)
                     self.line.notify("loop restart...")
+                except RequestTimeout:
+                    self.line.notify("Request Time out, Retry after 15 seconds")
+                    sleep(15)
+                    self.line.notify("loop restart...")
+                except BaseError:                    
+                    self.line.notify("Unknown Rrror, Retry after 15 seconds")
+                    sleep(15)
+                    self.line.notify("loop restart...")
+
 
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
         position = None
@@ -270,7 +279,6 @@ class TradingBot:
         lot = self.calculate_lot(row)
         self.slippage_adjuster_order_slide(row=row, lot=lot, leverage=leverage, position=position, order_method="maker",
             total_loss_tolerance=1, onetime_duration=50, onetime_loss_tolerance=0.0, force_order=True)
-        # position.close
 
     def slippage_adjuster_order_slide(self, row, lot, leverage, position, order_method, total_loss_tolerance,
         onetime_duration, onetime_loss_tolerance, force_order=False, through_time=None):
@@ -322,17 +330,17 @@ class TradingBot:
                     except:
                         self.line.notify("order was deleted. retry")
                         continue
-                    #close_params = {
-                    #    "close_judged_price": row.close,
-                    #    "close_judged_time": row.index,
-                    #    "close_price": order_price,
-                    #    "close_attempt_time": atemmpted_time,
-                    #    "close_attempt_period": datetime.now() - order_start_time,
-                    #    "close_order_method": "maker",
-                    #    "current_balance": self.exchange_client.client.fetch_balance()["BTC"]["total"]
-                    #}
-                    #position.set_close_log(close_params)
-                    #self.db_client.append_to_table("real_transaction_log", position.get_combined_log())
+                        close_params = {
+                            "close_judged_price": row.close,
+                            "close_judged_time": row.index,
+                            "close_price": order_price,
+                            "close_attempt_time": atemmpted_time,
+                            "close_attempt_period": datetime.now() - order_start_time,
+                            "close_order_method": "maker",
+                            "current_balance": self.exchange_client.client.fetch_balance()["BTC"]["total"]
+                        }
+                    position.set_close_log(close_params)
+                    self.db_client.influx_raw_connctor.write_points([position.get_combined_log()])
 
         else:
             # for entry
@@ -377,14 +385,20 @@ class TradingBot:
                         "open_attempt_time": atemmpted_time,
                         "order_method": "maker"
                     }
-                    #position.set_open_log(open_log)
+                    position.set_open_log(open_log)
                     return position
 
             if finally_status == "open":
                 self.line.notify("all attempts are failed, skip")
                 return None
-                #position.set_pass_log()
+                position.set_pass_log()
+                self.db_client.influx_raw_connctor.write_points([position.get_combined_log()])
                 #self.db_client.append_to_table("real_transaction_log", position.get_pass_log())
+
+    def influx_raw_log_builder(self, transaction_log):
+        log = {
+
+        }
 
     
     def bulk_insert(self):
@@ -945,41 +959,35 @@ class OrderPosition:
             pass
 
     def get_pass_log(self):
-        log = pd.DataFrame([self.pass_log], index=["entry_judged_time"])
-        log.set_index("entry_judged_time")
-        print(log)
-        print(log.dtypes)
-        log.index = log.index.map(pd.to_datetime)
-
-        return log
-    
+        return self.pass_log
 
     def get_combined_log(self):
-        log = pd.DataFrame([self.open_log.update(self.close_log)], index=["entry_judged_time"])
-        log.set_index("entry_judged_time")
-        log.index = log.index.map(pd.to_datetime)
-        return log
+        return self.open_log.update(self.close_log)
 
     def set_pass_log(self):
         self.order_cancel_time = datetime.now()
         self.pass_log = {
-            "open_position_id": self.open_position_id,
-            "exchange_name": self.exchange_name,
-            "asset_name": self.asset_name,
+        'fields': {
             "current_balance": self.current_balance,
-            "order_type": self.order_type,
             "lot": self.lot,
             "leverage": self.leverage,
             "entry_judged_price": self.entry_judged_price,
             "entry_judged_time": self.entry_judged_time,
-            "order_status": self.order_status,
             "open_attempt_time": self.open_attempt_time,
             "open_attempt_period": self.open_attempt_period,
             "order_cancel_time": self.order_cancel_time
+            },
+        'measurement': "test",
+        'tags': {
+            "open_position_id": self.open_position_id,
+            "exchange_name": self.exchange_name,
+            "asset_name": self.asset_name,
+            "order_type": self.order_type,
+            "order_status": self.order_status,
+            }
         }
 
     def set_open_log(self, open_log):
-        # open paramaters is a hash
         self.entry_time = datetime.now()
         self.order_status = "open"
 
@@ -991,25 +999,29 @@ class OrderPosition:
             self.open_transaction_fee = -0.0025  # both open and close are limit order
         elif self.entry_order_method == "taker":
             self.open_transaction_fee = 0.0005
-        
+
         self.open_transaction_cost = self.open_transaction_fee * self.lot
 
         self.open_log = {
-            "open_position_id": self.open_position_id,
-            "exchange_name": self.exchange_name,
-            "asset_name": self.asset_name,
-            "order_type": self.order_type,
+        'fields': {
             "lot": self.lot,
             "leverage": self.leverage,
             "entry_judged_price": self.entry_judged_price,
             "entry_judged_time": self.entry_judged_time,
             "entry_time": self.entry_time,
-            "position_id": self.position_id,
-            "order_status": self.order_status,
-            "order_method": self.entry_order_method, # maker or taker
             "open_attempt_time": self.open_attempt_time,
             "open_attempt_period": self.open_attempt_period,
             "open_transaction_cost": self.open_transaction_cost
+            },
+        'measurement': "test",
+        'tags': {
+            "open_position_id": self.open_position_id,
+            "exchange_name": self.exchange_name,
+            "asset_name": self.asset_name,
+            "order_type": self.order_type,
+            "order_status": self.order_status,
+            "order_method": self.entry_order_method, # maker or taker
+            }
         }
 
     def set_close_log(self, close_log):
@@ -1064,7 +1076,7 @@ class OrderPosition:
         self.order_status = "closed"
 
         self.close_log = {
-            "close_position_id": self.close_position_id,
+        'fields': {
             "close_judged_price": self.close_judged_price,
             "close_judged_time": self.close_judged_time ,
             "close_price": self.close_price,
@@ -1073,16 +1085,16 @@ class OrderPosition:
             "close_attempt_time": self.close_attempt_time,
             "close_attempt_period" :self.close_attempt_period, 
             "profit_size": self.profit_size,
-            "profit_status": self.profit_status,
             "profit_percentage": self.profit_percentage,
             "current_balance": self.current_balance,
+            },
+        'measurement':"test",
+        'tags': {
+            "close_position_id": self.close_position_id,
+            "profit_status": self.profit_status,
             "order_status": self.order_status
-        }
-
-        self.profit_percentage = (((self.current_balance + self.profit_size) / self.current_balance) - 1)*100
-        self.current_balance += self.profit_size
-
-        self.order_status = "closed"
+            }
+         }
 
     def close_position(self, row_close):
         # for summary
