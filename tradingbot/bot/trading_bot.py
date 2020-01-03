@@ -290,8 +290,6 @@ class TradingBot:
 
                 slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
                 # for close
-                self.line.notify("try closing " + order_type + " order at: $ " + str(round(order_price, 1)) + " lot: $" + \
-                        str(lot) + " leverage: " + str(leverage))
                 if order_type == "short":
                     order_price = best_price - slippage * atemmpted_time
                     close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
@@ -301,6 +299,9 @@ class TradingBot:
                     order_price = best_price + slippage * atemmpted_time
                     close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
+
+                self.line.notify("try closing " + order_type + " order at: $ " + str(round(order_price, 1)) + " lot: $" + \
+                        str(lot) + " leverage: " + str(leverage))
 
                 sleep(onetime_duration) # wait a certain seconds
                 close_order_info = self.exchange_client.client.fetch_order(close_order["id"])
@@ -347,13 +348,11 @@ class TradingBot:
                 if order_type == "long":
                     order_price = best_price + slippage * atemmpted_time
                     self.line.notify("entry long order at : $ " + str(round(order_price,1)))
-                    print("entry long order at : $" + str(round(order_price,1)))
                     entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Buy", amount=lot, price=str(order_price), params={'execInst': 'ParticipateDoNotInitiate'})
 
                 elif order_type == "short":
                     order_price = best_price - slippage * atemmpted_time
-                    print("entry short order at :$ " + str(round(order_price)))
                     self.line.notify("entry short order at :$ " + str(round(order_price)))
                     entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
                         side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
@@ -364,19 +363,16 @@ class TradingBot:
 
                 if entry_order_info["status"] == "open":    # 注文が通らなかった時
                     self.line.notify("entry order failed, retrying. time:" + str(atemmpted_time))
-                    print("entry order failed, retrying. time:" + str(atemmpted_time))
                     try:
                         self.exchange_client.client.cancel_order(position.open_order_id)
                         atemmpted_time += 1
                         finally_status = "open"
                     except:
                         self.line.notify("entry order was deleted, skip")
-                        print("entry order was deleted, skip")
                         break
                 elif entry_order_info["status"] == "closed":
                     position.order_status = "open"
                     self.line.notify("entry order was successfully opened")
-                    print("entry order was successfully opened")
                     open_log = {
                         "open_attempt_time": atemmpted_time,
                         "order_method": "maker"
@@ -386,7 +382,6 @@ class TradingBot:
 
             if finally_status == "open":
                 self.line.notify("all attempts are failed, skip")
-                print("all attempts are failed, skip")
                 return None
                 #position.set_pass_log()
                 #self.db_client.append_to_table("real_transaction_log", position.get_pass_log())
