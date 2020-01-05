@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, Float, ForeignKey, Boolean, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from .base import Base
@@ -19,12 +19,14 @@ class BacktestManagement(Base):
 
     # default params
     timeframe = Column(Integer)
+    version = Column(String(100))
     close_position_on_do_nothing = Column(Boolean)
     inverse_trading = Column(Boolean)
 
     def __init__(self):
         # default params
         self.backtest_summary_id = BacktestManagement.backtest_summary_id
+        self.version = BacktestManagement.version
         self.timeframe = BacktestManagement.timeframe
         self.close_position_on_do_nothing = BacktestManagement.close_position_on_do_nothing
         self.inverse_trading = BacktestManagement.inverse_trading
