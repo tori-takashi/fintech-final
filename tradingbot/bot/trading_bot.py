@@ -44,7 +44,7 @@ class TradingBot:
             self.backtest_management_table_name = self.bot_name + "_backtest_management"
 
             # backtest configure
-            self.initial_balance = 0.1  # USD
+            self.initial_balance = 0.1  # BTC
             self.account_currency = "BTC"
 
             if self.db_client.is_table_exist(self.backtest_management_table_name) is not True:
@@ -171,9 +171,9 @@ class TradingBot:
             sleep(interval)
             break
 
-    def signal_judge_for_real(self, row, position=None):
+    def signal_judge(self, row, position=None):
         if position is None:
-            return self.open_position_for_real(row)
+            return self.open_position(row)
         else:
             if (row.signal == "buy" and\
                     ((position.order_type == "long"  and self.inverse_trading) or\
@@ -184,7 +184,7 @@ class TradingBot:
                (row.signal == "do_nothing" and\
                    (position is not None and self.close_position_on_do_nothing)):
 
-                    self.close_position_for_real(row, position)
+                    self.close_position(row, position)
                     return None
 
     def order_slide_slippage(self, best_price, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
@@ -252,6 +252,7 @@ class TradingBot:
 
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
         position = None
+        self.current_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
         self.line.notify("trade loop start")
 
         while True:
@@ -275,28 +276,33 @@ class TradingBot:
             position = self.signal_judge_for_real(latest_row, position)
 
 
-    def open_position_for_real(self, row):
-        self.current_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
-
+    def open_position(self, row):
         lot = self.calculate_lot(row) # fixed value
         leverage = self.calculate_leverage(row)  # fixed value
 
         # [FIXME] symbol is hardcoded, only for bitmex
-        self.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(leverage)})
 
-        position = OrderPosition(row)
+        position = OrderPosition(row, self.is_backtest)
         position.current_balance = self.current_balance
         position.lot = lot
         position.leverage = leverage
         position.order_method = "maker"
 
-        position = self.create_order(row, position)
+        if self.is_backtest:
+            return position
+        else:
+            self.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(leverage)})
+            position = self.create_order(row, position)
+            # discard failed opening orders
+            return position if position is not None and position.order_status == "open" else None
 
-        # discard failed opening orders
-        return position if position is not None and position.order_status == "open" else None
-
-    def close_position_for_real(self, row, position):
-        self.create_order(row, position)
+    def close_position(self, row, position):
+        if self.is_backtest:
+            position.close_position(row)
+            self.transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
+            self.current_balance = position.current_balance
+        else:
+            self.create_order(row, position)
 
     def create_order(self, row, position):
         if position.order_status == "pass":  # try to open
@@ -426,7 +432,7 @@ class TradingBot:
 
         backtest_management = self.backtest_management_table()
 
-        self.combined_params["backtest_summary_id"] = int(self.summary_id)
+        #self.combined_params["backtest_summary_id"] = int(self.summary_id)
         del self.combined_params["bot_name"]
 
         self.db_client.connector.execute(backtest_management.insert().values(self.combined_params))
@@ -464,96 +470,16 @@ class TradingBot:
     def insert_backtest_transaction_logs(self):
         # refer to signal then judge investment
         # keep one order at most
-
         position = None
-        current_balance = self.initial_balance
-
-        transaction_logs = []
+        self.current_balance = self.initial_balance
+        self.transaction_logs = []
 
         for row in self.ohlcv_with_signals.itertuples(): # self.ohlcv_with_signals should be dataframe
-            if row.signal == "buy":
-                if position is not None and position.order_type == "long":
-                    # inverse => close position
-                    # backtest
-                    if self.inverse_trading:
-                        position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
-                        current_balance = position.current_balance
-                        position = None
-                    # normal => still holding
-                    else:
-                        pass
-                    # backtest end
+            position = self.signal_judge(self, row, position=position)
 
-                elif position is not None and position.order_type == "short":
-                    # inverse => still holding
-                    if self.inverse_trading:
-                        pass
-                    # normal => close position
-                    else:
-                        position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
-                        current_balance = position.current_balance
-                        position = None
-                else:
-                    lot = self.calculate_lot()
-                    leverage = self.calculate_leverage()
-                    # inverse => open short position
-                    if self.inverse_trading:
-                        position = OrderPosition(row, "short", current_balance, lot, leverage, is_backtest=True)
-                    else:
-                        # normal => open long position
-                        position = OrderPosition(row, "long", current_balance, lot, leverage, is_backtest=True)
+        self.db_client.session.bulk_insert_mappings(BacktestTransactionLog, self.transaction_logs)
 
-            elif row.signal == "sell":
-                if position is not None and position.order_type == "long":
-                    # inverse => still holding
-                    if self.inverse_trading:
-                        pass
-                    # normal => close position
-                    else:
-                        position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
-                        current_balance = position.current_balance
-                        position = None
-
-                elif position is not None and position.order_type == "short":
-                    # inverse => close position
-                    if self.inverse_trading:
-                        position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
-                        current_balance = position.current_balance
-                        position = None
-
-                    # normal => still holding
-                    else:
-                        pass
-
-                else:
-                    lot = self.calculate_lot()
-                    leverage = self.calculate_leverage()
-                    # inverse => open long position
-                    if self.inverse_trading:
-                        position = OrderPosition(row, "long",current_balance, lot, leverage, is_backtest=True)
-                    else:
-                        # normal => open short position
-                        position = OrderPosition(row, "short",current_balance, lot, leverage, is_backtest=True)
-
-            elif row.signal == "do_nothing":
-                if self.close_position_on_do_nothing:
-                    # if do nothing option is true
-                    # and you get do nothing from signal, then close out the position
-                    if position is not None:
-                        # close position
-                        position.close_position(row)
-                        transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
-                        current_balance = position.current_balance
-                        position = None
-
-        # the processing time is propotionate to the number of transaction logs
-        self.db_client.session.bulk_insert_mappings(BacktestTransactionLog, transaction_logs)
-
-        self.closed_positions_df = pd.DataFrame(transaction_logs)
+        self.closed_positions_df = pd.DataFrame(self.transaction_logs)
         self.closed_positions_df["holding_time"] = self.closed_positions_df["close_time"] - \
             self.closed_positions_df["entry_time"]
 
@@ -897,9 +823,10 @@ class OrderPosition:
         self.common_log(row_open)
 
         if self.is_backtest:
-            self.transaction_fee_by_order = 0.0005  # profit * transaction fee, please update to 2 times 
+            self.transaction_fee_by_order = 0.0015 # 0.15 = 0.075% * 2 market order
             # because transaction fee is charged for both open and close order.
             self.order_status = "open"
+            self.order_method = "taker"
 
             self.entry_price = row_open.close
             self.entry_time = row_open.Index

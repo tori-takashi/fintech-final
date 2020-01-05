@@ -88,21 +88,22 @@ class Dataset:
                     concatnated_df)
 
             elif self.db_client.is_mysql() and self.db_client.is_table_exist(self.original_ohlcv_1min_table):
-                padding_df = self.get_ohlcv(timeframe=1, start_time=start_time - timedelta(minutes=200),
+                padding_df = self.get_ohlcv(timeframe=1, start_time=start_time - timedelta(minutes=60),
                                             end_time=start_time, round=False)
 
-                concatnated_df = pd.concat(
-                    [padding_df, ohlcv_df], axis=0, sort=False)
+                if padding_df is not None and not padding_df.empty:
+                    ohlcv_df.set_index('timestamp', inplace=True)
 
-                print("conc")
-                print(concatnated_df)
-                print("downloaded ohlcv")
-                print(ohlcv_df)
+                    concatnated_df = pd.concat(
+                        [padding_df, ohlcv_df], axis=0, sort=False)
+
+                    ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
+                        concatnated_df)
 
                 ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
-                    concatnated_df)
-                print(k)
-            else:
+                    ohlcv_df)
+                ohlcv_df = ohlcv_df[start_time:]
+            else:  # ?
                 ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
                     ohlcv_df)
 
@@ -126,11 +127,8 @@ class Dataset:
         atr_df = ta_atr.get_atr()
 
         ta_sar = TechnicalAnalysisSAR(df)
-        sar_df = ta_sar.get_psar_trend()
+        ta_sar.get_psar_trend()
         # already append these cols
-
-        ta_macd = TechnicalAnalysisMACD(df)
-        # already append these 3 cols
 
         ta_obv = TechnicalAnalysisOBV(df)
         obv_df = ta_obv.get_obv()
@@ -147,16 +145,18 @@ class Dataset:
         ta_williamsr = TechnicalAnalysisWilliamsR(df)
         williamsr_df = ta_williamsr.get_williams_r()
 
-        ta_wma = TechnicalAnalysisWMA(df)
-        wma_df = ta_wma.get_wma()
+        tas = pd.concat([df, ad_df, atr_df, obv_df, roc_df,
+                         rsi_df, so_df, williamsr_df], axis=1)
 
-        tas = pd.concat([ad_df, atr_df, sar_df, obv_df, roc_df,
-                         rsi_df, so_df, williamsr_df, wma_df], axis=1)
-        df.update(tas)
+        # works on real environment
+        # tas = pd.concat([ad_df, atr_df, obv_df, roc_df,
+        #                 rsi_df, so_df, williamsr_df, wma_df], axis=1)
+        # df.update(tas)
+        # df.dropna(inplace=True)
+        # return df
 
-        df.dropna(inplace=True)
-
-        return df
+        tas.dropna(inplace=True)
+        return tas
 
     def build_ohlcv_1min_table(self):
         ohlcv_1min_table = OHLCV_1min.__table__
@@ -192,6 +192,8 @@ class Dataset:
             all_data_models = self.db_client.session.query(OHLCV_1min).filter(
                 start_time < ohlcv_1min_model.timestamp).filter(
                     ohlcv_1min_model.timestamp < end_time).all()
+            if not all_data_models:
+                return None
 
             all_data = self.db_client.model_to_dataframe(all_data_models)
             all_data.set_index('timestamp', inplace=True)

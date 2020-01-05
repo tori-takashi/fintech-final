@@ -12,8 +12,6 @@ class TechnicalAnalysisMACD:
         self.slow_period = slow_period
         self.signal_period = signal_period
 
-        self.ta_ema = ta.ema()
-
     def append_sma_close(self, ma_period):
         sma = self.df['close'].rolling(ma_period).mean()
         self.df['sma_{}'.format(ma_period)] = sma
