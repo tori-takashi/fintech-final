@@ -87,6 +87,21 @@ class Dataset:
                 ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
                     concatnated_df)
 
+            elif self.db_client.is_mysql() and self.db_client.is_table_exist(self.original_ohlcv_1min_table):
+                padding_df = self.get_ohlcv(timeframe=1, start_time=start_time - timedelta(minutes=200),
+                                            end_time=start_time, round=False)
+
+                concatnated_df = pd.concat(
+                    [padding_df, ohlcv_df], axis=0, sort=False)
+
+                print("conc")
+                print(concatnated_df)
+                print("downloaded ohlcv")
+                print(ohlcv_df)
+
+                ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
+                    concatnated_df)
+                print(k)
             else:
                 ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
                     ohlcv_df)
@@ -116,10 +131,6 @@ class Dataset:
 
         ta_macd = TechnicalAnalysisMACD(df)
         # already append these 3 cols
-        ema_5 = ta_macd.append_ema_close(5)
-        ema_3 = ta_macd.append_ema_close(3)
-        ema_2 = ta_macd.append_ema_close(2)
-        ema_1 = ta_macd.append_ema_close(1)
 
         ta_obv = TechnicalAnalysisOBV(df)
         obv_df = ta_obv.get_obv()
@@ -139,8 +150,8 @@ class Dataset:
         ta_wma = TechnicalAnalysisWMA(df)
         wma_df = ta_wma.get_wma()
 
-        tas = pd.concat([ad_df, atr_df, sar_df, ema_5, ema_3, ema_2,
-                         ema_1, obv_df, roc_df, rsi_df, so_df, williamsr_df, wma_df], axis=1)
+        tas = pd.concat([ad_df, atr_df, sar_df, obv_df, roc_df,
+                         rsi_df, so_df, williamsr_df, wma_df], axis=1)
         df.update(tas)
 
         df.dropna(inplace=True)

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import talib as ta
 
 
 class TechnicalAnalysisMACD:
@@ -10,6 +11,8 @@ class TechnicalAnalysisMACD:
         self.fast_period = fast_period
         self.slow_period = slow_period
         self.signal_period = signal_period
+
+        self.ta_ema = ta.ema()
 
     def append_sma_close(self, ma_period):
         sma = self.df['close'].rolling(ma_period).mean()
@@ -28,10 +31,7 @@ class TechnicalAnalysisMACD:
             self.signal_period).mean()
 
     def append_ema_close(self, ma_period):
-        ema_sum = self.df['close'].rolling(ma_period).sum() + self.df['close']
-        ema = ema_sum / (ma_period + 1)
-        self.df['ema_{}'.format(ma_period)] = ema
-        return self.df['ema_{}'.format(ma_period)]
+        return pd.DataFrame(ta.EMA(self.df["close"], timeperiod=ma_period))
 
     def generate_ema_macd(self):
         self.append_ema_close(self.fast_period)

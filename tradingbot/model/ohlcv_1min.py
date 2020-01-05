@@ -28,7 +28,7 @@ class OHLCV_1min(declarative_base()):
     psar_trend = Column(String(10))
     slowk = Column(Float)
     slowd = Column(Float)
-    willams_r = Column(Float)
+    williams_r = Column(Float)
 
     def __init__(self):
         self.timestamp = OHLCV_1min.timestamp
@@ -48,4 +48,4 @@ class OHLCV_1min(declarative_base()):
         self.psar_trend = OHLCV_1min.psar_trend
         self.slowk = OHLCV_1min.slowk
         self.slowd = OHLCV_1min.slowd
-        self.willams_r = OHLCV_1min.williams_r
+        self.williams_r = OHLCV_1min.williams_r
