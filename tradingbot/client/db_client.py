@@ -121,7 +121,7 @@ class DBClient:
     def get_last_row(self, table_name):
         # inly for mysql
         id = "(SELECT MAX(id) FROM " + table_name + ")"
-        return self.get_row_by_backtest_summary_id(table_name, id)
+        return self.get_row_by_id(table_name, id)
 
     def get_last_row_with_tags(self, measurement_name, tags):
         # only for influxdb

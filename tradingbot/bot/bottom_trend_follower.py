@@ -83,9 +83,6 @@ class BottomTrendFollow(TradingBot):
             return "downtrend"
 
     def calculate_signals(self, df):
-        # for real environment
-        # [FIXME] almost copy and paste
-
         bottom = df[self.bottom_trend_col]
         middle = df[self.middle_trend_col]
         top = df[self.top_trend_col]
