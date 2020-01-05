@@ -158,6 +158,97 @@ class TradingBot:
                     sleep(15)
                     self.line.notify("loop restart...")
 
+    def attach_params(self, ohlcv_df_with_signals, default_params, specific_params):
+        for tag, param in default_params.items():
+            ohlcv_df_with_signals[tag] = param
+        for tag, param in specific_params.items():
+            ohlcv_df_with_signals[tag] = param
+
+        return ohlcv_df_with_signals
+
+    def execute_with_sec_0(self, interval=0.5):
+        while datetime.now().second == 0:
+            sleep(interval)
+            break
+
+    def signal_judge_for_real(self, row, position=None):
+        if position is None:
+            return self.open_position_for_real(row)
+        else:
+            if (row.signal == "buy" and\
+                    ((position.order_type == "long"  and self.inverse_trading) or\
+                     (position.order_type == "short" and self.inverse_trading is not True))) or\
+               (row.signal == "sell" and\
+                   ((position.order_type == "long"  and self.inverse_trading is not True) or\
+                    (position.order_type == "short" and self.inverse_trading))) or\
+               (row.signal == "do_nothing" and\
+                   (position is not None and self.close_position_on_do_nothing)):
+
+                    self.close_position_for_real(row, position)
+                    return None
+
+    def order_slide_slippage(self, best_price, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
+        attempted_time, through_time=None):
+        if through_time is None:
+            through_time = onetime_duration
+        return best_price*(0.0025*total_loss_tolerance*onetime_loss_tolerance*onetime_duration*attempted_time/through_time)
+
+    def fetch_best_price(self, position):
+        # open and close (long, short)
+        
+        # try open and limit order   => (bid, ask)
+        # try close and market order => (bid, ask)
+
+        # try open and market order  => (ask, bid)
+        # try close and limit order  => (ask, bid)
+        order_status = position.order_status
+        order_method = position.order_method
+        order_type   = position.order_type
+
+        if (order_status == "pass" and order_method == "maker") or \
+           (order_status == "open" and order_method == "taker"):
+            price_type = "bid" if order_type == "long" else "ask"
+
+        elif (order_status == "open" and order_method == "maker") or \
+             (order_status == "pass" and order_method == "taker"):
+             price_type = "ask" if order_type == "long" else "bid"
+
+        return self.exchange_client.client.fetch_ticker(position.asset_name)[price_type]
+
+    def send_position(self, position, total_loss_tolerance, onetime_loss_tolerance, onetime_duration, attempted_time, through_time=None):
+        order_type = position.order_type
+        order_status = position.order_status
+        asset_name = position.asset_name
+        lot = position.lot  # [FIXME] close all lot in the position
+        leverage = position.leverage
+
+        best_price = self.fetch_best_price(position)
+        #slippage = self.order_slide_slippage(best_price, total_loss_tolerance, onetime_loss_tolerance,
+        #    onetime_duration, attempted_time, through_time=through_time)
+        
+        if (order_status == "pass" and order_type == "long") or (order_status == "open" and order_type == "short"):
+                order_price = best_price #- slippage
+                side = "Buy"
+        elif (order_status == "pass" and order_type == "short") or (order_status == "open" and order_type == "long"):
+                order_price = best_price # + slippage
+                side = "Sell"
+
+        order_price_base = round(order_price)
+        order_price_decimal = order_price - order_price_base
+
+        order_price = order_price_base if order_price_decimal < 0.5 else order_price_base + 0.5
+
+        # notification
+        if order_status == "pass":
+            self.line.notify("entry " + position.order_type + " order at : $" + str(order_price))
+        elif order_status == "open":
+            self.line.notify(
+                "try closing " + position.order_type + " order at: $" + str(round(order_price, 1)) + \
+                " lot: $" + str(lot) + " leverage: " + str(leverage) + "x")
+
+            # make order
+        return self.exchange_client.client.create_order(asset_name, "limit", side, lot, round(order_price,1) ,
+            params = {'execInst': 'ParticipateDoNotInitiate'})
 
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
         position = None
@@ -181,199 +272,142 @@ class TradingBot:
 
             # follow the latest signal
             latest_row = ohlcv_df.tail(1).iloc[0,:]
+            position = self.signal_judge_for_real(latest_row, position)
 
-            if latest_row.signal == "buy":
-                position = self.receive_buy_signal_for_real(latest_row, position)
-            elif latest_row.signal == "sell":
-                position = self.receive_sell_signal_for_real(latest_row, position)
-            elif latest_row.signal == "do_nothing":
-                self.receive_do_nothing_signal_for_real(latest_row, position)
 
-    def attach_params(self, ohlcv_df_with_signals, default_params, specific_params):
-        for tag, param in default_params.items():
-            ohlcv_df_with_signals[tag] = param
-        for tag, param in specific_params.items():
-            ohlcv_df_with_signals[tag] = param
-
-        return ohlcv_df_with_signals
-
-    def execute_with_sec_0(self, interval=0.5):
-        while datetime.now().second == 0:
-            sleep(interval)
-            break
-
-    def receive_buy_signal_for_real(self, row, position=None):
-        if position is None:
-            # inverse => open short position
-            # normal  => open long  position
-            order_type = "short" if self.inverse_trading else "long"
-            return self.open_position_for_real(row, order_type)
-            
-        else:
-            if (position.order_type == "long"  and self.inverse_trading) or\
-               (position.order_type == "short" and self.inverse_trading is not True):
-                # long and inverse, short and normal => close position
-                self.close_position_for_real(row, position)
-
-    def receive_sell_signal_for_real(self, row, position=None):
-        if position is None:
-            # inverse => open long position
-            # normal  => open short position
-            order_type = "long" if self.inverse_trading else "short"
-            return self.open_position_for_real(row, order_type)
-
-        else:
-            if (position.order_type == "long"  and self.inverse_trading is not True) or\
-                position.order_type == "short" and self.inverse_trading:
-                # long and normal, short and inverse  => close position
-                self.close_position_for_real(row, position)
-
-    def receive_do_nothing_signal_for_real(self, row, position=None):
-        if position and self.close_position_on_do_nothing:
-            # position open and True => close position
-            self.close_position_for_real(row, position)
-
-    def open_position_for_real(self, row, order_type):
-        # [FIXME] actually ordertype is no need
-
-        lot = self.calculate_lot(row) # always 100 USD
-        leverage = self.calculate_leverage(row)  # always 1 times
-
-        self.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(leverage)})
+    def open_position_for_real(self, row):
         self.current_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
 
-        position = OrderPosition(row, order_type, self.current_balance, lot, leverage)
+        lot = self.calculate_lot(row) # fixed value
+        leverage = self.calculate_leverage(row)  # fixed value
 
-        position = self.slippage_adjuster_order_slide(row=row,lot=lot, leverage=leverage, position=position, order_method="maker",
-             total_loss_tolerance=1, onetime_duration=50, onetime_loss_tolerance=0.0, force_order=False, through_time=50)
+        # [FIXME] symbol is hardcoded, only for bitmex
+        self.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(leverage)})
 
-        if position is not None and position.order_status == "open":
-            return position
-        else:
-            return None
+        position = OrderPosition(row)
+        position.current_balance = self.current_balance
+        position.lot = lot
+        position.leverage = leverage
+        position.order_method = "maker"
+
+        position = self.create_order(row, position)
+
+        # discard failed opening orders
+        return position if position is not None and position.order_status == "open" else None
 
     def close_position_for_real(self, row, position):
-        leverage = self.calculate_leverage(row)
-        lot = self.calculate_lot(row)
-        self.slippage_adjuster_order_slide(row=row, lot=lot, leverage=leverage, position=position, order_method="maker",
-            total_loss_tolerance=1, onetime_duration=50, onetime_loss_tolerance=0.0, force_order=True)
+        self.create_order(row, position)
 
-    def slippage_adjuster_order_slide(self, row, lot, leverage, position, order_method, total_loss_tolerance,
-        onetime_duration, onetime_loss_tolerance, force_order=False, through_time=None):
-        # {FIXME} copy and paste
-        # [FIXME] too order price is too rough
-        order_type = position.order_type
-        atemmpted_time = 0
+    def create_order(self, row, position):
+        if position.order_status == "pass":  # try to open
+            return self.attempt_make_position(row, position, 1, 1, 50, 50)
+        elif position.order_status == "open": # try to close
+            return self.attempt_make_position(row, position, 1, 1, 40, None)
 
+    def try_order(self, row, position, total_loss_tolerance, onetime_loss_tolerance,
+        onetime_duration, attempted_time, order_start_time, through_time=None):
+
+        order = self.send_position(position, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
+            attempted_time, through_time=through_time)
+
+        sleep(onetime_duration)
+
+        order_info = self.exchange_client.client.fetch_order(order["id"])
+
+        if position.order_status == "pass":
+            position.open_order_id = order["id"]
+            return self.is_position_opened(row, position, order_start_time, attempted_time, order_info)
+        elif position.order_status == "open":
+            position.close_order_id = order["id"]
+            return self.is_position_closed(row, position, order_start_time, attempted_time, order_info)
+
+    def cancel_failed_order(self, id):
+        try:
+            self.exchange_client.client.cancel_order(id)
+        except:
+            self.line.notify("order was deleted. retry")
+
+    def attempt_make_position(self, row, position, total_loss_tolerance, onetime_loss_tolerance,
+        onetime_duration, through_time):
+
+        attempted_time = 1
         order_start_time = datetime.now()
 
-        if force_order:
-            while True:
-                if order_type == "long":
-                    best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["ask"]
-                elif order_type == "short":
-                    best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["bid"]
-
-                slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
-                # for close
-                if order_type == "short":
-                    order_price = best_price - slippage * atemmpted_time
-                    close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
-                        side="Buy", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
-
-                elif order_type == "long":
-                    order_price = best_price + slippage * atemmpted_time
-                    close_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
-                        side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
-
-                self.line.notify("try closing " + order_type + " order at: $" + str(round(order_price, 1)) + " lot: $" + \
-                        str(lot) + " leverage: " + str(leverage))
-
-                sleep(onetime_duration) # wait a certain seconds
-                close_order_info = self.exchange_client.client.fetch_order(close_order["id"])
-                position.close_order_id = close_order["id"]
-                
-                if close_order_info["status"] == "closed":  # order sucess
-                    updated_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
-                    self.line.notify("order was successfully closed.\n \
-                        current_balance: " + str(round(updated_balance, 5)) + "BTC\nasset moving : " + \
-                                     str(round((updated_balance - self.current_balance) / self.current_balance*100, 5)) + "%")
-
-                    close_params = {
-                        "close_position_id": close_order["id"],
-                        "close_judged_price": row.close,
-                        "close_judged_time": row.index,
-                        "close_price": order_price,
-                        "close_attempt_time": atemmpted_time,
-                        "close_attempt_period": datetime.now() - order_start_time,
-                        "close_order_method": "maker",
-                        "current_balance": updated_balance
-                    }
-                    position.set_close_log(close_params)
-                    self.db_client.influx_raw_connector.write_points([position.get_combined_log()])
-
-                    self.current_balance = updated_balance
-                    break
-                else:  # order Failed
-                    try:
-                        self.exchange_client.client.cancel_order(close_order["id"])
-                        self.line.notify("position closing failed. retry. total attempted time:" + str(atemmpted_time))
-                        atemmpted_time += 1
-                        continue
-                    except:
-                        self.line.notify("order was deleted. retry")
-                        continue
-
-        else:
-            # for entry
-            finally_status = ""
+        if position.order_status == "pass": # try open
             while datetime.now() - order_start_time < timedelta(seconds=through_time):
-                if order_type == "long":
-                    best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["bid"]
-                elif order_type == "short":
-                    best_price = self.exchange_client.client.fetch_ticker(row.asset_name)["ask"]
+                order = self.try_order(row, position, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
+                    attempted_time, order_start_time, through_time=through_time)
+                if order:
+                    return order
+                else:
+                    attempted_time += 1
 
-                slippage = best_price*(0.25*total_loss_tolerance*onetime_loss_tolerance/onetime_duration)
-                if order_type == "long":
-                    order_price = best_price + slippage * atemmpted_time
-                    self.line.notify("entry long order at : $" + str(round(order_price,1)))
-                    entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
-                        side="Buy", amount=lot, price=str(order_price), params={'execInst': 'ParticipateDoNotInitiate'})
+            self.line.notify("all attempts are failed, skip")
+            position.set_pass_log()
+            self.db_client.influx_raw_connector.write_points([position.get_pass_log()])
+            return None
+                
+        elif position.order_status == "open": # try close
+            while True:
+                order = self.try_order(row, position, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
+                    attempted_time, order_start_time, through_time=None)
+                if order:
+                    return None
+                else:
+                    attempted_time += 1
 
-                elif order_type == "short":
-                    order_price = best_price - slippage * atemmpted_time
-                    self.line.notify("entry short order at : $" + str(round(order_price)))
-                    entry_order = self.exchange_client.client.create_order(symbol=row.asset_name, type="limit",
-                        side="Sell", amount=lot, price=str(round(order_price,1)), params = {'execInst': 'ParticipateDoNotInitiate'})
+    def is_position_opened(self, row, position, order_start_time, attempted_time, order_info):
+        if order_info["status"] == "closed":
+            position.order_status = "open"
+            self.line.notify("entry order was successfully opened")
+            open_log = {
+                "open_attempt_time": attempted_time,
+                "order_method": "maker"
+            }
+            position.set_open_log(open_log)
+            return position
 
-                sleep(onetime_duration)
-                entry_order_info = self.exchange_client.client.fetch_order(entry_order["id"])
-                position.open_order_id = entry_order["id"]
+        elif order_info["status"] == "open":    # order failed
+            self.line.notify("entry order failed, retrying. time:" + str(attempted_time))
+            self.cancel_failed_order(order_info["id"])
 
-                if entry_order_info["status"] == "open":    # order failed
-                    self.line.notify("entry order failed, retrying. time:" + str(atemmpted_time))
-                    try:
-                        self.exchange_client.client.cancel_order(position.open_order_id)
-                        atemmpted_time += 1
-                        finally_status = "open"
-                    except:
-                        self.line.notify("entry order was deleted, skip")
-                        break
-                elif entry_order_info["status"] == "closed":
-                    position.order_status = "open"
-                    self.line.notify("entry order was successfully opened")
-                    open_log = {
-                        "open_attempt_time": atemmpted_time,
-                        "order_method": "maker"
-                    }
-                    position.set_open_log(open_log)
-                    return position
+    def is_position_closed(self, row, position, order_start_time, attempted_time, order_info):
+        if order_info["status"] == "closed":  # order sucess
+            updated_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
 
-            if finally_status == "open":
-                self.line.notify("all attempts are failed, skip")
-                position.set_pass_log()
-                self.db_client.influx_raw_connector.write_points([position.get_pass_log()])
-                return None
+            # notify
+            self.line.notify("order was successfully closed.\n \
+                current_balance: " + str(round(updated_balance, 5)) + "BTC\nasset moving : " + \
+                str(round((updated_balance - self.current_balance) / self.current_balance*100, 5)) + "%")
+    
+            # send log to influxdb
+            self.create_close_transaction_log_for_real(row, position, order_start_time,
+                updated_balance, attempted_time, order_info)
+
+            # update current balance
+            self.current_balance = updated_balance
+            return True
+
+        else:  # order Failed
+            self.line.notify("position closing failed. retry. total attempted time:" + str(attempted_time))
+            self.cancel_failed_order(order_info["id"])
+            return False
+
+
+    def create_close_transaction_log_for_real(self, row, position, order_close_time, updated_balance, attempted_time, order_info):
+        close_params = {
+            "close_position_id": order_info["id"],
+            "close_judged_price": row.close,
+            "close_judged_time": row.index,
+            "close_price": order_info["price"],
+            "close_attempt_time": attempted_time,
+            "close_attempt_period": datetime.now() - order_close_time,
+            "close_order_method": "maker",
+            "current_balance": updated_balance
+        }
+                
+        position.set_close_log(close_params)
+        self.db_client.influx_raw_connector.write_points([position.get_combined_log()])
 
     def bulk_insert(self):
         self.db_client.session.commit()
@@ -866,9 +900,9 @@ class TradingBot:
         return return_hash
 
 class OrderPosition:
-    def __init__(self, row_open, order_type, current_balance, lot, leverage, is_backtest=False):
+    def __init__(self, row_open, is_backtest=False):
         self.is_backtest = is_backtest
-        self.common_log(row_open, order_type, current_balance, lot, leverage, )
+        self.common_log(row_open)
 
         if self.is_backtest:
             self.transaction_fee_by_order = 0.0005  # profit * transaction fee, please update to 2 times 
@@ -880,12 +914,10 @@ class OrderPosition:
 
         else:
             # for real environment
-            self.open_position_id = None
-            self.closed_position_id = None
             self.order_status = "pass"
-            self.total_transaction_cost = None
 
             # for open
+            self.open_position_id = None
             self.entry_judged_price = row_open.close
             self.entry_judged_time = datetime.now()
 
@@ -900,6 +932,7 @@ class OrderPosition:
             self.open_transaction_cost = None
 
             # for close
+            self.closed_position_id = None
             self.close_judged_price = None
             self.close_judged_time = None
 
@@ -911,27 +944,26 @@ class OrderPosition:
             self.close_attempt_period = None
 
             self.close_order_method = None # maker or taker
-            if self.close_order_method == "maker":
-                self.close_transaction_fee = -0.0025  # both open and close are limit order
-            elif self.close_order_method == "taker":
-                self.close_transaction_fee = 0.0005
-
-            self.close_maker_profit_usage_percentage = None
             self.close_transaction_cost = None
+
+            self.total_transaction_cost = None
 
         # for transaction log
 
         self.open_position()
 
-    def common_log(self, row_open, order_type, lot, leverage, current_balance):
+    def common_log(self, row_open):
         self.exchange_name = row_open.exchange_name
         self.asset_name = row_open.asset_name
-        self.current_balance = current_balance
-        
-        self.order_type = order_type
-        self.lot = lot
-        self.leverage = leverage
 
+        if row_open.signal == "buy":
+            self.order_type = "long"
+        elif row_open.signal == "sell":
+            self.order_type = "short"
+        
+        self.current_balance = None
+        self.lot = None
+        self.leverage = None
 
     def open_position(self):
         if self.is_backtest:
@@ -957,7 +989,7 @@ class OrderPosition:
         'fields': {
             "current_balance": float(self.current_balance),
             "lot": self.lot,
-            "leverage": float(self.leverage),
+            "leverage": self.leverage,
             "entry_judged_price": float(self.entry_judged_price),
             "entry_judged_time": str(self.entry_judged_time),
             "open_attempt_time": self.open_attempt_time,
@@ -992,7 +1024,7 @@ class OrderPosition:
         self.open_log = {
         'fields': {
             "lot": self.lot,
-            "leverage": float(self.leverage),
+            "leverage": self.leverage,
             "entry_judged_price": float(self.entry_judged_price),
             "entry_judged_time": str(self.entry_judged_time),
             "entry_time": str(self.entry_time),
