@@ -121,7 +121,7 @@ class TradingBot:
             self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe, ohlcv_start_time, ohlcv_end_time)
 
         if self.is_backtest:
-            self.ohlcv_with_metrics = self.calculate_metrics_for_backtest()
+            self.ohlcv_with_metrics = self.calculate_metrics(self.ohlcv_df)
             # for summary
             if floor_time:
                 ohlcv_start_time = self.dataset_manipulator.floor_datetime_to_ohlcv(ohlcv_start_time, "up")
@@ -130,7 +130,7 @@ class TradingBot:
             self.ohlcv_start_time = ohlcv_start_time
             self.ohlcv_end_time = ohlcv_end_time
             
-            self.ohlcv_with_signals = self.calculate_signs_for_backtest().dropna()
+            self.ohlcv_with_signals = self.calculate_signals(self.ohlcv_with_metrics).dropna()
             
             self.summary_id = self.init_summary()
             self.insert_backtest_transaction_logs()
@@ -263,8 +263,8 @@ class TradingBot:
                 asset_name="BTC/USD", round=False)
         
             # calc metrics, judge buy or sell or donothing and params
-            ohlcv_df_with_metrics = self.calculate_metrics_for_real(ohlcv_df)
-            ohlcv_df_with_signals = self.calculate_signs_for_real(ohlcv_df_with_metrics)
+            ohlcv_df_with_metrics = self.calculate_metrics(ohlcv_df)
+            ohlcv_df_with_signals = self.calculate_signals(ohlcv_df_with_metrics)
             full_ohlcv_df = self.attach_params(ohlcv_df_with_signals, self.default_params, self.specific_params)
 
             # write newest ohlcv, signal and params into signals measurement
@@ -452,22 +452,14 @@ class TradingBot:
         return 1 # 1 times
         # if you need, you can override
 
-    def calculate_metrics_for_real(self, df):
-        return "metric"
-
-    def calculate_metrics_for_backtest(self):
-        return "ohlcv_with_metric_dataframe"
+    def calculate_metrics(self, df):
+        return df
         # need to override
 
-    def calculate_signs_for_real(self, df):
-        return "signal"
+    def calculate_signals(self, df):
+        return df
         # need to override
         # return ["buy", "sell", "do_nothing"]
-
-    def calculate_signs_for_backtest(self):
-        return "ohlcv_with_signal_data"
-        # need to override
-        # return dataframe with ["buy", "sell", "do_nothing"]
 
     def insert_backtest_transaction_logs(self):
         # refer to signal then judge investment

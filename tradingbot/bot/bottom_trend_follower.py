@@ -54,10 +54,10 @@ class BottomTrendFollow(TradingBot):
             str(specific_params_values[1]) + "_trend"
         self.top_trend_col = "ema_" + str(specific_params_values[2]) + "_trend"
 
-    def calculate_metrics_for_backtest(self):
+    def calculate_metrics(self, df):
         self.set_trend_column()
 
-        ohlcv_with_metrics = self.ohlcv_df
+        ohlcv_with_metrics = df
         ta_ema = TechnicalAnalysisMACD(ohlcv_with_metrics)
 
         for tick in list(self.specific_params.values()):
@@ -76,28 +76,13 @@ class BottomTrendFollow(TradingBot):
 
         return ohlcv_with_metrics
 
-    def calculate_metrics_for_real(self, df):
-        # [FIXME] almost copy and paste
-        self.set_trend_column()
-        for tick in list(self.specific_params.values()):
-            col = "ema_" + str(tick)
-            diff_col = col + "_diff"
-            trend_col = col + "_trend"
-
-            # get diff of ema
-            df[diff_col] = (df[col].diff() / df[col]) * 100
-            # trend of ema moving
-            df.loc[:, trend_col] = df[diff_col].map(
-                self.create_trend_col)
-        return df
-
     def create_trend_col(self, diff):
         if diff > 0:
             return "uptrend"
         else:
             return "downtrend"
 
-    def calculate_signs_for_real(self, df):
+    def calculate_signals(self, df):
         # for real environment
         # [FIXME] almost copy and paste
 
@@ -112,16 +97,3 @@ class BottomTrendFollow(TradingBot):
                 & (top == "downtrend")), "signal"] = "sell"
         df["signal"].fillna("do_nothing", inplace=True)
         return df
-
-    def calculate_signs_for_backtest(self):
-        bottom = self.ohlcv_df[self.bottom_trend_col]
-        middle = self.ohlcv_df[self.middle_trend_col]
-        top = self.ohlcv_df[self.top_trend_col]
-        self.ohlcv_df.loc[((bottom == "uptrend")
-                           & (middle == "uptrend")
-                           & (top == "uptrend")), "signal"] = "buy"
-        self.ohlcv_df.loc[((bottom == "downtrend")
-                           & (middle == "downtrend")
-                           & (top == "downtrend")), "signal"] = "sell"
-        self.ohlcv_df["signal"].fillna("do_nothing", inplace=True)
-        return self.ohlcv_df
