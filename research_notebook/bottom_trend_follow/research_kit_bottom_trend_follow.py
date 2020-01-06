@@ -53,8 +53,8 @@ plt.rcParams['figure.figsize'] = (10.0, 20.0)
 bitmex_exchange_client = ExchangeClient(
     "bitmex", Path(config_ini))
 mysql_client = DBClient("mysql", Path(config_ini))
-dataset_manager = Dataset(mysql_client, bitmex_exchange_client)
-dataset_manager.update_ohlcv("bitmex")
+dataset_manager = Dataset(mysql_client, bitmex_exchange_client, True)
+dataset_manager.update_ohlcv("bitmex",start_time=datetime.now() - timedelta(days=7), with_ta=True)
 
 # manually added
 def get_joined_params_and_summary():
