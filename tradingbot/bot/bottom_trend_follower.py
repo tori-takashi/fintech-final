@@ -36,7 +36,8 @@ class BottomTrendFollow(TradingBot):
                          specific_params=self.specific_params, is_backtest=is_backtest)
 
     def calculate_lot(self, row):
-        return 60  # USD
+        return 1  # USD
+        # % of the asset
         # if you need, you can override
         # default is invest all that you have
 

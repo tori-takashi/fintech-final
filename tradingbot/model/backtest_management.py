@@ -18,6 +18,7 @@ class BacktestManagement(Base):
         primaryjoin="BacktestManagement.backtest_summary_id == BacktestSummary.id", uselist=False, viewonly=True)
 
     # default params
+    bot_name = Column(String(100))
     timeframe = Column(Integer)
     version = Column(String(100))
     close_position_on_do_nothing = Column(Boolean)
@@ -25,6 +26,7 @@ class BacktestManagement(Base):
 
     def __init__(self):
         # default params
+        self.bot_name = BacktestManagement.bot_name
         self.backtest_summary_id = BacktestManagement.backtest_summary_id
         self.version = BacktestManagement.version
         self.timeframe = BacktestManagement.timeframe

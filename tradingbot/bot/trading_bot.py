@@ -44,8 +44,8 @@ class TradingBot:
             self.backtest_management_table_name = self.bot_name + "_backtest_management"
 
             # backtest configure
-            self.initial_balance = 0.1  # BTC
-            self.account_currency = "BTC"
+            self.initial_balance = 100  # BTC
+            self.account_currency = "USD"
 
             if self.db_client.is_table_exist(self.backtest_management_table_name) is not True:
                 self.create_backtest_management_table()
@@ -134,7 +134,7 @@ class TradingBot:
             
             self.summary_id = self.init_summary()
             self.insert_backtest_transaction_logs()
-            self.insert_params_management()
+            self.insert_params_management(self.summary_id)
             self.update_summary()
 
         else:
@@ -273,7 +273,7 @@ class TradingBot:
 
             # follow the latest signal
             latest_row = ohlcv_df.tail(1).iloc[0,:]
-            position = self.signal_judge_for_real(latest_row, position)
+            position = self.signal_judge(latest_row, position)
 
 
     def open_position(self, row):
@@ -289,6 +289,10 @@ class TradingBot:
         position.order_method = "maker"
 
         if self.is_backtest:
+            if (row.signal == "buy" and self.inverse_trading is not True) or (row.signal == "sell" and self.inverse_trading):
+                position.order_type = "long"
+            else:
+                position.order_type = "short"
             return position
         else:
             self.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(leverage)})
@@ -422,7 +426,6 @@ class TradingBot:
         # for loop and serach optimal metrics value
         self.ohlcv_with_metrics = None
         self.ohlcv_with_signals = None
-        self.summary_id = None
         self.closed_positions_df = None
 
         self.default_params = default_params
@@ -430,10 +433,10 @@ class TradingBot:
         self.specific_params = specific_params
         self.combined_params = dict(**self.default_params, **self.specific_params)
 
+    def insert_params_management(self, summary_id=None):
         backtest_management = self.backtest_management_table()
-
-        #self.combined_params["backtest_summary_id"] = int(self.summary_id)
-        del self.combined_params["bot_name"]
+        if summary_id:
+            self.combined_params["backtest_summary_id"] = int(summary_id)
 
         self.db_client.connector.execute(backtest_management.insert().values(self.combined_params))
 
@@ -450,7 +453,10 @@ class TradingBot:
         return int(self.db_client.get_last_row("backtest_summary").index.array[0])
         
     def calculate_lot(self, row):
-        return 60 # USD
+        # {FIXME} backtest is the percentage but real is the real USD number
+        return 1 # backtest
+        #return 60 # real
+        
         # if you need, you can override
         # default is invest all that you have
 
@@ -475,7 +481,7 @@ class TradingBot:
         self.transaction_logs = []
 
         for row in self.ohlcv_with_signals.itertuples(): # self.ohlcv_with_signals should be dataframe
-            position = self.signal_judge(self, row, position=position)
+            position = self.signal_judge(row, position=position)
 
         self.db_client.session.bulk_insert_mappings(BacktestTransactionLog, self.transaction_logs)
 
@@ -509,6 +515,21 @@ class TradingBot:
 
         win_consecutive = self.build_consecutive("win")
         lose_consecutive = self.build_consecutive("lose")
+
+
+        long_average_holding_ms = long_row["holding_time"].mean().to_pytimedelta() if long_row.empty is not True else timedelta(seconds=0)
+        short_average_holding_ms = short_row["holding_time"].mean().to_pytimedelta() if short_row.empty is not True else timedelta(seconds=0)
+        win_average_holding_ms = win_row["holding_time"].mean().to_pytimedelta() if win_row.empty is not True else timedelta(seconds=0)
+        lose_average_holding_ms = lose_row["holding_time"].mean().to_pytimedelta() if lose_row.empty is not True else timedelta(seconds=0)
+
+        win_long_average_holding_ms = win_long_row["holding_time"].mean().to_pytimedelta()\
+            if win_long_row.empty is not True else timedelta(seconds=0)
+        lose_long_average_holding_ms = lose_long_row["holding_time"].mean().to_pytimedelta()\
+            if lose_long_row.empty is not True else timedelta(seconds=0)
+        win_short_average_holding_ms = win_short_row["holding_time"].mean().to_pytimedelta()\
+            if win_short_row.empty is not True else timedelta(seconds=0)
+        lose_short_average_holding_ms = lose_short_row["holding_time"].mean().to_pytimedelta()\
+            if lose_short_row.empty is not True else timedelta(seconds=0)
     
         drawdowns = self.build_drawdowns()
 
@@ -544,7 +565,7 @@ class TradingBot:
 
         # win
         "win_entry": len(win_row),
-        "win_average_holding_ms": win_row["holding_time"].mean().to_pytimedelta(),
+        "win_average_holding_ms": win_average_holding_ms,
         "win_rate": (len(win_row) / len(self.closed_positions_df)) * 100,
 
         "win_return": float(win_row.profit_size.sum()),
@@ -561,7 +582,7 @@ class TradingBot:
         "win_median_percentage": float(win_row.profit_percentage.median()),
 
         "win_transaction_cost": float(win_row.transaction_cost.sum()),
-            
+          
         "win_consecutive_max_entry": win_consecutive["consecutive_max_entry"],
         "win_consecutive_average_entry": win_consecutive["consecutive_average_entry"],
         "win_consecutive_max_profit": float(win_consecutive["consecutive_df"].profit_size.sum()),
@@ -572,8 +593,8 @@ class TradingBot:
         # lose
         "lose_entry": len(lose_row),
         "lose_rate": (len(lose_row) / len(self.closed_positions_df)) * 100,
-        "lose_average_holding_ms": lose_row["holding_time"].mean().to_pytimedelta(),
-  
+        "lose_average_holding_ms": lose_average_holding_ms,
+    
         "lose_return": float(lose_row.profit_size.sum()),
         "lose_return_average": float(lose_row.profit_size.mean()),
         "lose_standard_deviation": float(lose_row.profit_size.std()),
@@ -588,7 +609,7 @@ class TradingBot:
         "lose_median_percentage": float(lose_row.profit_percentage.median()),
 
         "lose_transaction_cost": float(lose_row.transaction_cost.sum()),
-            
+
         "lose_consecutive_max_entry": lose_consecutive["consecutive_max_entry"],
         "lose_consecutive_average_entry": lose_consecutive["consecutive_average_entry"],
         "lose_consecutive_max_loss": float(lose_consecutive["consecutive_df"].profit_size.sum()),
@@ -599,7 +620,7 @@ class TradingBot:
         # long
         "long_entry": len(long_row),
         "long_rate": (len(long_row) / len(self.closed_positions_df)) * 100,
-        "long_average_holding_ms": long_row["holding_time"].mean().to_pytimedelta(),
+        "long_average_holding_ms": long_average_holding_ms,
 
         "long_return": float(long_row.profit_size.sum()),
         "long_return_average": float(long_row.profit_size.mean()),
@@ -623,7 +644,7 @@ class TradingBot:
         #short
         "short_entry": len(short_row),
         "short_rate": (len(short_row) / len(self.closed_positions_df)) * 100,
-        "short_average_holding_ms": short_row["holding_time"].mean().to_pytimedelta(),
+        "short_average_holding_ms": short_average_holding_ms,
 
         "short_return": float(short_row.profit_size.sum()),
         "short_return_average": float(short_row.profit_size.mean()),
@@ -646,7 +667,7 @@ class TradingBot:
 
         # win long
         "win_long_entry": len(win_long_row),
-        "win_long_average_holding_ms": win_long_row["holding_time"].mean().to_pytimedelta(),
+        "win_long_average_holding_ms": win_long_average_holding_ms,
 
         "win_long_return": float(win_long_row.profit_size.sum()),
         "win_long_return_average": float(win_long_row.profit_size.mean()),
@@ -664,7 +685,7 @@ class TradingBot:
 
         # win short
         "win_short_entry": len(win_short_row),
-        "win_short_average_holding_ms": win_short_row["holding_time"].mean().to_pytimedelta(),
+        "win_short_average_holding_ms": win_short_average_holding_ms,
 
         "win_short_return": float(win_short_row.profit_size.sum()),
         "win_short_return_average": float(win_short_row.profit_size.mean()),
@@ -681,7 +702,7 @@ class TradingBot:
 
         # lose long
         "lose_long_entry": len(lose_long_row),
-        "lose_long_average_holding_ms": lose_long_row["holding_time"].mean().to_pytimedelta(),
+        "lose_long_average_holding_ms": lose_long_average_holding_ms,
 
         "lose_long_return": float(lose_long_row.profit_size.sum()),
         "lose_long_return_average": float(lose_long_row.profit_size.mean()),
@@ -698,7 +719,7 @@ class TradingBot:
 
         # lose short
         "lose_short_entry": len(lose_short_row),
-        "lose_short_average_holding_ms": lose_short_row["holding_time"].mean().to_pytimedelta(),
+        "lose_short_average_holding_ms": lose_short_average_holding_ms,
 
         "lose_short_return": float(lose_short_row.profit_size.sum()),
         "lose_short_return_average": float(lose_short_row.profit_size.mean()),
@@ -714,13 +735,12 @@ class TradingBot:
         "lose_short_median_percentage": float(lose_short_row.profit_percentage.median()),
 
         # other metrics
-        "backtest_start_time": self.backtest_start_time,
-        "backtest_end_time": self.backtest_end_time,
+        "backtest_start_time": self.ohlcv_start_time,
+        "backtest_end_time": self.ohlcv_end_time,
 
         "bot_name": self.bot_name,
         "initial_balance": self.initial_balance,
         "account_currency": self.account_currency,
-
 
         "absolute_drawdown": float(drawdowns["absolute_drawdown"]),
         "maximal_drawdown": float(drawdowns["maximal_drawdown"]),
@@ -729,8 +749,9 @@ class TradingBot:
         "profit_factor": float(win_row.profit_size.sum() / abs(lose_row.profit_size.sum())),
         "recovery_factor": recovery_factor
         }
+        filled_none_summary_dict = {k : None if str(v) == "nan" and np.isnan(v) else v for k, v, in summary_dict.items()}
 
-        self.db_client.session.bulk_update_mappings(BacktestSummary, [summary_dict])
+        self.db_client.session.bulk_update_mappings(BacktestSummary, [filled_none_summary_dict])
 
     def build_drawdowns(self):
         if self.closed_positions_df.current_balance.min() < 0:
@@ -806,8 +827,12 @@ class TradingBot:
                     consecutive_win_lose_entries.append(current_end_index - current_start_index)
                     consective_flag = False
 
-        consecutive_max_entry = np.max(consecutive_win_lose_entries)
-        consecutive_average_entry = np.mean(consecutive_win_lose_entries)
+        if consecutive_win_lose_entries:
+            consecutive_max_entry = np.max(consecutive_win_lose_entries)
+            consecutive_average_entry = np.mean(consecutive_win_lose_entries)
+        else:
+            consecutive_max_entry = 0
+            consecutive_average_entry = 0
 
         return_hash = {
             "consecutive_df": self.closed_positions_df.loc[max_start_index:max_end_index],
@@ -823,7 +848,7 @@ class OrderPosition:
         self.common_log(row_open)
 
         if self.is_backtest:
-            self.transaction_fee_by_order = 0.0015 # 0.15 = 0.075% * 2 market order
+            self.transaction_fee_by_order = 0.00075 # 0.15 = 0.075% * 2 market order
             # because transaction fee is charged for both open and close order.
             self.order_status = "open"
             self.order_method = "taker"
@@ -1024,22 +1049,19 @@ class OrderPosition:
         self.close_price = row_close.close
         self.close_time = row_close.Index
 
-        self.price_difference = self.close_price - self.entry_judged_price
-        self.price_difference_percentage = ((self.close_price / self.entry_judged_price) - 1)*100
+        self.price_difference = self.close_price - self.entry_price
+        self.price_difference_percentage = ((self.close_price / self.entry_price) - 1)*100
 
         if self.order_type == "long":
-            self.gross_profit = self.close_price - self.entry_judged_price * self.lot * self.leverage
-            self.transaction_cost = (self.close_price - self.entry_judged_price) * self.transaction_fee_by_order * self.lot * self.leverage
+            self.gross_profit = self.close_price - self.entry_price * self.lot * self.leverage
+            self.transaction_cost = (self.close_price - self.entry_price) * self.transaction_fee_by_order * self.lot * self.leverage
             self.profit_size = self.gross_profit - self.transaction_cost
         elif self.order_type == "short":
-            self.gross_profit = self.entry_judged_price - self.close_price * self.lot * self.leverage
-            self.transaction_cost = (self.entry_judged_price - self.close_price) * self.transaction_fee_by_order * self.lot * self.leverage
+            self.gross_profit = self.entry_price - self.close_price * self.lot * self.leverage
+            self.transaction_cost = (self.entry_price - self.close_price) * self.transaction_fee_by_order * self.lot * self.leverage
             self.profit_size = self.gross_profit - self.transaction_cost
 
-        if self.profit_size > 0:
-            self.profit_status = "win"
-        else:
-            self.profit_status = "lose"
+        self.profit_status = "win" if self.profit_size > 0 else "lose"
 
         if self.current_balance > 0:
             self.profit_percentage = ((self.profit_size / self.current_balance) + 1 )*100
@@ -1047,11 +1069,7 @@ class OrderPosition:
             self.profit_percentage = None
         else:
             profit_percentage = (abs(self.profit_size + self.current_balance) / abs(self.current_balance))
-            if self.profit_status == "win":
-                self.profit_percentage = profit_percentage
-            else:
-                self.profit_percentage = -1 * profit_percentage
-
+            self.profit_percentage = profit_percentage if self.profit_status == "win" else -1 * profit_percentage
 
         self.profit_percentage = (((self.current_balance + self.profit_size) / self.current_balance) - 1)*100
         self.current_balance += self.profit_size

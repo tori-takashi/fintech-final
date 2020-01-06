@@ -68,6 +68,7 @@ class DBClient:
 
     def write_to_table(self, table_name, dataframe, if_exists):
         if self.is_mysql():
+            dataframe = dataframe.replace({pd.np.nan: None})
             dataframe.to_sql(table_name, self.connector,
                              if_exists=if_exists, index=False)
         if self.is_influxdb():

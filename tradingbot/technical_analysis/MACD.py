@@ -29,7 +29,10 @@ class TechnicalAnalysisMACD:
             self.signal_period).mean()
 
     def append_ema_close(self, ma_period):
-        return pd.DataFrame(ta.EMA(self.df["close"], timeperiod=ma_period))
+        ema_sum = self.df['close'].rolling(ma_period).sum() + self.df['close']
+        ema = ema_sum / (ma_period + 1)
+        self.df['ema_{}'.format(ma_period)] = ema
+        return self.df['ema_{}'.format(ma_period)]
 
     def generate_ema_macd(self):
         self.append_ema_close(self.fast_period)
