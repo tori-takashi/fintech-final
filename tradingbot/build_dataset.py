@@ -10,7 +10,7 @@ bitmex_exchange_client = ExchangeClient(
     "bitmex", Path("tradingbot/config.ini"))
 mysql_client = DBClient("mysql", Path("tradingbot/config.ini"))
 
-dataset_manager = Dataset(mysql_client, bitmex_exchange_client)
+dataset_manager = Dataset(mysql_client, bitmex_exchange_client, True)
 
 start_time = datetime.now() - timedelta(days=1000)
 end_time = datetime.now()

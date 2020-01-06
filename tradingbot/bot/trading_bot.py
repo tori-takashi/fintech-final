@@ -37,7 +37,7 @@ class TradingBot:
         self.specific_params = specific_params
         self.combined_params = dict(**self.default_params, **self.specific_params)
 
-        self.dataset_manipulator = Dataset(self.db_client, self.exchange_client)
+        self.dataset_manipulator = Dataset(self.db_client, self.exchange_client, self.is_backtest)
 
         if is_backtest:
             # for params table
@@ -110,7 +110,7 @@ class TradingBot:
 
             while True:
                 download_start = datetime.now()
-                self.dataset_manipulator.update_ohlcv("bitmex", start_time=datetime.now() - timedelta(days=1),
+                self.dataset_manipulator.update_ohlcv("bitmex", start_time=ohlcv_start_time,
                 asset_name="BTC/USD", with_ta=True)
                 if datetime.now() - download_start < timedelta(seconds=29):
                     break
@@ -166,10 +166,11 @@ class TradingBot:
 
         return ohlcv_df_with_signals
 
-    def execute_with_sec_0(self, interval=0.5):
-        while datetime.now().second == 0:
+    def execute_with_time(self, interval=0.5):
+        while True:
+            if datetime.now().minute == 30 or datetime.now().minute == 0:
+                break
             sleep(interval)
-            break
 
     def signal_judge(self, row, position=None):
         if position is None:
@@ -227,10 +228,10 @@ class TradingBot:
         #    onetime_duration, attempted_time, through_time=through_time)
         
         if (order_status == "pass" and order_type == "long") or (order_status == "open" and order_type == "short"):
-                order_price = best_price #- slippage
+                order_price = best_price + 0.5
                 side = "Buy"
         elif (order_status == "pass" and order_type == "short") or (order_status == "open" and order_type == "long"):
-                order_price = best_price # + slippage
+                order_price = best_price - 0.5
                 side = "Sell"
 
         order_price_base = round(order_price)
@@ -247,7 +248,7 @@ class TradingBot:
                 " lot: $" + str(lot) + " leverage: " + str(leverage) + "x")
 
             # make order
-        return self.exchange_client.client.create_order(asset_name, "limit", side, lot, round(order_price,1) ,
+        return self.exchange_client.client.create_order(asset_name, "market", side, lot, round(order_price,1) ,
             params = {'execInst': 'ParticipateDoNotInitiate'})
 
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
@@ -256,7 +257,7 @@ class TradingBot:
         self.line.notify("trade loop start")
 
         while True:
-            self.execute_with_sec_0() 
+            self.execute_with_time() 
 
             # load ohlcv
             ohlcv_df = self.dataset_manipulator.get_ohlcv(self.timeframe,
@@ -269,7 +270,7 @@ class TradingBot:
             full_ohlcv_df = self.attach_params(ohlcv_df_with_signals, self.default_params, self.specific_params)
 
             # write newest ohlcv, signal and params into signals measurement
-            self.db_client.append_to_table("signals", full_ohlcv_df)
+            self.db_client.append_to_table( self.bot_name + "_signals", full_ohlcv_df)
 
             # follow the latest signal
             latest_row = ohlcv_df.tail(1).iloc[0,:]
@@ -287,6 +288,11 @@ class TradingBot:
         position.lot = lot
         position.leverage = leverage
         position.order_method = "maker"
+        
+        if (row.signal == "buy" and self.inverse_trading is not True) or (row.signal == "sell" and self.inverse_trading):
+            position.order_type = "long"
+        else:
+            position.order_type = "short"
 
         if self.is_backtest:
             if (row.signal == "buy" and self.inverse_trading is not True) or (row.signal == "sell" and self.inverse_trading):
@@ -454,7 +460,7 @@ class TradingBot:
         
     def calculate_lot(self, row):
         # {FIXME} backtest is the percentage but real is the real USD number
-        return 1 # backtest
+        return 250 # backtest
         #return 60 # real
         
         # if you need, you can override

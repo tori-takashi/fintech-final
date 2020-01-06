@@ -20,8 +20,9 @@ from technical_analysis.wma import TechnicalAnalysisWMA
 
 
 class Dataset:
-    def __init__(self, db_client, data_provider_client=None):
+    def __init__(self, db_client, data_provider_client=None, is_backtest=False):
         # data_provider_client should have exchange name
+        self.is_backtest = is_backtest
         self.data_provider_client = data_provider_client
         self.db_client = db_client
 
@@ -145,18 +146,17 @@ class Dataset:
         ta_williamsr = TechnicalAnalysisWilliamsR(df)
         williamsr_df = ta_williamsr.get_williams_r()
 
-        tas = pd.concat([df, ad_df, atr_df, obv_df, roc_df,
-                         rsi_df, so_df, williamsr_df], axis=1)
-
-        # works on real environment
-        # tas = pd.concat([ad_df, atr_df, obv_df, roc_df,
-        #                 rsi_df, so_df, williamsr_df, wma_df], axis=1)
-        # df.update(tas)
-        # df.dropna(inplace=True)
-        # return df
-
-        tas.dropna(inplace=True)
-        return tas
+        if self.is_backtest:
+            tas = pd.concat([df, ad_df, atr_df, obv_df, roc_df,
+                             rsi_df, so_df, williamsr_df], axis=1)
+            tas.dropna(inplace=True)
+            return tas
+        else:
+            tas = pd.concat([ad_df, atr_df, obv_df, roc_df,
+                             rsi_df, so_df, williamsr_df], axis=1)
+            df.update(tas)
+            df.dropna(inplace=True)
+            return df
 
     def build_ohlcv_1min_table(self):
         ohlcv_1min_table = OHLCV_1min.__table__

@@ -26,7 +26,8 @@ bitmex_exchange_client = ExchangeClient(
 mysql_client = DBClient("mysql", Path("tradingbot/config.ini"))
 
 # update database
-dataset_manager = Dataset(mysql_client, bitmex_exchange_client)
+dataset_manager = Dataset(
+    mysql_client, bitmex_exchange_client, is_backtest=True)
 download_start_time = datetime.now() - timedelta(days=1000)
 dataset_manager.update_ohlcv("bitmex", download_start_time)
 
