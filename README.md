@@ -156,6 +156,12 @@ If you're using anaconda, please replace `pip` to `conda`
 
 `$ pip install ccxt pandas ta-lib sqlalchemy influxdb alembic PyMySQL`
 
+### settings to alembic.ini
+
+edit alembic.ini
+
+`sqlalchemy.url = mysql+pymysql://tradingbot:<password>@localhost/tradingbot`
+
 ### build database
 
 `$ python3 tradingbot/build_dataset.py`
