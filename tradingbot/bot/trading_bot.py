@@ -248,8 +248,8 @@ class TradingBot:
                 " lot: $" + str(lot) + " leverage: " + str(leverage) + "x")
 
             # make order
-        return self.exchange_client.client.create_order(asset_name, "market", side, lot, round(order_price,1) ,
-            params = {'execInst': 'ParticipateDoNotInitiate'})
+        return self.exchange_client.client.create_order(asset_name, "market", side, lot)#, round(order_price,1)),
+            #params = {'execInst': 'ParticipateDoNotInitiate'})
 
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
         position = None
