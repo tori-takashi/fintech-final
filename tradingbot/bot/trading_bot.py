@@ -143,7 +143,7 @@ class TradingBot:
     def execute_with_time(self, interval=0.5):
         while True:
             # [FIXME] corner case, if the timeframe couldn't divide by 60, it's wrong behavior
-            if datetime.now().minute == 30 or datetime.now().minute == 0:
+            if datetime.now().minute % self.default_params["timeframe"] == 0:
                 if self.processed_flag is not True:
                     break
             else:
@@ -229,7 +229,7 @@ class TradingBot:
                 " lot: $" + str(lot) + " leverage: " + str(leverage) + "x")
 
             # make order
-        return self.exchange_client.client.create_order(asset_name, "limit", side, lot, round(order_price,1)),
+        return self.exchange_client.client.create_order(asset_name, "limit", side, lot, round(order_price,1),
             params = {'execInst': 'ParticipateDoNotInitiate'})
 
             # taker order
@@ -302,7 +302,7 @@ class TradingBot:
 
     def create_order(self, row, position):
         if position.order_status == "pass":  # try to open
-            return self.attempt_make_position(row, position, 1, 1, 50, 50)
+            return self.attempt_make_position(row, position, 1, 1, 60, 600)
         elif position.order_status == "open": # try to close
             return self.attempt_make_position(row, position, 1, 1, 40, None)
 

@@ -10,13 +10,13 @@ influx_client = DBClient("influxdb", "config.ini")
 
 bot_name = "bottom_trend_follow"
 version = "v1.0.0"
-timeframe = 1
+timeframe = 30
 bottom_trend_tick = 5
 middle_trend_tick = 3
 top_trend_tick = 1
 close_position_on_do_nothing = True
 inverse_trading = True
-random_forest_leverage_adjust = False
+random_forest_leverage_adjust = True
 
 default_params = {
     "bot_name": bot_name,
