@@ -202,19 +202,16 @@ class TradingBot:
         leverage = position.leverage
 
         best_price = self.fetch_best_price(position)
-        #slippage = 0.5 # taker
-        slippage = self.order_slide_slippage(best_price, total_loss_tolerance, onetime_loss_tolerance,
-            onetime_duration, attempted_time, through_time=through_time)
-        
+        # slippage =  0.5 # taker
+        slippage = -0.5 # maker
+
         if (order_status == "pass" and order_type == "long") or (order_status == "open" and order_type == "short"):
-                #order_price = best_price - slippage # taker
-                order_price = best_price + slippage # maker
+                order_price = best_price - slippage
                 side = "Buy"
         elif (order_status == "pass" and order_type == "short") or (order_status == "open" and order_type == "long"):
-                #order_price = best_price + slippage # taker
-                order_price = best_price - slippage # maker
+                order_price = best_price + slippage
                 side = "Sell"
-
+                
         order_price_base = round(order_price)
         order_price_decimal = order_price - order_price_base
 
@@ -311,6 +308,8 @@ class TradingBot:
 
         order = self.send_position(position, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
             attempted_time, through_time=through_time)
+
+        self.line.notify(order)
 
         sleep(onetime_duration)
 
