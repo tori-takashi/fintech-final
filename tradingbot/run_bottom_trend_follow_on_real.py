@@ -16,7 +16,7 @@ middle_trend_tick = 3
 top_trend_tick = 1
 close_position_on_do_nothing = True
 inverse_trading = True
-random_forest_leverage_adjust = True
+random_forest_leverage_adjust = False
 
 default_params = {
     "bot_name": bot_name,
