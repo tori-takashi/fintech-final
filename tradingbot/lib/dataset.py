@@ -151,6 +151,8 @@ class Dataset:
                              rsi_df, so_df, williamsr_df], axis=1)
             tas.dropna(inplace=True)
             return tas
+        else:
+            return df
 
     def build_ohlcv_1min_table(self):
         ohlcv_1min_table = OHLCV_1min.__table__
