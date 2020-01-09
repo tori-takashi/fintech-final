@@ -206,10 +206,10 @@ class TradingBot:
         slippage = -0.5 # maker
 
         if (order_status == "pass" and order_type == "long") or (order_status == "open" and order_type == "short"):
-                order_price = best_price - slippage
+                order_price = best_price + slippage
                 side = "Buy"
         elif (order_status == "pass" and order_type == "short") or (order_status == "open" and order_type == "long"):
-                order_price = best_price + slippage
+                order_price = best_price - slippage
                 side = "Sell"
                 
         order_price_base = round(order_price)
