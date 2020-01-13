@@ -151,7 +151,6 @@ class TradingBot:
 
     def signal_judge(self, row):
         if self.position is None:
-            self.line.notify("positionがNone")
             self.line.notify(self.position)
             return self.open_position(row)
         else:
