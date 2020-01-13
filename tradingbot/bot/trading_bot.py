@@ -114,7 +114,7 @@ class TradingBot:
                     sleep(15)
                     self.line.notify("loop restart...")
                 except BaseError:                    
-                    self.line.notify("Unknown Rrror, Retry after 15 seconds")
+                    self.line.notify("Unknown Error, Retry after 15 seconds")
                     sleep(15)
                     self.line.notify("loop restart...")
 
@@ -143,27 +143,28 @@ class TradingBot:
     def execute_with_time(self, interval=0.5):
         while True:
             # [FIXME] corner case, if the timeframe couldn't divide by 60, it's wrong behavior
-            if datetime.now().minute % self.default_params["timeframe"] == 0:
-                if self.processed_flag is not True:
+            if (self.processed_flag is not True) and (datetime.now().minute % self.default_params["timeframe"] == 0):
                     break
             else:
                 self.processed_flag = False
             sleep(interval)
 
-    def signal_judge(self, row, position=None):
-        if position is None:
+    def signal_judge(self, row):
+        if self.position is None:
+            self.line.notify("positionがNone")
+            self.line.notify(self.position)
             return self.open_position(row)
         else:
             if (row.signal == "buy" and\
-                    ((position.order_type == "long"  and self.default_params["inverse_trading"]) or\
-                     (position.order_type == "short" and self.default_params["inverse_trading"] is not True))) or\
+                    ((self.position.order_type == "long"  and self.default_params["inverse_trading"]) or\
+                     (self.position.order_type == "short" and self.default_params["inverse_trading"] is not True))) or\
                (row.signal == "sell" and\
-                   ((position.order_type == "long"  and self.default_params["inverse_trading"] is not True) or\
-                    (position.order_type == "short" and self.default_params["inverse_trading"]))) or\
+                   ((self.position.order_type == "long"  and self.default_params["inverse_trading"] is not True) or\
+                    (self.position.order_type == "short" and self.default_params["inverse_trading"]))) or\
                (row.signal == "do_nothing" and\
-                   (position is not None and self.default_params["close_position_on_do_nothing"])):
+                   (self.position is not None and self.default_params["close_position_on_do_nothing"])):
 
-                    self.close_position(row, position)
+                    self.close_position(row)
                     return None
 
     def order_slide_slippage(self, best_price, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
@@ -172,7 +173,7 @@ class TradingBot:
             through_time = onetime_duration
         return best_price*(0.0025*total_loss_tolerance*onetime_loss_tolerance*onetime_duration*attempted_time/through_time)
 
-    def fetch_best_price(self, position):
+    def fetch_best_price(self):
         # open and close (long, short)
         
         # try open and limit order   => (bid, ask)
@@ -180,9 +181,9 @@ class TradingBot:
 
         # try open and market order  => (ask, bid)
         # try close and limit order  => (ask, bid)
-        order_status = position.order_status
-        order_method = position.order_method
-        order_type   = position.order_type
+        order_status = self.position.order_status
+        order_method = self.position.order_method
+        order_type   = self.position.order_type
 
         if (order_status == "pass" and order_method == "maker") or \
            (order_status == "open" and order_method == "taker"):
@@ -192,16 +193,16 @@ class TradingBot:
              (order_status == "pass" and order_method == "taker"):
              price_type = "ask" if order_type == "long" else "bid"
 
-        return self.exchange_client.client.fetch_ticker(position.asset_name)[price_type]
+        return self.exchange_client.client.fetch_ticker(self.position.asset_name)[price_type]
 
-    def send_position(self, position, total_loss_tolerance, onetime_loss_tolerance, onetime_duration, attempted_time, through_time=None):
-        order_type = position.order_type
-        order_status = position.order_status
-        asset_name = position.asset_name
-        lot = position.lot  # [FIXME] close all lot in the position
-        leverage = position.leverage
+    def send_position(self, total_loss_tolerance, onetime_loss_tolerance, onetime_duration, attempted_time, through_time=None):
+        order_type = self.position.order_type
+        order_status = self.position.order_status
+        asset_name = self.position.asset_name
+        lot = self.position.lot  # [FIXME] close all lot in the position
+        leverage = self.position.leverage
 
-        best_price = self.fetch_best_price(position)
+        best_price = self.fetch_best_price()
         # slippage =  0.5 # taker
         slippage = -0.5 # maker
 
@@ -219,10 +220,10 @@ class TradingBot:
 
         # notification
         if order_status == "pass":
-            self.line.notify("entry " + position.order_type + " order at : $" + str(order_price))
+            self.line.notify("entry " + self.position.order_type + " order at : $" + str(order_price))
         elif order_status == "open":
             self.line.notify(
-                "try closing " + position.order_type + " order at: $" + str(round(order_price, 1)) + \
+                "try closing " + self.position.order_type + " order at: $" + str(round(order_price, 1)) + \
                 " lot: $" + str(lot) + " leverage: " + str(leverage) + "x")
 
             # make order
@@ -234,7 +235,7 @@ class TradingBot:
             #params = {'execInst': 'ParticipateDoNotInitiate'})
 
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
-        position = None
+        self.position = None
         self.current_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
         self.line.notify("trade loop start")
 
@@ -256,7 +257,8 @@ class TradingBot:
 
             # follow the latest signal
             latest_row = ohlcv_df.tail(1).iloc[0,:]
-            position = self.signal_judge(latest_row, position)
+            self.position = self.signal_judge(latest_row)
+            
             self.processed_flag = True
 
 
@@ -266,61 +268,59 @@ class TradingBot:
 
         # [FIXME] symbol is hardcoded, only for bitmex
 
-        position = Position(row, self.is_backtest)
-        position.current_balance = self.current_balance
-        position.lot = lot
-        position.leverage = leverage
-        position.order_method = "maker"
+        self.position = Position(row, self.is_backtest)
+        self.position.current_balance = self.current_balance
+        self.position.lot = lot
+        self.position.leverage = leverage
+        self.position.order_method = "maker"
         
         if (row.signal == "buy" and self.default_params["inverse_trading"] is not True) or (row.signal == "sell" and self.default_params["inverse_trading"]):
-            position.order_type = "long"
+            self.position.order_type = "long"
         else:
-            position.order_type = "short"
+            self.position.order_type = "short"
 
         if self.is_backtest:
             if (row.signal == "buy" and self.default_params["inverse_trading"] is not True) or (row.signal == "sell" and self.default_params["inverse_trading"]):
-                position.order_type = "long"
+                self.position.order_type = "long"
             else:
-                position.order_type = "short"
-            return position
+                self.position.order_type = "short"
+            return self.position
         else:
             self.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(leverage)})
-            position = self.create_order(row, position)
+            self.position = self.create_order(row)
             # discard failed opening orders
-            return position if position is not None and position.order_status == "open" else None
+            return self.position if self.position is not None and self.position.order_status == "open" else None
 
-    def close_position(self, row, position):
+    def close_position(self, row):
         if self.is_backtest:
-            position.close_position(row)
-            self.transaction_logs.append(position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
-            self.current_balance = position.current_balance
+            self.position.close_position(row)
+            self.transaction_logs.append(self.position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
+            self.current_balance = self.position.current_balance
         else:
-            self.create_order(row, position)
+            self.create_order(row)
 
-    def create_order(self, row, position):
-        if position.order_status == "pass":  # try to open
-            return self.attempt_make_position(row, position, 1, 1, 60, 600)
-        elif position.order_status == "open": # try to close
-            return self.attempt_make_position(row, position, 1, 1, 40, None)
+    def create_order(self, row):
+        if self.position.order_status == "pass":  # try to open
+            return self.attempt_make_position(row, 1, 1, 60, 600)
+        elif self.position.order_status == "open": # try to close
+            return self.attempt_make_position(row, 1, 1, 40, None)
 
-    def try_order(self, row, position, total_loss_tolerance, onetime_loss_tolerance,
+    def try_order(self, row, total_loss_tolerance, onetime_loss_tolerance,
         onetime_duration, attempted_time, order_start_time, through_time=None):
 
-        order = self.send_position(position, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
+        order = self.send_position(total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
             attempted_time, through_time=through_time)
-
-        self.line.notify(order)
 
         sleep(onetime_duration)
 
         order_info = self.exchange_client.client.fetch_order(order["id"])
 
-        if position.order_status == "pass":
-            position.open_order_id = order["id"]
-            return self.is_position_opened(row, position, order_start_time, attempted_time, order_info)
-        elif position.order_status == "open":
-            position.close_order_id = order["id"]
-            return self.is_position_closed(row, position, order_start_time, attempted_time, order_info)
+        if self.position.order_status == "pass":
+            self.position.open_order_id = order["id"]
+            return self.is_position_opened(row, order_start_time, attempted_time, order_info)
+        elif self.position.order_status == "open":
+            self.position.close_order_id = order["id"]
+            return self.is_position_closed(row, order_start_time, attempted_time, order_info)
 
     def cancel_failed_order(self, id):
         try:
@@ -328,15 +328,15 @@ class TradingBot:
         except:
             self.line.notify("order was deleted. retry")
 
-    def attempt_make_position(self, row, position, total_loss_tolerance, onetime_loss_tolerance,
+    def attempt_make_position(self, row, total_loss_tolerance, onetime_loss_tolerance,
         onetime_duration, through_time):
 
         attempted_time = 1
         order_start_time = datetime.now()
 
-        if position.order_status == "pass": # try open
+        if self.position.order_status == "pass": # try open
             while datetime.now() - order_start_time < timedelta(seconds=through_time):
-                order = self.try_order(row, position, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
+                order = self.try_order(row, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
                     attempted_time, order_start_time, through_time=through_time)
                 if order:
                     return order
@@ -344,35 +344,35 @@ class TradingBot:
                     attempted_time += 1
 
             self.line.notify("all attempts are failed, skip")
-            position.set_pass_log()
-            self.db_client.influx_raw_connector.write_points([position.get_pass_log()])
+            self.position.set_pass_log()
+            self.db_client.influx_raw_connector.write_points([self.position.get_pass_log()])
             return None
                 
-        elif position.order_status == "open": # try close
+        elif self.position.order_status == "open": # try close
             while True:
-                order = self.try_order(row, position, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
+                order = self.try_order(row, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
                     attempted_time, order_start_time, through_time=None)
                 if order:
                     return None
                 else:
                     attempted_time += 1
 
-    def is_position_opened(self, row, position, order_start_time, attempted_time, order_info):
+    def is_position_opened(self, row, order_start_time, attempted_time, order_info):
         if order_info["status"] == "closed":
-            position.order_status = "open"
+            self.position.order_status = "open"
             self.line.notify("entry order was successfully opened")
             open_log = {
                 "open_attempt_time": attempted_time,
                 "order_method": "maker"
             }
-            position.set_open_log(open_log)
-            return position
+            self.position.set_open_log(open_log)
+            return self.position
 
         elif order_info["status"] == "open":    # order failed
             self.line.notify("entry order failed, retrying. time:" + str(attempted_time))
             self.cancel_failed_order(order_info["id"])
 
-    def is_position_closed(self, row, position, order_start_time, attempted_time, order_info):
+    def is_position_closed(self, row, order_start_time, attempted_time, order_info):
         if order_info["status"] == "closed":  # order sucess
             updated_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
 
@@ -382,7 +382,7 @@ class TradingBot:
                 str(round((updated_balance - self.current_balance) / self.current_balance*100, 5)) + "%")
     
             # send log to influxdb
-            self.create_close_transaction_log_for_real(row, position, order_start_time,
+            self.create_close_transaction_log_for_real(row, order_start_time,
                 updated_balance, attempted_time, order_info)
 
             # update current balance
@@ -395,7 +395,7 @@ class TradingBot:
             return False
 
 
-    def create_close_transaction_log_for_real(self, row, position, order_close_time, updated_balance, attempted_time, order_info):
+    def create_close_transaction_log_for_real(self, row, order_close_time, updated_balance, attempted_time, order_info):
         close_params = {
             "close_position_id": order_info["id"],
             "close_judged_price": row.close,
@@ -407,8 +407,8 @@ class TradingBot:
             "current_balance": updated_balance
         }
                 
-        position.set_close_log(close_params)
-        self.db_client.influx_raw_connector.write_points([position.get_combined_log()])
+        self.position.set_close_log(close_params)
+        self.db_client.influx_raw_connector.write_points([self.position.get_combined_log()])
 
     def bulk_insert(self):
         self.db_client.session.commit()
@@ -426,7 +426,7 @@ class TradingBot:
 
     def calculate_lot(self, row):
         # {FIXME} backtest is the percentage but real is the real USD number
-        return 250 # backtest
+        return 1 # backtest
         #return 60 # real
         
         # if you need, you can override
@@ -485,12 +485,12 @@ class TradingBot:
     def insert_backtest_transaction_logs(self):
         # refer to signal then judge investment
         # keep one order at most
-        position = None
+        self.position = None
         self.current_balance = self.initial_balance
         self.transaction_logs = []
 
         for row in self.ohlcv_with_signals.itertuples(): # self.ohlcv_with_signals should be dataframe
-            position = self.signal_judge(row, position=position)
+            self.position = self.signal_judge(row, position=self.position)
 
         self.db_client.session.bulk_insert_mappings(BacktestTransactionLog, self.transaction_logs)
 
