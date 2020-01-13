@@ -1,3 +1,41 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:b8fed9861edf41ffbffd1324315e306604183d9bd0a1470ace5af01c44fea807
-size 1118
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Nov 20 10:32:33 2019
+
+@author: chayanit
+"""
+
+import pandas as pd
+import talib as ta
+import matplotlib.pyplot as plt
+import csv
+
+
+class TechnicalAnalysisSAR:
+    def __init__(self, df):
+        self.df = df
+        self.high = df['high']
+        self.low = df['low']
+
+        self.ta_SAR = ta.SAR(self.high, self.low, 0.02, 0.2)
+        self.df["psar"] = self.ta_SAR
+        self.df.loc[self.df["psar"] >= self.df["close"],
+                    "psar_trend"] = "downtrend"
+        self.df.loc[~(self.df["psar"] >= self.df["close"]),
+                    "psar_trend"] = "uptrend"
+
+    def show_summary(self):
+        plt.title('PSAR')
+        plt.xlabel("Index")
+        plt.ylabel("Price")
+        plt.plot(self.df.index, self.high, 'blue', label="High")
+        plt.plot(self.df.index, self.low, 'green', label="Low")
+        plt.plot(self.df.index, self.ta_SAR, 'ro', label="SAR")
+        plt.legend()
+        plt.show()
+
+    def get_psar_trend(self):
+        return pd.concat([
+            self.df["psar"],
+            self.df["psar_trend"]], axis=1)

@@ -1,3 +1,11 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:311d868cd607b7858cbd82b505e6976a30db87766fab69198adf6b3da90a085f
-size 320
+import pandas as pd
+import talib as ta
+
+
+class TechnicalAnalysisWilliamsR:
+    def __init__(self, df):
+        # calculate and apply WilliamsR
+        self.ta_williams_r = ta.WILLR(df["high"], df["low"], df["close"])
+
+    def get_williams_r(self):
+        return pd.DataFrame(self.ta_williams_r, columns=["williams_r"])

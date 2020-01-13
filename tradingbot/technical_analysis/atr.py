@@ -1,3 +1,11 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:553fa583645a92022d755684313c1df51d5d4babd1eaef91df7c60c4d6b40533
-size 277
+import pandas as pd
+import talib as ta
+
+
+class TechnicalAnalysisATR:
+    def __init__(self, df):
+        # calculate and apply AD
+        self.ta_ATR = ta.ATR(df["high"], df["low"], df["close"])
+
+    def get_atr(self):
+        return pd.DataFrame(self.ta_ATR, columns=["atr"])

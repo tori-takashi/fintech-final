@@ -1,3 +1,29 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:e678c3fd3704f1772da8468aaff3ee2da85f4dca8596b168d4d38d09702245d5
-size 532
+[bitmex]
+apiKey=
+secret=
+
+[mysql]
+    host=localhost
+    username=tradingbot
+    password=
+    db_name=tradingbot
+
+[influxdb]
+; you need to create database and user manually at first.
+    host=localhost
+    port=8086
+    username=tradingbot
+    password=
+    db_name=tradingbot
+
+[line_notification]
+    token=
+
+; eval interpret exchanges as list
+[data_providers]
+    data_providers=["bitmex"]
+
+; set assets like [in exchanges + "_asset_names"]
+; with asset_names=["BTC/USD"] => list
+[bitmex_asset_names]
+    asset_names=["BTC/USD"]

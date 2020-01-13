@@ -1,3 +1,11 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:8da48915124cd88a35be417b4d1aab7e24f1584b34fb0b307e6e42dbcfd71ff8
-size 255
+import pandas as pd
+import talib as ta
+
+
+class TechnicalAnalysisRSI:
+    def __init__(self, df):
+        # calculate and apply RSI
+        self.ta_RSI = ta.RSI(df["close"])
+
+    def get_rsi(self):
+        return pd.DataFrame(self.ta_RSI, columns=["rsi"])

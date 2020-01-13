@@ -1,3 +1,14 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:aea100bad32b65ab272ac7212b9cd86e6bd27c8be79721107caca94deeb83e31
-size 445
+import pandas as pd
+import talib as ta
+
+
+class TechnicalAnalysisSTOCH:
+    def __init__(self, df):
+        # calculate and apply stochastic oscilator
+        self.ta_slowk, self.ta_slowd = ta.STOCH(
+            df["high"], df["low"], df["close"])
+
+    def get_so(self):
+        slowk = pd.DataFrame(self.ta_slowk, columns=["slowk"])
+        slowd = pd.DataFrame(self.ta_slowd, columns=["slowd"])
+        return pd.concat([slowk, slowd], axis=1)

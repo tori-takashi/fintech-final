@@ -1,3 +1,11 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:d93a2e34104eee138d229336e5e9615e66fe0baefd48a8f3619b2079bc69bafa
-size 269
+import pandas as pd
+import talib as ta
+
+
+class TechnicalAnalysisOBV:
+    def __init__(self, df):
+        # calculate and apply OBV
+        self.ta_obv = ta.OBV(df["close"], df["volume"])
+
+    def get_obv(self):
+        return pd.DataFrame(self.ta_obv, columns=["obv"])

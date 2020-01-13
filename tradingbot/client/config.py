@@ -1,3 +1,8 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:aee1b28cbc7a4fc9d6cccb6137f465f3a1e259744450382fab5208d06abfe0d2
-size 218
+from configparser import SafeConfigParser
+
+
+class Config:
+    def __init__(self, config_path):
+        self.config_path = config_path
+        self.config = SafeConfigParser()
+        self.config.read(self.config_path)

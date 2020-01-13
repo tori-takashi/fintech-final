@@ -1,3 +1,7 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:a8475f2ad9c3ebd045533f673c09d74a7c804301c727408c7f13c027cb0af8d6
-size 101
+config.ini
+__pycache__/
+.vscode
+.spyproject
+note.md
+research_notebook/.ipynb_checkpoints/
+alembic.ini
