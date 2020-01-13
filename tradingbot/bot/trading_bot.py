@@ -56,6 +56,8 @@ class TradingBot:
 
         self.initial_balance = 100  # BTC
         self.account_currency = "USD"
+        
+        self.position = None
 
         if not is_backtest:
             self.line = LineNotification(db_client.config_path)
@@ -234,7 +236,6 @@ class TradingBot:
             #params = {'execInst': 'ParticipateDoNotInitiate'})
 
     def trade_loop_for_real(self, ohlcv_df, start_end_range):
-        self.position = None
         self.current_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
         self.line.notify("trade loop start")
 
