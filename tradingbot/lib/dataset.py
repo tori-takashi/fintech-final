@@ -152,7 +152,8 @@ class Dataset:
             tas.dropna(inplace=True)
             return tas
         else:
-            return df
+            #return df
+            return pd.concat([df, ad_df, atr_df, obv_df, roc_df, rsi_df, so_df, williamsr_df])
 
     def build_ohlcv_1min_table(self):
         ohlcv_1min_table = OHLCV_1min.__table__
