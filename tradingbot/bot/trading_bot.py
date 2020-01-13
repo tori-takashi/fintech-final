@@ -426,7 +426,7 @@ class TradingBot:
 
     def calculate_lot(self, row):
         # {FIXME} backtest is the percentage but real is the real USD number
-        return 1 # backtest
+        return 500 # backtest
         #return 60 # real
         
         # if you need, you can override
