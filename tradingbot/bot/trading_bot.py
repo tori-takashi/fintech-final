@@ -243,6 +243,7 @@ class TradingBot:
             self.execute_with_time()
 
             # load ohlcv
+            self.dataset_manipulator.update_ohlcv("bitmex", asset_name="BTC/USD", with_ta=True)
             ohlcv_df = self.dataset_manipulator.get_ohlcv(self.default_params["timeframe"],
                 datetime.now() - start_end_range, datetime.now(), exchange_name="bitmex",
                 asset_name="BTC/USD", round=False)
