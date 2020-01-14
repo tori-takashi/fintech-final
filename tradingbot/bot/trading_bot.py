@@ -23,6 +23,7 @@ from model.backtest_transaction_log import BacktestTransactionLog
 
 from .position import Position
 from .trading_bot_backtest_db import TradingBotBacktestDB
+from .ohlcv_tradingbot import OHLCV_tradingbot
 
 from machine_learning.random_forest_prediction import RandomForestPredict30min
 
@@ -49,6 +50,7 @@ class TradingBot:
         self.combined_params = dict(**self.default_params, **self.specific_params)
 
         self.dataset_manipulator = Dataset(self.db_client, self.exchange_client, self.is_backtest)
+        self.ohlcv_tradingbot = OHLCV_tradingbot(self.dataset_manipulator)
         
         self.random_leverage_only_backtest = False
         
@@ -77,7 +79,7 @@ class TradingBot:
 
         if self.is_backtest is not True:
             self.line.notify({**self.default_params, **self.specific_params}.items())
-            self.fetch_latest_ohlcv(ohlcv_start_time)
+            self.ohlcv_tradingbot.fetch_latest_ohlcv(ohlcv_start_time)
 
         if ohlcv_df is not None:
             self.ohlcv_df = ohlcv_df
@@ -126,13 +128,6 @@ class TradingBot:
         self.trading_bot_backtest_db.insert_params_management(self.summary_id)
         self.trading_bot_backtest_db.update_summary(self.transaction_logs, self.summary_id)
 
-    def fetch_latest_ohlcv(self, ohlcv_start_time):
-        while True:
-            download_start = datetime.now()
-            self.dataset_manipulator.update_ohlcv("bitmex", start_time=ohlcv_start_time,
-            asset_name="BTC/USD", with_ta=True)
-            if datetime.now() - download_start < timedelta(seconds=29):
-                break
 
     def attach_params(self, ohlcv_df_with_signals, default_params, specific_params):
         for tag, param in default_params.items():

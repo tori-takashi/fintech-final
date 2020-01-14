@@ -10,7 +10,7 @@ influx_client = DBClient("influxdb", "config.ini")
 
 bot_name = "bottom_trend_follow"
 version = "v1.0.0"
-timeframe = 30
+timeframe = 1
 bottom_trend_tick = 5
 middle_trend_tick = 3
 top_trend_tick = 1
