@@ -68,8 +68,42 @@ class Position:
         self.leverage = None
 
     def open_position(self):
+        # back test
         if self.is_backtest:
-            pass
+            self.order_status == "open"
+
+    def close_position(self, row_close):
+        # for summary backtest
+        self.close_price = row_close.close
+        self.close_time = row_close.Index
+
+        self.price_difference = self.close_price - self.entry_price
+        self.price_difference_percentage = ((self.close_price / self.entry_price) - 1)*100
+
+        self.transaction_cost = self.current_balance * self.transaction_fee_by_order
+
+        if self.order_type == "long":
+            self.gross_profit = (self.close_price - self.entry_price) * self.lot * self.leverage
+            self.profit_size = self.gross_profit - self.transaction_cost
+        elif self.order_type == "short":
+            self.gross_profit = (self.entry_price - self.close_price) * self.lot * self.leverage
+            self.profit_size = self.gross_profit - self.transaction_cost
+
+        self.profit_status = "win" if self.profit_size > 0 else "lose"
+
+        if self.current_balance > 0:
+            self.profit_percentage = ((self.profit_size / self.current_balance) + 1 )*100
+        elif self.current_balance == 0:
+            self.profit_percentage = None
+        else:
+            profit_percentage = (abs(self.profit_size + self.current_balance) / abs(self.current_balance))
+            self.profit_percentage = profit_percentage if self.profit_status == "win" else -1 * profit_percentage
+
+        self.profit_percentage = (((self.current_balance + self.profit_size) / self.current_balance) - 1)*100
+        self.current_balance += self.profit_size
+
+        self.order_status = "closed"
+
 
     def get_pass_log(self):
         return self.pass_log
@@ -202,39 +236,7 @@ class Position:
             }
          }
 
-    def close_position(self, row_close):
-        # for summary
-        self.close_price = row_close.close
-        self.close_time = row_close.Index
-
-        self.price_difference = self.close_price - self.entry_price
-        self.price_difference_percentage = ((self.close_price / self.entry_price) - 1)*100
-
-        self.transaction_cost = self.current_balance * self.transaction_fee_by_order
-
-        if self.order_type == "long":
-            self.gross_profit = (self.close_price - self.entry_price) * self.lot * self.leverage
-            self.profit_size = self.gross_profit - self.transaction_cost
-        elif self.order_type == "short":
-            self.gross_profit = (self.entry_price - self.close_price) * self.lot * self.leverage
-            self.profit_size = self.gross_profit - self.transaction_cost
-
-        self.profit_status = "win" if self.profit_size > 0 else "lose"
-
-        if self.current_balance > 0:
-            self.profit_percentage = ((self.profit_size / self.current_balance) + 1 )*100
-        elif self.current_balance == 0:
-            self.profit_percentage = None
-        else:
-            profit_percentage = (abs(self.profit_size + self.current_balance) / abs(self.current_balance))
-            self.profit_percentage = profit_percentage if self.profit_status == "win" else -1 * profit_percentage
-
-        self.profit_percentage = (((self.current_balance + self.profit_size) / self.current_balance) - 1)*100
-        self.current_balance += self.profit_size
-
-        self.order_status = "closed"
-
-    def generate_transaction_log_for_backtest(self, db_client, summary_id):
+    def generate_transaction_log_for_backtest(self, summary_id):
         log_dict = {
             "backtest_summary_id": int(summary_id),
             "exchange_name": self.exchange_name,

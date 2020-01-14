@@ -2,16 +2,10 @@ import ccxt
 import pandas as pd
 import numpy as np
 
-import logging
+import random
 from datetime import datetime, timedelta
 from time import sleep
 from ccxt import ExchangeNotAvailable, RequestTimeout, BaseError
-
-from sqlalchemy import Column, Integer, Float, Table, MetaData
-from sqlalchemy import update
-from sqlalchemy.orm import relationship, mapper
-
-import random
 
 from lib.pandamex import PandaMex
 from lib.dataset import Dataset
@@ -21,11 +15,13 @@ from model.backtest_management import BacktestManagement
 from model.backtest_summary import BacktestSummary
 from model.backtest_transaction_log import BacktestTransactionLog
 
+from machine_learning.random_forest_prediction import RandomForestPredict30min
+
 from .position import Position
-from .trading_bot_backtest_db import TradingBotBacktestDB
+from .position_management import PositionManagement
 from .ohlcv_tradingbot import OHLCV_tradingbot
 
-from machine_learning.random_forest_prediction import RandomForestPredict30min
+from .trading_bot_backtest import TradingBotBacktest
 
         # default_params = {
         #    "bot_name" : string, bot name
@@ -45,65 +41,67 @@ class TradingBot:
         self.exchange_client = exchange_client
         self.db_client = db_client
 
-        self.default_params = default_params
-        self.specific_params = specific_params
-        self.combined_params = dict(**self.default_params, **self.specific_params)
+        self.set_params(default_params, specific_params)
+        self.set_helper_libs()
 
-        self.dataset_manipulator = Dataset(self.db_client, self.exchange_client, self.is_backtest)
-        self.ohlcv_tradingbot = OHLCV_tradingbot(self.dataset_manipulator, self.default_params, self.specific_params)
-        
         self.random_leverage_only_backtest = False
-        
         self.random_forest_predict_30min = RandomForestPredict30min()
 
         self.initial_balance = 100  # BTC
         self.account_currency = "USD"
         
-        self.position = None
+    def set_params(self, default_params, specific_params):
+        self.default_params = default_params
+        self.specific_params = specific_params
+        self.combined_params = dict(**self.default_params, **self.specific_params)
 
-        if not is_backtest:
-            self.line = LineNotification(db_client.config_path)
+    def set_helper_libs(self):
+        self.dataset_manipulator = Dataset(self.db_client, self.exchange_client, self.is_backtest)
+        self.ohlcv_tradingbot = OHLCV_tradingbot(self.dataset_manipulator, self.default_params, self.specific_params)
+        self.position_management = PositionManagement(self)
+
+        if self.is_backtest:
+            self.trading_bot_backtest = TradingBotBacktest(self)
         else:
-            self.trading_bot_backtest_db = TradingBotBacktestDB(self, is_backtest)
+            self.line = LineNotification(self.db_client.config_path)
 
+
+    ###### need to be override
     def append_specific_params_columns(self):
         return {}
-        # need to be override
         # return table def_keys
         # {"<column name>" : sqlalchemy column type (like Integer, String, Float....) }
 
+    def calculate_lot(self, row):
+        # {FIXME} backtest is the percentage but real is the real USD number
+        return 1 # backtest
+        #return 60 # real
+        # default is invest all that you have
+
+    def calculate_metrics(self, df):
+        return df
+
+    def calculate_signals(self, df):
+        return df
+        # return ["buy", "sell", "do_nothing"]
+    #####
 
     def run(self, ohlcv_df=None, ohlcv_start_time=datetime.now() - timedelta(days=90), ohlcv_end_time=datetime.now(),
             floor_time=True):
         self.processed_flag = False
 
-        if self.is_backtest is not True:
-            self.line.notify({**self.default_params, **self.specific_params}.items())
-            self.ohlcv_tradingbot.fetch_latest_ohlcv(ohlcv_start_time)
+        self.ohlcv_tradingbot.ohlcv_start_time = ohlcv_start_time
+        self.ohlcv_tradingbot.ohlcv_end_time = ohlcv_end_time
 
-        if ohlcv_df is not None:
-            self.ohlcv_df = ohlcv_df
-        else:
-            self.ohlcv_df = self.dataset_manipulator.get_ohlcv(self.default_params["timeframe"], ohlcv_start_time, ohlcv_end_time)
-
+        self.ohlcv_tradingbot.update_ohlcv()
+        
         if self.is_backtest:
-            self.ohlcv_with_metrics = self.calculate_metrics(self.ohlcv_df)
-            # for summary
-            if floor_time:
-                ohlcv_start_time = self.dataset_manipulator.floor_datetime_to_ohlcv(ohlcv_start_time, "up")
-                ohlcv_end_time = self.dataset_manipulator.floor_datetime_to_ohlcv(ohlcv_end_time, "down")
-            
-            self.ohlcv_start_time = ohlcv_start_time
-            self.ohlcv_end_time = ohlcv_end_time
-            
-            self.ohlcv_with_signals = self.calculate_signals(self.ohlcv_with_metrics).dropna()
-
-            self.write_to_backtest_database()
-            
+            self.trading_bot_backtest.run_backtest(ohlcv_df, ohlcv_start_time, ohlcv_end_time, floor_time)
 
         else:
+            self.line.notify({**self.default_params, **self.specific_params}.items())
+            self.ohlcv_df = self.ohlcv_tradingbot.get_ohlcv() if ohlcv_df is None else ohlcv_df
             # for real environment
-            self.ohlcv_tradingbot.start_end_range = ohlcv_end_time - ohlcv_start_time
             # [FIXME] having only one position 
 
             while True:
@@ -122,39 +120,7 @@ class TradingBot:
                     sleep(15)
                     self.line.notify("loop restart...")
 
-    def write_to_backtest_database(self):
-        self.summary_id = self.trading_bot_backtest_db.init_summary()
-        self.insert_backtest_transaction_logs()
-        self.trading_bot_backtest_db.insert_params_management(self.summary_id)
-        self.trading_bot_backtest_db.update_summary(self.transaction_logs, self.summary_id)
 
-
-
-    def execute_with_time(self, interval=0.5):
-        while True:
-            # [FIXME] corner case, if the timeframe couldn't divide by 60, it's wrong behavior
-            if (self.processed_flag is not True) and (datetime.now().minute % self.default_params["timeframe"] == 0):
-                    break
-            else:
-                self.processed_flag = False
-            sleep(interval)
-
-    def signal_judge(self, row):
-        if self.position is None:
-            self.line.notify(self.position)
-            return self.open_position(row)
-        else:
-            if (row.signal == "buy" and\
-                    ((self.position.order_type == "long"  and self.default_params["inverse_trading"]) or\
-                     (self.position.order_type == "short" and self.default_params["inverse_trading"] is not True))) or\
-               (row.signal == "sell" and\
-                   ((self.position.order_type == "long"  and self.default_params["inverse_trading"] is not True) or\
-                    (self.position.order_type == "short" and self.default_params["inverse_trading"]))) or\
-               (row.signal == "do_nothing" and\
-                   (self.position is not None and self.default_params["close_position_on_do_nothing"])):
-
-                    self.close_position(row)
-                    return None
 
     def order_slide_slippage(self, best_price, total_loss_tolerance, onetime_loss_tolerance, onetime_duration,
         attempted_time, through_time=None):
@@ -228,7 +194,7 @@ class TradingBot:
         self.line.notify("trade loop start")
 
         while True:
-            self.execute_with_time()
+            self.position_management.execute_with_time()
 
             latest_row = self.ohlcv_tradingbot.generate_latest_row(self.calculate_metrics, self.calculate_signals)
             self.line.notify(latest_row)
@@ -236,42 +202,6 @@ class TradingBot:
             self.processed_flag = True
 
 
-    def open_position(self, row):
-        lot = self.calculate_lot(row) # fixed value
-        leverage = self.calculate_leverage(row)  # fixed value
-
-        # [FIXME] symbol is hardcoded, only for bitmex
-
-        self.position = Position(row, self.is_backtest)
-        self.position.current_balance = self.current_balance
-        self.position.lot = lot
-        self.position.leverage = leverage
-        self.position.order_method = "maker"
-        
-        if (row.signal == "buy" and self.default_params["inverse_trading"] is not True) or (row.signal == "sell" and self.default_params["inverse_trading"]):
-            self.position.order_type = "long"
-        else:
-            self.position.order_type = "short"
-
-        if self.is_backtest:
-            if (row.signal == "buy" and self.default_params["inverse_trading"] is not True) or (row.signal == "sell" and self.default_params["inverse_trading"]):
-                self.position.order_type = "long"
-            else:
-                self.position.order_type = "short"
-            return self.position
-        else:
-            self.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(leverage)})
-            self.position = self.create_order(row)
-            # discard failed opening orders
-            return self.position if self.position is not None and self.position.order_status == "open" else None
-
-    def close_position(self, row):
-        if self.is_backtest:
-            self.position.close_position(row)
-            self.transaction_logs.append(self.position.generate_transaction_log_for_backtest(self.db_client, self.summary_id))
-            self.current_balance = self.position.current_balance
-        else:
-            self.create_order(row)
 
     def create_order(self, row):
         if self.position.order_status == "pass":  # try to open
@@ -397,15 +327,6 @@ class TradingBot:
         self.specific_params = specific_params
         self.combined_params = dict(**self.default_params, **self.specific_params)
 
-
-    def calculate_lot(self, row):
-        # {FIXME} backtest is the percentage but real is the real USD number
-        return 1 # backtest
-        #return 60 # real
-        
-        # if you need, you can override
-        # default is invest all that you have
-
     def set_random_leverage_only_backtest(self, random_leverage):
         self.random_leverage_only_backtest = random_leverage
 
@@ -446,25 +367,4 @@ class TradingBot:
             start_time=entry_time - timedelta(minutes=75), end_time=entry_time, round=False)
         return predict_seed
 
-
-    def calculate_metrics(self, df):
-        return df
-        # need to override
-
-    def calculate_signals(self, df):
-        return df
-        # need to override
-        # return ["buy", "sell", "do_nothing"]
-
-    def insert_backtest_transaction_logs(self):
-        # refer to signal then judge investment
-        # keep one order at most
-        self.position = None
-        self.current_balance = self.initial_balance
-        self.transaction_logs = []
-
-        for row in self.ohlcv_with_signals.itertuples(): # self.ohlcv_with_signals should be dataframe
-            self.position = self.signal_judge(row, position=self.position)
-
-        self.db_client.session.bulk_insert_mappings(BacktestTransactionLog, self.transaction_logs)
 
