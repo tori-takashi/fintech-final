@@ -5,3 +5,4 @@ from . import trading_bot_backtest_db
 from . import ohlcv_tradingbot
 from . import position_management
 from . import trading_bot_backtest
+from . import tradingbot_order_price

@@ -32,7 +32,7 @@ class TradingBotBacktest():
         self.trading_bot_backtest_db.insert_params_management(self.summary_id)
         self.trading_bot_backtest_db.update_summary(self.transaction_logs, self.summary_id)
         
-        self.position_management.clean_position_after_create_backtest_logs()
+        self.position_management.clean_position()
 
     def insert_backtest_transaction_logs(self):
         signal_judge = self.position_management.signal_judge
@@ -48,6 +48,6 @@ class TradingBotBacktest():
             if position is not None and position.order_status == "closed":
                 position.generate_transaction_log_for_backtest(self.summary_id)
                 self.transaction_logs.append(position)
-                self.position_management.clean_position_after_create_backtest_logs()
+                self.position_management.clean_position()
 
         self.tradingbot.db_client.session.bulk_insert_mappings(BacktestTransactionLog, self.transaction_logs)

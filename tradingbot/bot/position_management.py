@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 
 from .position import Position
+from .order_management import OrderManagement
 
 class PositionManagement:
     def __init__(self, tradingbot):
@@ -11,8 +12,13 @@ class PositionManagement:
         # prevent from pushing same order in one minutes
         self.processed_flag = False
 
-        self.tradingbot = tradingbot
+        self.open_onetime_duration  = 60
+        self.close_onetime_duration = 60
+        self.open_through_time = 600
 
+        self.tradingbot = tradingbot
+        self.order_management = OrderManagement(self)
+        
     def execute_with_time(self, interval=0.5):
         while True:
             # [FIXME] corner case, if the timeframe couldn't divide by 60, it's wrong behavior
@@ -39,8 +45,8 @@ class PositionManagement:
 
     def open_position(self, row):
 
-        lot = self.calculate_lot(row) # fixed value
-        leverage = self.calculate_leverage(row)  # fixed value
+        lot = self.tradingbot.calculate_lot(row) # fixed value
+        leverage = self.tradingbot.calculate_leverage(row)  # fixed value
 
         # [FIXME] symbol is hardcoded, only for bitmex
 
@@ -68,10 +74,7 @@ class PositionManagement:
             return self.position
         else:
             self.tradingbot.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(self.position.leverage)})
-            self.position = self.create_order(row)
-            # discard failed opening orders
-            return self.position if self.position is not None and self.position.order_status == "open" else None
-
+            self.create_position(row)
 
     def close_position(self, row):
         if self.tradingbot.is_backtest:
@@ -79,9 +82,61 @@ class PositionManagement:
             self.current_balance = self.position.current_balance
             return self.position
         else:
-            self.create_order(row)
+            self.create_position(row)
 
-    def clean_position_after_create_backtest_logs(self):
+    def clean_position(self):
         self.position = None
 
-    
+    def create_position(self, row):
+        if self.position.order_status == "pass":
+            self.try_open(row)
+            
+            if self.position.order_status == "pass":
+                self.tradingbot.line.notify("all attempts are failed, skip")
+                self.position.set_pass_log()
+                self.tradingbot.db_client.influx_raw_connector.write_points([self.position.get_pass_log()])
+                self.clean_position()
+                
+        elif self.position.order_status == "open":
+            self.execute_close(row)
+            self.clean_position()
+
+    def try_open(self, row):
+        attempted_time = 1
+        order_start_time = datetime.now()
+
+        while datetime.now() - order_start_time < timedelta(seconds=self.open_through_time):
+            # loop until through time
+            # success => return position
+            # failed => increment attempted_time
+            # all failed => skip
+            self.position = self.attempt_position(row, self.open_onetime_duration, attempted_time,
+                order_start_time, through_time=self.open_through_time)
+
+            if self.position.order_status == "open":
+                break
+            else:
+                attempted_time += 1
+
+    def execute_close(self, row):
+        attempted_time = 1
+        order_start_time = datetime.now()
+        while True:
+            self.position = self.attempt_position(row, self.close_onetime_duration, attempted_time,
+                order_start_time, through_time=None)
+            if self.position.order_status == "closed":
+                break
+            else:
+                attempted_time += 1
+
+    def attempt_position(self, row, onetime_duration, attempted_time, order_start_time, through_time=None):
+        order = self.order_management.send_order()
+        sleep(onetime_duration)
+        order_info = self.tradingbot.exchange_client.client.fetch_order(order["id"])
+
+        if self.position.order_status == "pass":
+            self.position.open_order_id = order["id"]
+            return self.order_management.is_position_opened(row, order_start_time, attempted_time, order_info)
+        elif self.position.order_status == "open":
+            self.position.close_order_id = order["id"]
+            return self.order_management.is_position_closed(row, order_start_time, attempted_time, order_info)
