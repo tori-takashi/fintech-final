@@ -50,7 +50,7 @@ class TradingBot:
         self.combined_params = dict(**self.default_params, **self.specific_params)
 
         self.dataset_manipulator = Dataset(self.db_client, self.exchange_client, self.is_backtest)
-        self.ohlcv_tradingbot = OHLCV_tradingbot(self.dataset_manipulator)
+        self.ohlcv_tradingbot = OHLCV_tradingbot(self.dataset_manipulator, self.default_params, self.specific_params)
         
         self.random_leverage_only_backtest = False
         
@@ -103,12 +103,12 @@ class TradingBot:
 
         else:
             # for real environment
-            start_end_range = ohlcv_end_time - ohlcv_start_time
+            self.ohlcv_tradingbot.start_end_range = ohlcv_end_time - ohlcv_start_time
             # [FIXME] having only one position 
 
             while True:
                 try:
-                    self.trade_loop_for_real(ohlcv_df, start_end_range)
+                    self.trade_loop_for_real(ohlcv_df)
                 except ExchangeNotAvailable:
                     self.line.notify("Exchange Not Available Error, Retry after 15 seconds")
                     sleep(15)
@@ -129,13 +129,6 @@ class TradingBot:
         self.trading_bot_backtest_db.update_summary(self.transaction_logs, self.summary_id)
 
 
-    def attach_params(self, ohlcv_df_with_signals, default_params, specific_params):
-        for tag, param in default_params.items():
-            ohlcv_df_with_signals[tag] = param
-        for tag, param in specific_params.items():
-            ohlcv_df_with_signals[tag] = param
-
-        return ohlcv_df_with_signals
 
     def execute_with_time(self, interval=0.5):
         while True:
@@ -230,31 +223,16 @@ class TradingBot:
         #return self.exchange_client.client.create_order(asset_name, "limit", side, lot)#, round(order_price,1)),
             #params = {'execInst': 'ParticipateDoNotInitiate'})
 
-    def trade_loop_for_real(self, ohlcv_df, start_end_range):
+    def trade_loop_for_real(self, ohlcv_df):
         self.current_balance = self.exchange_client.client.fetch_balance()["BTC"]["total"]
         self.line.notify("trade loop start")
 
         while True:
             self.execute_with_time()
 
-            # load ohlcv
-            self.dataset_manipulator.update_ohlcv("bitmex", asset_name="BTC/USD", with_ta=True)
-            ohlcv_df = self.dataset_manipulator.get_ohlcv(self.default_params["timeframe"],
-                datetime.now() - start_end_range, datetime.now(), exchange_name="bitmex",
-                asset_name="BTC/USD", round=False)
-        
-            # calc metrics, judge buy or sell or donothing and params
-            ohlcv_df_with_metrics = self.calculate_metrics(ohlcv_df)
-            ohlcv_df_with_signals = self.calculate_signals(ohlcv_df_with_metrics)
-            full_ohlcv_df = self.attach_params(ohlcv_df_with_signals, self.default_params, self.specific_params)
-
-            # write newest ohlcv, signal and params into signals measurement
-            self.db_client.append_to_table( self.default_params["bot_name"] + "_signals", full_ohlcv_df)
-
-            # follow the latest signal
-            latest_row = ohlcv_df.tail(1).iloc[0,:]
+            latest_row = self.ohlcv_tradingbot.generate_latest_row(self.calculate_metrics, self.calculate_signals)
+            self.line.notify(latest_row)
             self.position = self.signal_judge(latest_row)
-            
             self.processed_flag = True
 
 
