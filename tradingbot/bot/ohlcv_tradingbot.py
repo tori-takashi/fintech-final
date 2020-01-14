@@ -3,23 +3,29 @@ from datetime import datetime, timedelta
 class OHLCV_tradingbot:
     def __init__(self, dataset_manipulator, default_params, specific_params):
         self.dataset_manipulator = dataset_manipulator
-        self.start_end_range = None
+        self.ohlcv_start_time = None
+        self.ohlcv_end_time = None
 
         self.default_params  = default_params
         self.specific_params = specific_params
 
-    def fetch_latest_ohlcv(self, ohlcv_start_time):
+    def update_ohlcv(self):
         while True:
             download_start = datetime.now()
-            self.dataset_manipulator.update_ohlcv("bitmex", start_time=ohlcv_start_time,
+            self.dataset_manipulator.update_ohlcv("bitmex", start_time=self.ohlcv_start_time,
             asset_name="BTC/USD", with_ta=True)
             if datetime.now() - download_start < timedelta(seconds=29):
                 break
 
+    def get_ohlcv(self):
+        return self.dataset_manipulator.get_ohlcv(self.default_params["timeframe"], self.ohlcv_start_time, self.ohlcv_end_time)
+
     def generate_latest_row(self, calculate_metrics, calculate_signals):
-        self.dataset_manipulator.update_ohlcv("bitmex", asset_name="BTC/USD", with_ta=True)
+        self.update_ohlcv()
+        start_end_range = self.ohlcv_end_time - self.ohlcv_start_time
+
         ohlcv_df = self.dataset_manipulator.get_ohlcv(self.default_params["timeframe"],
-            datetime.now() - self.start_end_range, datetime.now(), exchange_name="bitmex",
+            datetime.now() - start_end_range, datetime.now(), exchange_name="bitmex",
             asset_name="BTC/USD", round=False)
 
         ohlcv_df_with_metrics = calculate_metrics(ohlcv_df)
