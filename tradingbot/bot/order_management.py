@@ -65,6 +65,7 @@ class OrderManagement:
             self.tradingbot.line.notify(
                 "entry order failed, retrying. time:" + str(attempted_time))
             self.cancel_failed_order(order_info["id"])
+            return self.position_management.position
 
     def is_position_closed(self, row, order_start_time, attempted_time, order_info):
         position = self.position_management.position
