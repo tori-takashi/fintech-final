@@ -13,24 +13,24 @@ class OrderManagement:
         # [FIXME] close all lot in the position
         lot = self.position_management.position.lot
         side = self.convert_order_type(
-            self.position_management.position.order_type)
+            self.position_management.position.order_type, self.position_management.position.order_status)
 
         order_price = self.order_price_calculator.calculate_order_price(
             self.position_management.position, self.position_management.position.order_method)
         self.send_order_notification(order_price)
 
         # maker order
-        return self.tradingbot.exchange_client.client.create_order(asset_name, "limit", side, lot, round(order_price, 1),
-                                                                   params={'execInst': 'ParticipateDoNotInitiate'})
+        return self.tradingbot.exchange_client.client.create_order(asset_name, self.position_management.position.order_method,
+                                                                   side, lot, round(order_price, 1), params={'execInst': 'ParticipateDoNotInitiate'})
 
         # taker order
         # return self.exchange_client.client.create_order(asset_name, "limit", side, lot)#, round(order_price,1)),
         # params = {'execInst': 'ParticipateDoNotInitiate'})
 
-    def convert_order_type(self, order_type):
-        if order_type == "long":
+    def convert_order_type(self, order_type, order_status):
+        if (order_type == "long" and order_status == "pass") or (order_type == "short" and order_status == "open"):
             return "buy"
-        elif order_type == "short":
+        elif (order_type == "short" and order_status == "pass") or (order_type == "long" and order_status == "open"):
             return "sell"
 
     def send_order_notification(self, order_price):
