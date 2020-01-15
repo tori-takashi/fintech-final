@@ -16,6 +16,7 @@ middle_trend_tick = 3
 top_trend_tick = 1
 close_position_on_do_nothing = True
 inverse_trading = True
+random_leverage = False
 random_forest_leverage_adjust = False
 
 default_params = {
@@ -24,6 +25,7 @@ default_params = {
     "timeframe": timeframe,
     "close_position_on_do_nothing": close_position_on_do_nothing,
     "inverse_trading": inverse_trading,
+    "random_leverage": random_leverage,
     "random_forest_leverage_adjust": random_forest_leverage_adjust
 }
 

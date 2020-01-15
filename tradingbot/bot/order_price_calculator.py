@@ -1,10 +1,14 @@
-class TradingBotOrderPrice:
+class OrderPriceCalculator:
     def __init__(self, tradingbot):
         self.tradingbot = tradingbot
 
     def fetch_best_price(self, position):
-        # open and close (long, short)
-        
+        bid_ask = self.convert_bid_ask(position)
+        best_price = self.tradingbot.exchange_client.client.fetch_ticker(
+            position.asset_name)[bid_ask]
+        return best_price
+
+    def convert_bid_ask(self, position):
         # try open and limit order   => (bid, ask)
         # try close and market order => (bid, ask)
 
@@ -12,23 +16,21 @@ class TradingBotOrderPrice:
         # try close and limit order  => (ask, bid)
         order_status = position.order_status
         order_method = position.order_method
-        order_type   = position.order_type
+        order_type = position.order_type
 
-        if (order_status == "pass" and order_method == "maker") or \
-           (order_status == "open" and order_method == "taker"):
-            price_type = "bid" if order_type == "long" else "ask"
+        if (order_status == "pass" and order_method == "limit") or \
+           (order_status == "open" and order_method == "market"):
+            return "bid" if order_type == "long" else "ask"
 
-        elif (order_status == "open" and order_method == "maker") or \
-             (order_status == "pass" and order_method == "taker"):
-             price_type = "ask" if order_type == "long" else "bid"
-
-        return self.tradingbot.exchange_client.client.fetch_ticker(position.asset_name)[price_type]
+        elif (order_status == "open" and order_method == "limit") or \
+             (order_status == "pass" and order_method == "market"):
+            return "ask" if order_type == "long" else "bid"
 
     def calculate_order_price(self, position):
         order_status = position.order_status
         order_type = position.order_type
         best_price = self.fetch_best_price(position)
-        
+
         # slippage =  0.5 # taker
         slippage = -0.5   # maker
 
@@ -36,10 +38,9 @@ class TradingBotOrderPrice:
             order_price = best_price + slippage
         elif (order_status == "pass" and order_type == "short") or (order_status == "open" and order_type == "long"):
             order_price = best_price - slippage
-                
+
         order_price_base = round(order_price)
         order_price_decimal = order_price - order_price_base
         order_price = order_price_base if order_price_decimal < 0.5 else order_price_base + 0.5
 
         return order_price
-

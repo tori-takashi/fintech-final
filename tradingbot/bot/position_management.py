@@ -2,7 +2,11 @@ from datetime import datetime, timedelta
 from time import sleep
 
 from .position import Position
+from .position_leverage import PositionLeverage
+from .position_lot import PositionLot
+
 from .order_management import OrderManagement
+
 
 class PositionManagement:
     def __init__(self, tradingbot):
@@ -12,41 +16,41 @@ class PositionManagement:
         # prevent from pushing same order in one minutes
         self.processed_flag = False
 
-        self.open_onetime_duration  = 60
+        # option for open and close
+        self.open_onetime_duration = 60
         self.close_onetime_duration = 60
         self.open_through_time = 600
 
+        # for other helper methods
         self.tradingbot = tradingbot
+
+        self.position_leverage = PositionLeverage(self.tradingbot)
+        self.position_lot = PositionLot(self.tradingbot)
+
         self.order_management = OrderManagement(self)
-        
-    def execute_with_time(self, interval=0.5):
-        while True:
-            # [FIXME] corner case, if the timeframe couldn't divide by 60, it's wrong behavior
-            if (self.processed_flag is not True) and (datetime.now().minute % self.tradingbot.default_params["timeframe"] == 0):
-                    break
-            else:
-                self.processed_flag = False
-            sleep(interval)
+
+        self.current_balance = self.tradingbot.exchange_client.client.fetch_balance()[
+            "BTC"]["total"]
 
     def signal_judge(self, row):
         if self.position is None:
-            return self.open_position if row.signal == "buy" or row.signal == "sell" else None
+            return self.open_position(row) if row.signal == "buy" or row.signal == "sell" else None
         else:
             order_type = self.position.order_type
             inverse_trading = self.tradingbot.default_params["inverse_trading"]
-            close_position_on_do_nothing = self.tradingbot.default_params["close_position_on_do_nothing"]
+            close_position_on_do_nothing = self.tradingbot.default_params[
+                "close_position_on_do_nothing"]
 
-            if (row.signal == "buy"  and ((order_type == "long"  and inverse_trading) or (order_type == "short" and not inverse_trading))) or\
-               (row.signal == "sell" and ((order_type == "short" and inverse_trading) or (order_type == "long"  and not inverse_trading))) or\
+            if (row.signal == "buy" and ((order_type == "long" and inverse_trading) or (order_type == "short" and not inverse_trading))) or\
+               (row.signal == "sell" and ((order_type == "short" and inverse_trading) or (order_type == "long" and not inverse_trading))) or\
                (row.signal == "do_nothing" and close_position_on_do_nothing):
-            
+
                 self.close_position(row)
                 return None
 
     def open_position(self, row):
-
-        lot = self.tradingbot.calculate_lot(row) # fixed value
-        leverage = self.tradingbot.calculate_leverage(row)  # fixed value
+        lot = self.position_lot.calculate_lot(row)
+        leverage = self.position_leverage.calculate_leverage(row)
 
         # [FIXME] symbol is hardcoded, only for bitmex
 
@@ -55,8 +59,10 @@ class PositionManagement:
         self.position.current_balance = self.current_balance
         self.position.lot = lot
         self.position.leverage = leverage
-        self.position.order_method = "limit" # limit or market order
+        self.position.order_method = "limit"  # limit or market order
         self.position.order_type = self.get_order_type(row)
+
+        print(self.position)
 
         self.execute_open_order(row)
 
@@ -73,7 +79,8 @@ class PositionManagement:
             self.position.open_position()
             return self.position
         else:
-            self.tradingbot.exchange_client.client.private_post_position_leverage({"symbol": "XBTUSD", "leverage": str(self.position.leverage)})
+            self.tradingbot.exchange_client.client.private_post_position_leverage(
+                {"symbol": "XBTUSD", "leverage": str(self.position.leverage)})
             self.create_position(row)
 
     def close_position(self, row):
@@ -90,16 +97,16 @@ class PositionManagement:
     def create_position(self, row):
         if self.position.order_status == "pass":
             self.try_open(row)
-            
+
             if self.position.order_status == "pass":
                 self.tradingbot.line.notify("all attempts are failed, skip")
                 self.position.set_pass_log()
-                self.tradingbot.db_client.influx_raw_connector.write_points([self.position.get_pass_log()])
+                self.tradingbot.db_client.influx_raw_connector.write_points(
+                    [self.position.get_pass_log()])
                 self.clean_position()
-                
+
         elif self.position.order_status == "open":
             self.execute_close(row)
-            self.clean_position()
 
     def try_open(self, row):
         attempted_time = 1
@@ -111,7 +118,7 @@ class PositionManagement:
             # failed => increment attempted_time
             # all failed => skip
             self.position = self.attempt_position(row, self.open_onetime_duration, attempted_time,
-                order_start_time, through_time=self.open_through_time)
+                                                  order_start_time, through_time=self.open_through_time)
 
             if self.position.order_status == "open":
                 break
@@ -123,8 +130,9 @@ class PositionManagement:
         order_start_time = datetime.now()
         while True:
             self.position = self.attempt_position(row, self.close_onetime_duration, attempted_time,
-                order_start_time, through_time=None)
+                                                  order_start_time, through_time=None)
             if self.position.order_status == "closed":
+                self.clean_position()
                 break
             else:
                 attempted_time += 1
@@ -132,7 +140,8 @@ class PositionManagement:
     def attempt_position(self, row, onetime_duration, attempted_time, order_start_time, through_time=None):
         order = self.order_management.send_order()
         sleep(onetime_duration)
-        order_info = self.tradingbot.exchange_client.client.fetch_order(order["id"])
+        order_info = self.tradingbot.exchange_client.client.fetch_order(
+            order["id"])
 
         if self.position.order_status == "pass":
             self.position.open_order_id = order["id"]

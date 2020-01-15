@@ -12,7 +12,7 @@ class TradingBotBacktest():
         self.trading_bot_backtest_db = TradingBotBacktestDB(self, tradingbot.is_backtest)
         self.position_management = PositionManagement(tradingbot)
 
-    def run_backtest(self, ohlcv_df, ohlcv_start_time, ohlcv_end_time, floor_time):
+    def run(self, ohlcv_df, ohlcv_start_time, ohlcv_end_time, floor_time):
         # for summary
         if floor_time:
             self.ohlcv_tradingbot.ohlcv_start_time = self.tradingbot.dataset_manipulator.floor_datetime_to_ohlcv(ohlcv_start_time, "up")
@@ -51,3 +51,12 @@ class TradingBotBacktest():
                 self.position_management.clean_position()
 
         self.tradingbot.db_client.session.bulk_insert_mappings(BacktestTransactionLog, self.transaction_logs)
+
+    def set_params(self, default_params, specific_params):
+        # for loop and serach optimal metrics value
+        self.default_params = default_params
+        self.specific_params = specific_params
+        self.combined_params = dict(**self.default_params, **self.specific_params)
+
+    def bulk_inser(self):
+        self.trading_bot_backtest_db.bulk_insert()
