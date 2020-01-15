@@ -62,8 +62,6 @@ class PositionManagement:
         self.position.order_method = "limit"  # limit or market order
         self.position.order_type = self.get_order_type(row)
 
-        print(self.position)
-
         self.execute_open_order(row)
 
     def get_order_type(self, row):
