@@ -16,7 +16,7 @@ class OrderManagement:
             self.position_management.position.order_type)
 
         order_price = self.order_price_calculator.calculate_order_price(
-            self.position_management.position)
+            self.position_management.position, self.position_management.position.order_method)
         self.send_order_notification(order_price)
 
         # maker order
