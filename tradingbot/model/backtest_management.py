@@ -23,6 +23,7 @@ class BacktestManagement(Base):
     version = Column(String(100))
     close_position_on_do_nothing = Column(Boolean)
     inverse_trading = Column(Boolean)
+    random_leverage = Column(Boolean)
     random_forest_leverage_adjust = Column(Boolean)
 
     def __init__(self):
@@ -33,4 +34,5 @@ class BacktestManagement(Base):
         self.timeframe = BacktestManagement.timeframe
         self.close_position_on_do_nothing = BacktestManagement.close_position_on_do_nothing
         self.inverse_trading = BacktestManagement.inverse_trading
+        self.random_leverage = BacktestManagement.random_leverage
         self.random_forest_leverage_adjust = BacktestManagement.random_forest_leverage_adjust

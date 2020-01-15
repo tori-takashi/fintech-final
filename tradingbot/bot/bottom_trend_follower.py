@@ -21,6 +21,7 @@ class BottomTrendFollow(TradingBot):
             "timeframe": 60,
             "close_position_on_do_nothing": True,
             "inverse_trading": False,
+            "random_leverage": False,
             "random_forest_leverage_adjust": True
         }
 
@@ -42,13 +43,13 @@ class BottomTrendFollow(TradingBot):
         super().__init__(exchange_client=exchange_client, db_client=db_client, default_params=self.default_params,
                          specific_params=self.specific_params, is_backtest=is_backtest)
 
-    def calculate_lot(self, row):
+    def calculate_specific_lot(self, row):
         return 500  # USD
-        # % of the asset
-        # if you need, you can override
-        # default is invest all that you have
 
-    def append_specific_params_columns(self):
+    def calculate_specific_leverage(self, row):
+        return 1  # x
+
+    def append_specific_param_columns(self):
         # return table def_keys
         # {"<column name>" : sqlalchemy column type (like Integer, String, Float....) }
         table_def_keys = {
