@@ -2,8 +2,11 @@ import pandas as pd
 from datetime import datetime
 from pytz import timezone
 
+from time import sleep
+
 from alembic import op
 import sqlalchemy
+
 
 from model.twitter_data import TwitterData
 
@@ -39,22 +42,25 @@ class TwitterDataset():
         keyword = query
 
         search_results = []
+        current_max_id = None
         oldest_data_time = until
 
         while since < oldest_data_time:
             query = ""
             query += keyword
-            query += self.since_until_settings(None, oldest_data_time)
             query += " -rt" if no_rt is True else ""
-            print(query)
 
             search_results_onetime = self.api.search(
-                query, count=100, result_type="mixed")
+                query, count=100, result_type="mixed", max_id=current_max_id)
             search_results.extend([self.search_result_to_dict(
                 search_result) for search_result in search_results_onetime])
 
             oldest_data_time = pd.to_datetime(
                 search_results[-1]["created_at"]).to_pydatetime().astimezone(timezone('utc'))
+            current_max_id = search_results[-1]["tweet_id"]
+
+            print("current oldest dowloaded data is " + str(oldest_data_time))
+            sleep(12)
 
         return search_results
 
@@ -99,7 +105,7 @@ class TwitterDataset():
         search_result["created_at"] = pd.to_datetime(
             json["created_at"]).to_pydatetime().astimezone(timezone('utc'))
         search_result["tweet_id"] = str(json["id"])
-        search_result["text"] = json["text"]
+        search_result["text"] = json["text"].lower()
         search_result.update(self.parse_entities(json["entities"]))
         search_result["truncated"] = json["truncated"]
         search_result.update(self.parse_metadata(json["metadata"]))
@@ -108,6 +114,9 @@ class TwitterDataset():
         search_result["retweet_count"] = json["retweet_count"]
         search_result["favorite_count"] = json["favorite_count"]
         search_result["language"] = json["lang"]
+
+        search_result["is_junk"] = self.junk_classifier(
+            search_result["text"], search_result["user_description"])
 
         return search_result
 
@@ -132,7 +141,7 @@ class TwitterDataset():
 
         user_dict["user_created_at"] = pd.to_datetime(user["created_at"]).to_pydatetime(
         ).astimezone(timezone('utc'))
-        user_dict["user_description"] = user["description"]
+        user_dict["user_description"] = user["description"].lower()
 
         try:
             user_dict["user_profile_url"] = user["entities"]["url"]["urls"][0]["expanded_url"]
@@ -149,3 +158,15 @@ class TwitterDataset():
         user_dict["user_verified"] = user["verified"]
 
         return user_dict
+
+    def junk_classifier(self, text, user_description):
+        if "bit.ly" in text:
+            return True
+
+        if "free" in text:
+            return True
+
+        return False
+
+    def search_downloaded_tweet(self):
+        return self.db_client.exec_sql("SELECT * FROM twitter_data")

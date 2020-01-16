@@ -37,6 +37,8 @@ class TwitterData(declarative_base()):
     user_profile_url = Column(String(300))
     user_verified = Column(Boolean)
 
+    is_junk = Column(Boolean)
+
     def __init__(self):
         self.id = TwitterData.id
 
@@ -48,6 +50,8 @@ class TwitterData(declarative_base()):
         self.retweet_count = TwitterData.retweet_count
         self.favorite_count = TwitterData.favorite_count
         self.language = TwitterData.language
+
+        self.is_junk = TwitterData.is_junk
 
         # entities
         self.hash_tags = TwitterData.hash_tags
