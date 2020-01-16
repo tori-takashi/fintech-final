@@ -46,8 +46,9 @@ class OrderManagement:
 
     def cancel_failed_order(self, id):
         try:
-            self.exchange_client.client.cancel_order(id)
-        except:
+            self.tradingbot.exchange_client.client.cancel_order(id)
+        except Exception as e:
+            self.tradingbot.line.notify(e)
             self.tradingbot.line.notify("order was deleted. retry")
 
     def is_position_opened(self, row, order_start_time, attempted_time, order_info):

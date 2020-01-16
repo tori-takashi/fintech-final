@@ -103,6 +103,8 @@ class Dataset:
 
                 ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
                     ohlcv_df)
+                ohlcv_df.set_index("timestamp")
+                print(ohlcv_df)
                 ohlcv_df = ohlcv_df[start_time:]
             else:  # ?
                 ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
