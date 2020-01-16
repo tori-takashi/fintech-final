@@ -55,6 +55,7 @@ class OrderManagement:
             self.position_management.position.order_status = "open"
             self.tradingbot.line.notify("entry order was successfully opened")
             open_log = {
+                "entry_price": order_info["price"],
                 "entry_attempt_time": attempted_time,
                 "order_method": "limit"
             }
