@@ -59,10 +59,10 @@ dataset_manager.update_ohlcv("bitmex",start_time=datetime.now() - timedelta(days
 # manually added
 def get_joined_params_and_summary():
     bot = BottomTrendFollow(db_client=mysql_client, exchange_client=bitmex_exchange_client, is_backtest=True)
-    backtest_management = bot.backtest_management_table()
+    backtest_management = bot.trading_bot_backtest.trading_bot_backtest_db.backtest_management_table()
     backtest_summary = BacktestSummary()
     
-    query_management = "SELECT * FROM " + bot.backtest_management_table_name + ";"
+    query_management = "SELECT * FROM " + bot.trading_bot_backtest.trading_bot_backtest_db.backtest_management_table_name + ";"
     query_summary = "SELECT * FROM backtest_summary;"
     
     backtest_management_df = mysql_client.exec_sql(query_management)

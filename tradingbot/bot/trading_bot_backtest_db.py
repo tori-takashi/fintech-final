@@ -21,7 +21,8 @@ class TradingBotBacktestDB:
         self.tradingbot = tradingbot
         self.db_client = tradingbot.db_client
         self.exchange_client = tradingbot.exchange_client
-        self.backtest_management_table_name = self.tradingbot.bot_name + "_backtest_management"
+        self.backtest_management_table_name = self.tradingbot.default_params[
+            "bot_name"] + "_backtest_management"
 
         if self.has_backtest_table():
             # get_table_def_keys is method
@@ -48,7 +49,7 @@ class TradingBotBacktestDB:
         return self.db_client.is_table_exist(self.backtest_management_table_name) is not True
 
     def backtest_management_table(self):
-        return Table(self.tradingbot.backtest_management_table_name, MetaData(bind=self.db_client.connector),
+        return Table(self.backtest_management_table_name, MetaData(bind=self.db_client.connector),
                      autoload=True, autoload_with=self.db_client.connector)
 
     def append_backtest_specific_params_columns_to_table_def(self, table_def):

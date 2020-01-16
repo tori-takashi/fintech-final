@@ -56,7 +56,7 @@ class Dataset:
             if self.db_client.is_table_exist(self.original_ohlcv_1min_table):
                 latest_row = self.db_client.get_last_row(
                     self.original_ohlcv_1min_table)
-                if latest_row.empty is not True:
+                if latest_row is True and latest_row.empty is False:
                     start_time = self.calc_fetch_start_time(latest_row)
             else:
                 self.build_ohlcv_1min_table()
@@ -103,7 +103,7 @@ class Dataset:
 
                 ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
                     ohlcv_df)
-                ohlcv_df.set_index("timestamp")
+                ohlcv_df.set_index("timestamp", inplace=True)
                 print(ohlcv_df)
                 ohlcv_df = ohlcv_df[start_time:]
             else:  # ?
