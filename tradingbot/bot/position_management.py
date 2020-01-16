@@ -83,6 +83,7 @@ class PositionManagement:
 
     def close_position(self, row):
         if self.tradingbot.is_backtest:
+            self.position.order_method = "market"
             self.position.close_position(row)
             self.current_balance = self.position.current_balance
             return self.position
