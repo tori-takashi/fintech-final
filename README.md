@@ -213,3 +213,26 @@ If you face error of talib importing, please try to reimport your bash profile w
 tuned_bitmex_websocket.py was downloaded from [here](https://note.mu/motofumimikami/n/n3baccdc81674)
 
 tuned_bitmex_websocket is based on [bitmex-ws](https://github.com/BitMEX/api-connectors/tree/master/official-ws/python)
+
+sentiment analysis dictionary in investment [NTUSD-Fin: A Market Sentiment Dictionary for Financial Social Media Data Applications](http://nlg.csie.ntu.edu.tw/nlpresource/NTUSD-Fin/)
+
+## Sentiment Analysis Materials
+
+[Sentiment Analysis with Python (Finance) – A Beginner’s Guide](https://algotrading101.com/learn/sentiment-analysis-with-python-finance/)
+[Algorithmic Trading using Sentiment Analysis on News Articles](https://towardsdatascience.com/https-towardsdatascience-com-algorithmic-trading-using-sentiment-analysis-on-news-articles-83db77966704)
+[Financial Sentiment Analysis Part II – Sentiment Extraction](http://francescopochetti.com/financial-blogs-sentiment-analysis-part-crawling-web/)
+
+### dictionary
+
+[https://github.com/nunomroliveira/stock_market_lexicon](https://github.com/nunomroliveira/stock_market_lexicon)
+[Extending the Loughran and McDonald Financial Sentiment Words List from10-K Corporate Fillings using Social Media Texts](http://lrec-conf.org/workshops/lrec2018/W13/pdf/1_W13.pdf)
+[Loughran and McDonald Sentiment Word Lists](https://sraf.nd.edu/textual-analysis/resources/#LM%20Sentiment%20Word%20Lists)
+[NRC Word-Emotion Association Lexicon (aka EmoLex)](http://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm)
+[NTUSD-Fin: A Market Sentiment Dictionary for Financial Social Media Data Applications](http://qcl.tw/~hhhuang/docs/fnp2018.pdf)
+
+### Papers
+
+[Using social media and machine learning to predict financial performance of a company](https://uu.diva-portal.org/smash/get/diva2:955799/FULLTEXT01.pdf)
+[Simplifying Sentiment Analysis using VADER in Python (on Social Media Text)](https://medium.com/analytics-vidhya/simplifying-social-media-sentiment-analysis-using-vader-in-python-f9e6ec6fc52f)
+[DATA AND TEXT MINING OF FINANCIAL MARKETS USING NEWS AND SOCIAL MEDIA](https://studentnet.cs.manchester.ac.uk/resources/library/thesis_abstracts/MSc12/FullText/Han-Zhichao-fulltext.pdf)
+[How to Create and Backtest Trading Strategy on Twitter Sentiments](https://devexperts.com/blog/how-to-create-and-backtest-trading-strategy-on-twitter-sentiments/)
