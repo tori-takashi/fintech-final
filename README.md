@@ -221,6 +221,7 @@ sentiment analysis dictionary in investment [NTUSD-Fin: A Market Sentiment Dicti
 [Sentiment Analysis with Python (Finance) – A Beginner’s Guide](https://algotrading101.com/learn/sentiment-analysis-with-python-finance/)
 [Algorithmic Trading using Sentiment Analysis on News Articles](https://towardsdatascience.com/https-towardsdatascience-com-algorithmic-trading-using-sentiment-analysis-on-news-articles-83db77966704)
 [Financial Sentiment Analysis Part II – Sentiment Extraction](http://francescopochetti.com/financial-blogs-sentiment-analysis-part-crawling-web/)
+[NLP2018SPRING](https://github.com/thtang/NLP2018SPRING/blob/master/project1/fine_grained.py)
 
 ### dictionary
 
