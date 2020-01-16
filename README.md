@@ -40,6 +40,30 @@ for backtest
 4. set config
    set conig.ini
 
+5. change character set for twitter
+
+   `$ mysql --help | grep my.cnf`
+
+   then add to the global option file to
+
+   ```
+   [mysqld]
+    character-set-server=utf8mb4
+
+   [client]
+    default-character-set=utf8mb4
+   ```
+
+6. restart mysql deamon
+
+   `$ sudo service mysql restart`
+
+7. update settings for future
+
+log in to mysql then
+
+`mysql > ALTER DATABASE 【DB 名】 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`
+
 ### install influxdb
 
 for real environment
@@ -154,7 +178,7 @@ If you're using anaconda, please replace `pip` to `conda`
 
 `$ sudo pip install -U setuptools`
 
-`$ pip install ccxt pandas numpy sklearn ta-lib sqlalchemy influxdb alembic PyMySQL websocket`
+`$ pip install ccxt pandas numpy sklearn ta-lib sqlalchemy influxdb alembic PyMySQL websocket tweepy`
 
 ### settings to alembic.ini
 
