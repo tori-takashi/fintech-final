@@ -83,11 +83,11 @@ class PositionManagement:
 
     def close_position(self, row):
         if self.tradingbot.is_backtest:
-            self.position.order_method = "market"
             self.position.close_position(row)
             self.current_balance = self.position.current_balance
             return self.position
         else:
+            self.position.order_method = "market"
             self.create_position(row)
 
     def clean_position(self):
@@ -106,6 +106,7 @@ class PositionManagement:
 
         elif self.position.order_status == "open":
             self.execute_close(row)
+            self.clean_position()
 
     def try_open(self, row):
         attempted_time = 1
@@ -131,8 +132,7 @@ class PositionManagement:
             self.position = self.attempt_position(row, self.close_onetime_duration, attempted_time,
                                                   order_start_time, through_time=None)
             if self.position.order_status == "closed":
-                self.clean_position()
-                break
+                return
             else:
                 attempted_time += 1
 
