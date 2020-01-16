@@ -2,28 +2,46 @@ import pandas as pd
 from datetime import datetime
 from pytz import timezone
 
+from alembic import op
+import sqlalchemy
 
-class TwitterDataset:
-    def __init__(self, twitter_client):
+from model.twitter_data import TwitterData
+
+
+class TwitterDataset():
+    def __init__(self, twitter_client, db_client):
         self.api = twitter_client.api
+        self.db_client = db_client
+        if not self.db_client.is_table_exist("twitter_data"):
+            self.build_twitter_data_table()
 
-    def search_tweet(self, query, no_rt=True, since_ymd_datetime=None, until_ymd_datetime=None):
+    def build_twitter_data_table(self):
+        TwitterData.__table__.create(bind=self.db_client.connector)
+        self.db_client.connector.execute(sqlalchemy.sql.text(
+            'alter table twitter_data default character set utf8mb4'))
+
+    def insert_tweet(self, query, no_rt=True, since=None, until=None):
         search_results = self.tweet_downloader(
-            query, no_rt, since_ymd_datetime, until_ymd_datetime)
+            query, no_rt, since, until)
+        self.db_client.session.bulk_insert_mappings(
+            TwitterData, search_results)
+        self.db_client.session.commit()
+
+    def search_tweet(self, query, no_rt=True, since=None, until=None):
+        search_results = self.tweet_downloader(
+            query, no_rt, since, until)
         return self.convert_to_df(search_results)
 
-    def tweet_downloader(self, query, no_rt, since_ymd_datetime, until_ymd_datetime):
-        since_ymd_datetime = since_ymd_datetime.astimezone(timezone('utc'))
-        until_ymd_datetime = until_ymd_datetime.astimezone(timezone('utc'))
+    def tweet_downloader(self, query, no_rt, since, until):
+        since = since.astimezone(timezone('utc'))
+        until = until.astimezone(timezone('utc'))
 
         keyword = query
 
-        print(since_ymd_datetime)
-
         search_results = []
-        oldest_data_time = until_ymd_datetime
+        oldest_data_time = until
 
-        while since_ymd_datetime < oldest_data_time:
+        while since < oldest_data_time:
             query = ""
             query += keyword
             query += self.since_until_settings(None, oldest_data_time)
@@ -44,28 +62,28 @@ class TwitterDataset:
         # in need colunms
         return pd.DataFrame(search_results)
 
-    def since_until_settings(self, since_ymd_datetime=None, until_ymd_datetime=None):
+    def since_until_settings(self, since=None, until=None):
         concat_query = ""
 
-        if since_ymd_datetime:
-            since_year = since_ymd_datetime.year
-            since_month = since_ymd_datetime.month
-            since_day = since_ymd_datetime.day
-            since_hour = since_ymd_datetime.hour
-            since_min = since_ymd_datetime.minute
-            since_second = since_ymd_datetime.second
+        if since:
+            since_year = since.year
+            since_month = since.month
+            since_day = since.day
+            since_hour = since.hour
+            since_min = since.minute
+            since_second = since.second
             concat_query += " since:" + \
                 str(since_year) + "-" + str(since_month) + \
                 "-" + str(since_day) + "_UTC_" + str(since_hour) + \
                 ":" + str(since_min) + ":" + str(since_second) + " "
 
-        if until_ymd_datetime:
-            until_year = until_ymd_datetime.year
-            until_month = until_ymd_datetime.month
-            until_day = until_ymd_datetime.day
-            until_hour = until_ymd_datetime.hour
-            until_min = until_ymd_datetime.minute
-            until_second = until_ymd_datetime.second
+        if until:
+            until_year = until.year
+            until_month = until.month
+            until_day = until.day
+            until_hour = until.hour
+            until_min = until.minute
+            until_second = until.second
             concat_query += " until:" + \
                 str(until_year) + "-" + str(until_month) + \
                 "-" + str(until_day) + "_UTC_" + str(until_hour) + \
@@ -78,8 +96,9 @@ class TwitterDataset:
 
         search_result = {}
 
-        search_result["created_at"] = json["created_at"]
-        search_result["tweet_id"] = json["id"]
+        search_result["created_at"] = pd.to_datetime(
+            json["created_at"]).to_pydatetime().astimezone(timezone('utc'))
+        search_result["tweet_id"] = str(json["id"])
         search_result["text"] = json["text"]
         search_result.update(self.parse_entities(json["entities"]))
         search_result["truncated"] = json["truncated"]
@@ -111,7 +130,8 @@ class TwitterDataset:
     def parse_user(self, user):
         user_dict = {}
 
-        user_dict["user_created_at"] = user["created_at"]
+        user_dict["user_created_at"] = pd.to_datetime(user["created_at"]).to_pydatetime(
+        ).astimezone(timezone('utc'))
         user_dict["user_description"] = user["description"]
 
         try:
@@ -121,7 +141,7 @@ class TwitterDataset:
 
         user_dict["user_followers_count"] = user["followers_count"]
         user_dict["user_following_count"] = user["friends_count"]
-        user_dict["user_id"] = user["id"]
+        user_dict["user_id_str"] = user["id"]
         user_dict["user_name"] = user["name"]
         user_dict["user_screen_name"] = user["screen_name"]
         user_dict["user_tweets"] = user["statuses_count"]

@@ -1,15 +1,14 @@
 from datetime import datetime, timedelta
 
 from client.twitter_client import TwitterClient
+from client.db_client import DBClient
 from lib.twitter_dataset import TwitterDataset
 
 twitter_client = TwitterClient("config.ini")
-twitter_dataset = TwitterDataset(twitter_client)
+db_client = DBClient("mysql", "config.ini")
+twitter_dataset = TwitterDataset(twitter_client, db_client)
 
-since = datetime.now() - timedelta(days=14)  # utc
+since = datetime.now() - timedelta(days=7)  # utc
 until = datetime.now()  # utc
 
-tweet_data = twitter_dataset.search_tweet(
-    "bitcoin btc", since_ymd_datetime=since, until_ymd_datetime=until)
-
-tweet_data.to_csv("test.csv")
+twitter_dataset.insert_tweet("btc", since=since, until=until)
