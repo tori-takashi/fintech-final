@@ -132,6 +132,8 @@ class TwitterDataset():
 
         # sentiment analysis
         search_result.update(self.parse_vader(search_result["text"]))
+        search_result["ntusd_market_sentiment"] = self.sentiment_analysis.calc_ntusd_scores(
+            search_result["text"])
 
         return search_result
 

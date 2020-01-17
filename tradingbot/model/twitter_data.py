@@ -44,6 +44,8 @@ class TwitterData(declarative_base()):
     vader_positive = Column(Float)
     vader_compound = Column(Float)
 
+    ntusd_market_sentiment = Column(Float)
+
     def __init__(self):
         self.id = TwitterData.id
 
@@ -83,3 +85,5 @@ class TwitterData(declarative_base()):
         self.vader_neutral = TwitterData.vader_neutral
         self.vader_positive = TwitterData.vader_positive
         self.vader_compound = TwitterData.vader_compound
+
+        self.ntusd_market_sentiment = TwitterData.ntusd_market_sentiment
