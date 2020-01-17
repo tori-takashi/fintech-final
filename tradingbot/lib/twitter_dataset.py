@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from pytz import timezone
 
 from time import sleep
@@ -45,7 +45,18 @@ class TwitterDataset():
         current_max_id = None
         oldest_data_time = until
 
+        ratelimit_counter = 0
+        ratelimit_start_time = datetime.now()
+
         while since < oldest_data_time:
+
+            # control rate limit
+            if ratelimit_counter == 180:
+                sleep(datetime.now() - ratelimit_start_time)
+                sleep(10)
+                ratelimit_counter = 0
+                ratelimit_start_time = datetime.now()
+
             query = ""
             query += keyword
             query += " -rt" if no_rt is True else ""
@@ -60,7 +71,6 @@ class TwitterDataset():
             current_max_id = search_results[-1]["tweet_id"]
 
             print("current oldest dowloaded data is " + str(oldest_data_time))
-            sleep(12)
 
         return search_results
 
