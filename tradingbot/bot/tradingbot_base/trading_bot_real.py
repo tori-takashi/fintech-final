@@ -2,10 +2,13 @@ from datetime import datetime
 from time import sleep
 from ccxt import ExchangeNotAvailable, RequestTimeout, InvalidOrder, OrderNotFound, DDoSProtection
 
+from .position_management import PositionManagement
+
 
 class TradingBotReal():
     def __init__(self, tradingbot):
         self.tradingbot = tradingbot
+        self.position_management = PositionManagement(self.tradingbot)
         self.processed_flag = False
 
     def run(self):
@@ -30,7 +33,7 @@ class TradingBotReal():
             except OrderNotFound:
                 self.tradingbot.line.notify(
                     "Order Not Found, Reset Position and Retry")
-                self.tradingbot.position_management.position = None
+                self.position_management.position = None
                 self.tradingbot.line.notify("loop restart...")
             except DDoSProtection:
                 self.tradingbot.line.notify(
@@ -48,7 +51,7 @@ class TradingBotReal():
                 self.tradingbot.calculate_metrics, self.tradingbot.calculate_signals)
 
             self.tradingbot.line.notify(latest_row)
-            self.tradingbot.position_management.signal_judge(latest_row)
+            self.position_management.signal_judge(latest_row)
 
     def execute_with_timeframe(self, interval=0.5):
         while True:
