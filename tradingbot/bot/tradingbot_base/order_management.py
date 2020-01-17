@@ -19,13 +19,11 @@ class OrderManagement:
             self.position_management.position, self.position_management.position.order_method)
         self.send_order_notification(order_price)
 
-        # maker order
-        return self.tradingbot.exchange_client.client.create_order(asset_name, self.position_management.position.order_method,
-                                                                   side, lot, round(order_price, 1), params={'execInst': 'ParticipateDoNotInitiate'})
-
-        # taker order
-        # return self.exchange_client.client.create_order(asset_name, "limit", side, lot)#, round(order_price,1)),
-        # params = {'execInst': 'ParticipateDoNotInitiate'})
+        if self.position_management.position.order_method == "limit":
+            return self.tradingbot.exchange_client.client.create_order(asset_name, self.position_management.position.order_method,
+                                                                       side, lot, round(order_price, 1), params={'execInst': 'ParticipateDoNotInitiate'})
+        elif self.position_management.position.order_method == "market":
+            return self.tradingbot.exchange_client.client.create_order(asset_name, self.position_management.position.order_method, side, lot)
 
     def convert_order_type(self, order_type, order_status):
         if (order_type == "long" and order_status == "pass") or (order_type == "short" and order_status == "open"):

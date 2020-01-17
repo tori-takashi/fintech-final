@@ -9,11 +9,10 @@ from time import sleep
 from lib.dataset import Dataset
 from lib.line_notification import LineNotification
 
-from .position_management import PositionManagement
-from .ohlcv_tradingbot import OHLCV_tradingbot
+from .tradingbot_base.ohlcv_tradingbot import OHLCV_tradingbot
 
-from .trading_bot_backtest import TradingBotBacktest
-from .trading_bot_real import TradingBotReal
+from .tradingbot_base.trading_bot_backtest import TradingBotBacktest
+from .tradingbot_base.trading_bot_real import TradingBotReal
 
 # default_params = {
 #    "bot_name" : string, bot name
@@ -54,7 +53,6 @@ class TradingBot:
             self.db_client, self.exchange_client, self.is_backtest)
         self.ohlcv_tradingbot = OHLCV_tradingbot(
             self.dataset_manipulator, self.default_params, self.specific_params)
-        self.position_management = PositionManagement(self)
 
         if self.is_backtest:
             self.trading_bot_backtest = TradingBotBacktest(self)
@@ -93,7 +91,8 @@ class TradingBot:
         self.ohlcv_tradingbot.ohlcv_start_time = ohlcv_start_time
         self.ohlcv_tradingbot.ohlcv_end_time = ohlcv_end_time
 
-        self.ohlcv_tradingbot.update_ohlcv()
+        if ohlcv_df is None:
+            self.ohlcv_tradingbot.update_ohlcv()
 
         if self.is_backtest:
             self.trading_bot_backtest.run(
