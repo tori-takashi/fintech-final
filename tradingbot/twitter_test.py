@@ -8,9 +8,9 @@ twitter_client = TwitterClient("config.ini")
 db_client = DBClient("mysql", "config.ini")
 twitter_dataset = TwitterDataset(twitter_client, db_client)
 
-since = datetime.now() - timedelta(hours=4)  # utc
+since = datetime.now() - timedelta(hours=1)  # utc
 until = datetime.now()  # utc
 
 twitter_dataset.insert_tweet("btc OR bitcoin", since=since, until=until)
 all_tweet = twitter_dataset.search_downloaded_tweet()
-print(all_tweet[all_tweet.is_junk == 1].text)
+print(all_tweet[all_tweet.is_junk == 1])

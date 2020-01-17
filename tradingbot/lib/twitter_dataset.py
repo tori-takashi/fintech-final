@@ -7,6 +7,7 @@ from time import sleep
 from alembic import op
 import sqlalchemy
 
+from .sentiment_analysis import SentimentAnalysis
 
 from model.twitter_data import TwitterData
 
@@ -15,6 +16,7 @@ class TwitterDataset():
     def __init__(self, twitter_client, db_client):
         self.api = twitter_client.api
         self.db_client = db_client
+        self.sentiment_analysis = SentimentAnalysis()
         if not self.db_client.is_table_exist("twitter_data"):
             self.build_twitter_data_table()
 
@@ -62,7 +64,7 @@ class TwitterDataset():
             query += " -rt" if no_rt is True else ""
 
             search_results_onetime = self.api.search(
-                query, count=100, result_type="mixed", max_id=current_max_id)
+                query, count=100, result_type="mixed", tweet_mode='extended', max_id=current_max_id)
             search_results.extend([self.search_result_to_dict(
                 search_result) for search_result in search_results_onetime])
 
@@ -128,6 +130,9 @@ class TwitterDataset():
         search_result["is_junk"] = self.junk_classifier(
             search_result["text"], search_result["user_description"])
 
+        # sentiment analysis
+        search_result.update(self.parse_vader(search_result["text"]))
+
         return search_result
 
     def parse_entities(self, entities):
@@ -168,6 +173,16 @@ class TwitterDataset():
         user_dict["user_verified"] = user["verified"]
 
         return user_dict
+
+    def parse_vader(self, text):
+        vader_dict = {}
+        vader_result = self.sentiment_analysis.calc_vader_scores(text)
+        vader_dict["vader_negative"] = vader_result["neg"]
+        vader_dict["vader_neutral"] = vader_result["neu"]
+        vader_dict["vader_positive"] = vader_result["pos"]
+        vader_dict["vader_compound"] = vader_result["compound"]
+
+        return vader_dict
 
     def junk_classifier(self, text, user_description):
         if "bit.ly" in text:

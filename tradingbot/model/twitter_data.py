@@ -39,6 +39,11 @@ class TwitterData(declarative_base()):
 
     is_junk = Column(Boolean)
 
+    vader_negative = Column(Float)
+    vader_neutral = Column(Float)
+    vader_positive = Column(Float)
+    vader_compound = Column(Float)
+
     def __init__(self):
         self.id = TwitterData.id
 
@@ -73,3 +78,8 @@ class TwitterData(declarative_base()):
         self.user_tweets = TwitterData.user_tweets
         self.user_profile_url = TwitterData.user_profile_url
         self.user_verified = TwitterData.user_verified
+
+        self.vader_negative = TwitterData.vader_negative
+        self.vader_neutral = TwitterData.vader_neutral
+        self.vader_positive = TwitterData.vader_positive
+        self.vader_compound = TwitterData.vader_compound
