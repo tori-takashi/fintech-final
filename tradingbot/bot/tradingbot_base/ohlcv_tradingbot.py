@@ -21,13 +21,13 @@ class OHLCV_tradingbot:
     def get_ohlcv(self):
         return self.dataset_manipulator.get_ohlcv(self.default_params["timeframe"], self.ohlcv_start_time, self.ohlcv_end_time)
 
-    def generate_latest_row(self, calculate_metrics, calculate_signals):
+    def generate_latest_row(self, calculate_metrics, calculate_signals, round):
         self.update_ohlcv()
         start_end_range = self.ohlcv_end_time - self.ohlcv_start_time
 
         ohlcv_df = self.dataset_manipulator.get_ohlcv(self.default_params["timeframe"],
                                                       datetime.now() - start_end_range, datetime.now(), exchange_name="bitmex",
-                                                      asset_name="BTC/USD", round=False)
+                                                      asset_name="BTC/USD", round=round)
 
         ohlcv_df_with_metrics = calculate_metrics(ohlcv_df)
         ohlcv_df_with_signals = calculate_signals(ohlcv_df_with_metrics)

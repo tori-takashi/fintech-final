@@ -48,7 +48,7 @@ class TradingBotReal():
             self.execute_with_timeframe()
 
             latest_row = self.tradingbot.ohlcv_tradingbot.generate_latest_row(
-                self.tradingbot.calculate_metrics, self.tradingbot.calculate_signals)
+                self.tradingbot.calculate_metrics, self.tradingbot.calculate_signals, round=True)
 
             self.tradingbot.line.notify(latest_row)
             self.position_management.signal_judge(latest_row)
