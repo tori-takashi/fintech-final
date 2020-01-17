@@ -234,6 +234,7 @@ sentiment analysis dictionary in investment [NTUSD-Fin: A Market Sentiment Dicti
 [Loughran and McDonald Sentiment Word Lists](https://sraf.nd.edu/textual-analysis/resources/#LM%20Sentiment%20Word%20Lists)
 [NRC Word-Emotion Association Lexicon (aka EmoLex)](http://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm)
 [NTUSD-Fin: A Market Sentiment Dictionary for Financial Social Media Data Applications](http://qcl.tw/~hhhuang/docs/fnp2018.pdf)
+[GPOMS](https://catalog.ldc.upenn.edu/LDC2006T13)
 
 ### Papers
 
