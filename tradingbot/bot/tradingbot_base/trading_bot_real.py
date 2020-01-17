@@ -56,6 +56,6 @@ class TradingBotReal():
     def execute_with_timeframe(self, interval=0.5):
         while True:
             # [FIXME] corner case, if the timeframe couldn't divide by 60, it's wrong behavior
-            if (datetime.now().minute != self.current_minutes) and (datetime.now().minute % self.tradingbot.default_params["timeframe"] == 0):
+            if (datetime.now().minute != self.current_minutes) and (datetime.now().minute % self.tradingbot.default_params["timeframe"] == 1):
                 break
             sleep(interval)
