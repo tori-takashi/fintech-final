@@ -204,7 +204,11 @@ sqlalchemy.exc.ArgumentError: Could not locate any simple equality expressions i
  other than '==', the relationship can be marked as viewonly=True.
 ```
 
-## Error
+### nltk setting
+
+`$ python3 nltk_download.py`
+
+## TALib Error
 
 If you face error of talib importing, please try to reimport your bash profile which is setting the path of talib
 
