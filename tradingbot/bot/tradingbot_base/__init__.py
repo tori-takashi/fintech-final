@@ -1,4 +1,3 @@
-from . import trading_bot
 from . import trading_bot_real
 from . import trading_bot_backtest
 from . import trading_bot_backtest_db

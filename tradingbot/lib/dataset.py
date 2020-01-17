@@ -56,7 +56,7 @@ class Dataset:
 
             latest_row = self.get_latest_row()
             start_time = self.calc_fetch_start_time(
-                latest_row) if latest_row else start_time
+                latest_row) if latest_row is not None and not latest_row.empty else start_time
 
             if data_provider_name == "bitmex":
                 ohlcv_df = self.download_ohlcv_data_from_bitmex(
