@@ -221,9 +221,9 @@ class Dataset:
         if round:
             rounded_start_time = self.floor_datetime_to_ohlcv(start_time, "up")
             rounded_end_time = self.floor_datetime_to_ohlcv(end_time, "down")
-            return all_data[rounded_start_time:rounded_end_time:timeframe]
+            return all_data[rounded_start_time:rounded_end_time + timedelta(min=1):timeframe]
         else:
-            return all_data[start_time:end_time:timeframe]
+            return all_data[start_time:end_time + timedelta(min=1):timeframe]
 
     def floor_datetime_to_ohlcv(self, start_or_end_time, round_up_or_down):
         if round_up_or_down == "up":
