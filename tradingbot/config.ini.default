@@ -1,6 +1,6 @@
 [bitmex]
-apiKey=
-secret=
+    apiKey=
+    secret=
 
 [mysql]
     host=localhost

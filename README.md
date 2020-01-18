@@ -154,7 +154,7 @@ If you're using anaconda, please replace `pip` to `conda`
 
 `$ sudo pip install -U setuptools`
 
-`$ pip install ccxt pandas numpy sklearn ta-lib sqlalchemy influxdb alembic PyMySQL websocket`
+`$ pip install ccxt pandas numpy sklearn ta-lib sqlalchemy influxdb alembic PyMySQL websocket websocket-client`
 
 ### settings to alembic.ini
 
