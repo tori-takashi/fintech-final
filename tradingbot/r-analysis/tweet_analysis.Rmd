@@ -1,0 +1,74 @@
+---
+title: tweet_data analysis
+---
+Load packages
+```{r}
+install.packages("tidyverse")
+library(tidyverse)
+```
+Set data
+```{r}
+setwd("~/fintech-final/tradingbot/r-analysis")
+tweet_data <- read.csv("tweets.csv")
+str(tweet_data)
+```
+```{r}
+tweet_data_en <- tweet_data[tweet_data$iso_language_code == "en",]
+filtered_tweet_data <- tweet_data_en[tweet_data_en$is_junk == "False",]
+
+column_list <- c(
+  "created_at",
+  "user_followers_count",
+  "user_following_count",
+  "user_verified",
+  "retweet_count",
+  "favorite_count",
+  "vader_negative",
+  "vader_neutral",
+  "vader_positive",
+  "vader_compound",
+  "ntusd_market_sentiment")
+
+tweet_quantitative_data <- filtered_tweet_data[,column_list]
+tweet_quantitative_data$created_at <- as.POSIXct(tweet_quantitative_data$created_at)
+```
+
+```{r}
+vader_negative = ggplot(data=tweet_quantitative_data,
+                        mapping = aes(x=tweet_quantitative_data$created_at, y=tweet_quantitative_data$vader_negative))
+vader_negative <- vader_negative + geom_point()
+plot(vader_negative)
+```
+
+
+```{r}
+vader_neutral = ggplot(data=tweet_quantitative_data,
+                        mapping = aes(x=tweet_quantitative_data$created_at, y=tweet_quantitative_data$vader_neutral))
+vader_neutral <- vader_neutral + geom_point()
+plot(vader_neutral)
+```
+
+```{r}
+vader_positive = ggplot(data=tweet_quantitative_data,
+                        mapping = aes(x=tweet_quantitative_data$created_at, y=tweet_quantitative_data$vader_positive))
+vader_positive <- vader_positive + geom_point()
+plot(vader_positive)
+```
+
+```{r}
+vader_compound = ggplot(data=tweet_quantitative_data,
+                        mapping = aes(x=tweet_quantitative_data$created_at, y=tweet_quantitative_data$vader_compound))
+vader_compound <- vader_compound + geom_point()
+plot(vader_compound)
+```
+
+```{r}
+ntusd_market_sentiment = ggplot(data=tweet_quantitative_data,
+                        mapping = aes(x=tweet_quantitative_data$created_at,
+                                      y=tweet_quantitative_data$ntusd_market_sentiment))
+ntusd_market_sentiment <- ntusd_market_sentiment + geom_point()
+plot(ntusd_market_sentiment)
+```
+
+```{r}
+```

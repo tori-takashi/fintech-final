@@ -32,8 +32,9 @@ class SentimentAnalysis:
     def calc_ntusd_scores(self, sentence):
         sentence = self.remove_stopwords(sentence)
         market_sentiment = np.array([self.convert_to_ntusd_market_sentiment(
-            word) for word in sentence if self.convert_to_ntusd_market_sentiment is not None])
-        return market_sentiment.mean()
+            word) for word in sentence if self.convert_to_ntusd_market_sentiment(word) is not None])
+        mean = market_sentiment.mean()
+        return mean if not np.isnan(mean) else None
 
     def convert_to_ntusd_market_sentiment(self, word):
         return self.word_sent_dict.get(word)

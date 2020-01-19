@@ -28,9 +28,10 @@ class TwitterDataset():
     def insert_tweet(self, query, no_rt=True, since=None, until=None):
         search_results = self.tweet_downloader(
             query, no_rt, since, until)
-        self.db_client.session.bulk_insert_mappings(
-            TwitterData, search_results)
-        self.db_client.session.commit()
+        # self.db_client.session.bulk_insert_mappings(
+        #    TwitterData, search_results)
+        # self.db_client.session.commit()
+        self.convert_to_df(search_results).to_csv("tweets.csv")
 
     def search_tweet(self, query, no_rt=True, since=None, until=None):
         search_results = self.tweet_downloader(
@@ -62,7 +63,6 @@ class TwitterDataset():
             query = ""
             query += keyword
             query += " -rt" if no_rt is True else ""
-
             search_results_onetime = self.api.search(
                 query, count=100, result_type="mixed", tweet_mode='extended', max_id=current_max_id)
             search_results.extend([self.search_result_to_dict(
@@ -73,6 +73,7 @@ class TwitterDataset():
             current_max_id = search_results[-1]["tweet_id"]
 
             print("current oldest dowloaded data is " + str(oldest_data_time))
+            sleep(5)
 
         return search_results
 
@@ -117,7 +118,7 @@ class TwitterDataset():
         search_result["created_at"] = pd.to_datetime(
             json["created_at"]).to_pydatetime().astimezone(timezone('utc'))
         search_result["tweet_id"] = str(json["id"])
-        search_result["text"] = json["text"].lower()
+        search_result["text"] = json["full_text"].lower()
         search_result.update(self.parse_entities(json["entities"]))
         search_result["truncated"] = json["truncated"]
         search_result.update(self.parse_metadata(json["metadata"]))
