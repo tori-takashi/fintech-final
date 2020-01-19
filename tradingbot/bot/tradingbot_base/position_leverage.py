@@ -6,25 +6,24 @@ from machine_learning.random_forest_prediction import RandomForestPredict30min
 
 
 class PositionLeverage:
-    def __init__(self, tradingbot):
+    def __init__(self, tradingbot, position_management):
         self.tradingbot = tradingbot
+        self.position_management = position_management
+
         self.calculate_specific_leverage = self.tradingbot.calculate_specific_leverage
 
-        self.random_forest_leverage_adjust = self.tradingbot.default_params[
-            "random_forest_leverage_adjust"]
-        self.random_leverage = self.tradingbot.default_params["random_leverage"]
-
-        if self.random_forest_leverage:
-            self.random_forest_predict_30min = RandomForestPredict30min()
+        self.random_forest_predict_30min = RandomForestPredict30min()
 
     def calculate_leverage(self, row):
         leverage = 1
+        recent_market = None
+
+        self.leverage_option_check()
 
         # for compare to random leverage
         if self.tradingbot.is_backtest and self.random_leverage:
+            recent_market = self.recent_market_generator(row)
             return self.test_random_leverage([1, 2])
-
-        recent_market = self.recent_market_generator(row)
 
         # default leverage options
         leverage *= self.random_forest_leverage(row, recent_market)
@@ -33,6 +32,11 @@ class PositionLeverage:
         leverage *= self.calculate_specific_leverage(row)
 
         return leverage
+
+    def leverage_option_check(self):
+        self.random_forest_leverage_adjust = self.tradingbot.default_params[
+            "random_forest_leverage_adjust"]
+        self.random_leverage = self.tradingbot.default_params["random_leverage"]
 
     def random_forest_leverage(self, row, recent_market):
         if self.random_forest_leverage_adjust is False:

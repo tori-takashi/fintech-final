@@ -10,7 +10,7 @@ class Position:
             self.transaction_fee_by_order = 0.0015  # 0.15 = 0.075% * 2 market order
             # because transaction fee is charged for both open and close order.
             self.order_status = "open"
-            self.order_method = "taker"
+            self.order_method = "market"
 
             self.entry_price = row_open.close
             self.entry_time = row_open.Index
@@ -53,25 +53,21 @@ class Position:
 
         # for transaction log
 
-        self.open_position()
+        self.open_position(row_open)
 
     def common_log(self, row_open):
         self.exchange_name = row_open.exchange_name
         self.asset_name = row_open.asset_name
-
-        if row_open.signal == "buy":
-            self.order_type = "long"
-        elif row_open.signal == "sell":
-            self.order_type = "short"
+        self.order_type = None
 
         self.current_balance = None
         self.lot = None
         self.leverage = None
 
-    def open_position(self):
+    def open_position(self, row_open):
         # back test
         if self.is_backtest:
-            self.order_status == "open"
+            self.order_status = "open"
 
     def close_position(self, row_close):
         # for summary backtest
@@ -82,17 +78,11 @@ class Position:
         self.price_difference_percentage = (
             (self.close_price / self.entry_price) - 1)*100
 
-        self.transaction_cost = self.current_balance * self.transaction_fee_by_order
+        self.transaction_cost = (
+            self.lot / self.close_price) * self.transaction_fee_by_order
 
-        if self.order_type == "long":
-            self.gross_profit = (self.close_price -
-                                 self.entry_price) * self.lot * self.leverage
-            self.profit_size = self.gross_profit - self.transaction_cost
-        elif self.order_type == "short":
-            self.gross_profit = (self.entry_price -
-                                 self.close_price) * self.lot * self.leverage
-            self.profit_size = self.gross_profit - self.transaction_cost
-
+        self.gross_profit = self.calc_gross_profit()
+        self.profit_size = self.gross_profit - self.transaction_cost
         self.profit_status = "win" if self.profit_size > 0 else "lose"
 
         if self.current_balance > 0:
@@ -111,6 +101,16 @@ class Position:
         self.current_balance += self.profit_size
 
         self.order_status = "closed"
+
+    def calc_gross_profit(self):
+        if self.order_type == "long":
+            return (
+                ((self.close_price - self.entry_price) / self.close_price)
+                * (self.lot * self.leverage) / self.close_price)
+        elif self.order_type == "short":
+            return (
+                ((self.entry_price - self.close_price) / self.close_price)
+                * (self.lot * self.leverage) / self.close_price)
 
     def get_pass_log(self):
         return self.pass_log

@@ -17,8 +17,9 @@ from model.backtest_summary import BacktestSummary
 
 
 class TradingBotBacktestDB:
-    def __init__(self, tradingbot, is_backtest):
+    def __init__(self, tradingbot, tradingbot_backtest, is_backtest):
         self.tradingbot = tradingbot
+        self.tradingbot_backtest = tradingbot_backtest
         self.db_client = tradingbot.db_client
         self.exchange_client = tradingbot.exchange_client
         self.backtest_management_table_name = self.tradingbot.default_params[
@@ -110,6 +111,12 @@ class TradingBotBacktestDB:
         drawdowns = self.build_drawdowns()
         recovery_factor = self.calc_recovery_factor(
             drawdowns["maximal_drawdown"], total_return)
+
+        if abs(lose_row.profit_size.sum()):
+            profit_factor = float(win_row.profit_size.sum() /
+                                  abs(lose_row.profit_size.sum()))
+        else:
+            profit_factor = 0
 
         summary_dict = {
             "id": summary_id,
@@ -306,18 +313,18 @@ class TradingBotBacktestDB:
             "lose_short_median_percentage": float(lose_short_row.profit_percentage.median()),
 
             # other metrics
-            "backtest_start_time": self.tradingbot.ohlcv_start_time,
-            "backtest_end_time": self.tradingbot.ohlcv_end_time,
+            "backtest_start_time": self.tradingbot.ohlcv_tradingbot.ohlcv_start_time,
+            "backtest_end_time": self.tradingbot.ohlcv_tradingbot.ohlcv_end_time,
 
             "bot_name": self.tradingbot.default_params["bot_name"],
-            "initial_balance": self.tradingbot.initial_balance,
-            "account_currency": self.tradingbot.account_currency,
+            "initial_balance": self.tradingbot_backtest.initial_balance,
+            "account_currency": self.tradingbot_backtest.account_currency,
 
             "absolute_drawdown": float(drawdowns["absolute_drawdown"]),
             "maximal_drawdown": float(drawdowns["maximal_drawdown"]),
             "relative_drawdown": float(drawdowns["relative_drawdown"]),
 
-            "profit_factor": float(win_row.profit_size.sum() / abs(lose_row.profit_size.sum())),
+            "profit_factor": profit_factor,
             "recovery_factor": recovery_factor
         }
 
@@ -346,26 +353,26 @@ class TradingBotBacktestDB:
 
     def calc_total_return_percentage(self, transaction_logs_df):
         if transaction_logs_df.iloc[-1].current_balance > 0:
-            return float(100 * (transaction_logs_df.iloc[-1].current_balance / self.tradingbot.initial_balance))
+            return float(100 * (transaction_logs_df.iloc[-1].current_balance / self.tradingbot_backtest.initial_balance))
         else:
-            return float(-100 * (abs(transaction_logs_df.iloc[-1].current_balance) + self.tradingbot.initial_balance)
-                         / self.tradingbot.initial_balance)
+            return float(-100 * (abs(transaction_logs_df.iloc[-1].current_balance) + self.tradingbot_backtest.initial_balance)
+                         / self.tradingbot_backtest.initial_balance)
 
     def calc_holding_ms(self, row):
         return row["holding_time"].mean().to_pytimedelta() if row.empty is not True else timedelta(seconds=0)
 
     def build_drawdowns(self):
         if self.transaction_logs_df.current_balance.min() < 0:
-            absolute_drawdown = self.tradingbot.initial_balance + \
+            absolute_drawdown = self.tradingbot_backtest.initial_balance + \
                 self.transaction_logs_df.current_balance.min()
         else:
-            absolute_drawdown = self.tradingbot.initial_balance - \
+            absolute_drawdown = self.tradingbot_backtest.initial_balance - \
                 self.transaction_logs_df.current_balance.min()
 
         current_drawdown = 0
         current_relative_drawdown = 0
 
-        max_balance = self.tradingbot.initial_balance
+        max_balance = self.tradingbot_backtest.initial_balance
 
         maximal_drawdown = 0
         relative_drawdown = 0
@@ -449,8 +456,8 @@ class TradingBotBacktestDB:
         summary = BacktestSummary().__table__
         init_summary = {
             "bot_name": self.tradingbot.default_params["bot_name"],
-            "initial_balance": self.tradingbot.initial_balance,
-            "account_currency": self.tradingbot.account_currency
+            "initial_balance": self.tradingbot_backtest.initial_balance,
+            "account_currency": self.tradingbot_backtest.account_currency
         }
 
         self.db_client.connector.execute(summary.insert().values(init_summary))

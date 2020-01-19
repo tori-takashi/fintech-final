@@ -24,13 +24,14 @@ class PositionManagement:
         # for other helper methods
         self.tradingbot = tradingbot
 
-        self.position_leverage = PositionLeverage(self.tradingbot)
-        self.position_lot = PositionLot(self.tradingbot)
+        self.position_leverage = PositionLeverage(self.tradingbot, self)
+        self.position_lot = PositionLot(self.tradingbot, self)
 
         self.order_management = OrderManagement(self)
 
-        self.current_balance = self.tradingbot.exchange_client.client.fetch_balance()[
-            "BTC"]["total"]
+        if not self.tradingbot.is_backtest:
+            self.current_balance = self.tradingbot.exchange_client.client.fetch_balance()[
+                "BTC"]["total"]
 
     def signal_judge(self, row):
         if self.position is None:
@@ -74,8 +75,7 @@ class PositionManagement:
 
     def execute_open_order(self, row):
         if self.tradingbot.is_backtest:
-            self.position.open_position()
-            return self.position
+            self.position.open_position(row)
         else:
             self.tradingbot.exchange_client.client.private_post_position_leverage(
                 {"symbol": "XBTUSD", "leverage": str(self.position.leverage)})

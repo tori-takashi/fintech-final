@@ -9,11 +9,16 @@ class TradingBotBacktest():
     def __init__(self, tradingbot):
         self.tradingbot = tradingbot
 
+        self.initial_balance = 0.085
+        self.account_currency = "BTC"
+
         self.ohlcv_tradingbot = OHLCV_tradingbot(
             tradingbot.dataset_manipulator, tradingbot.default_params, tradingbot.specific_params)
         self.trading_bot_backtest_db = TradingBotBacktestDB(
-            self.tradingbot, tradingbot.is_backtest)
+            self.tradingbot, self, tradingbot.is_backtest)
+
         self.position_management = PositionManagement(tradingbot)
+        self.position_management.current_balance = self.initial_balance
 
     def run(self, ohlcv_df, ohlcv_start_time, ohlcv_end_time, floor_time):
         # for summary
@@ -43,18 +48,18 @@ class TradingBotBacktest():
 
     def insert_backtest_transaction_logs(self):
         signal_judge = self.position_management.signal_judge
-        position = self.position_management.position
         # refer to signal then judge investment
         # keep one order at most
         self.transaction_logs = []
+        self.position_management.current_balance = self.initial_balance
 
         for row in self.ohlcv_with_signals.itertuples():  # self.ohlcv_with_signals should be dataframe
             # get position = position with open or None
             signal_judge(row)
             # append close position
-            if position is not None and position.order_status == "closed":
-                position.generate_transaction_log_for_backtest(self.summary_id)
-                self.transaction_logs.append(position)
+            if self.position_management.position is not None and self.position_management.position.order_status == "closed":
+                self.transaction_logs.append(
+                    self.position_management.position.generate_transaction_log_for_backtest(self.summary_id))
                 self.position_management.clean_position()
 
         self.tradingbot.db_client.session.bulk_insert_mappings(
