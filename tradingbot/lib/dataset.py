@@ -55,6 +55,7 @@ class Dataset:
             download_start = datetime.now()
 
             latest_row = self.get_latest_row()
+
             start_time = self.calc_fetch_start_time(
                 latest_row) if latest_row is not None and not latest_row.empty else start_time
 
@@ -65,10 +66,12 @@ class Dataset:
             if with_ta and ohlcv_df.empty is not True:
                 ohlcv_df = self.attach_technical_indicators_for_update_data(
                     ohlcv_df, start_time)
+                if self.is_backtest:
+                    ohlcv_df.reset_index(inplace=True)
 
             self.append_update_data(ohlcv_df)
 
-            if datetime.now() - download_start < timedelta(seconds=29):
+            if datetime.now() - download_start < timedelta(seconds=29) or not latest_row:
                 break
 
     def append_update_data(self, ohlcv_df):
@@ -110,11 +113,9 @@ class Dataset:
 
                 ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
                     concatnated_df)
-
-            ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
-                ohlcv_df)
-            ohlcv_df.set_index("timestamp", inplace=True)
-            print(ohlcv_df)
+            else:
+                ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
+                    ohlcv_df)
             return ohlcv_df[start_time:]
 
     def get_latest_row(self):
@@ -122,7 +123,7 @@ class Dataset:
             if self.db_client.is_table_exist(self.original_ohlcv_1min_table):
                 latest_row = self.db_client.get_last_row(
                     self.original_ohlcv_1min_table)
-                if latest_row is True and latest_row.empty is False:
+                if len(latest_row) and latest_row.empty is False:
                     return latest_row
             else:
                 self.build_ohlcv_1min_table()
@@ -221,9 +222,9 @@ class Dataset:
         if round:
             rounded_start_time = self.floor_datetime_to_ohlcv(start_time, "up")
             rounded_end_time = self.floor_datetime_to_ohlcv(end_time, "down")
-            return all_data[rounded_start_time:rounded_end_time + timedelta(min=1):timeframe]
+            return all_data[rounded_start_time:rounded_end_time + timedelta(minutes=1):timeframe]
         else:
-            return all_data[start_time:end_time + timedelta(min=1):timeframe]
+            return all_data[start_time:end_time + timedelta(minutes=1):timeframe]
 
     def floor_datetime_to_ohlcv(self, start_or_end_time, round_up_or_down):
         if round_up_or_down == "up":
