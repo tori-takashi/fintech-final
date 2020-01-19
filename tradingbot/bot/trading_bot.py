@@ -38,9 +38,12 @@ class TradingBot:
         self.set_helper_libs()
 
         self.random_leverage_only_backtest = False
+        self.initial_balance = None
+        self.account_currency = None
 
-        self.initial_balance = 100  # BTC
-        self.account_currency = "USD"
+        if is_backtest:
+            self.initial_balance = 0.085
+            self.account_currency = "BTC"
 
     def set_params(self, default_params, specific_params):
         self.default_params = default_params
@@ -68,12 +71,12 @@ class TradingBot:
         # {"<column name>" : sqlalchemy column type (like Integer, String, Float....) }
 
     def calculate_specific_lot(self, row):
-        # {FIXME} backtest is the percentage but real is the real USD number
+        # designate with value [0,1] range
+        # 0 is 0%, 1 is 100% and the value is multiplied with default lot in position_lot.py
         return 1  # backtest
-        # return 60 # real
-        # default is invest all that you have
 
     def calculate_specific_leverage(self, row):
+        # designate to [0, 100]
         return 1
 
     def calculate_metrics(self, df):

@@ -6,8 +6,10 @@ from machine_learning.random_forest_prediction import RandomForestPredict30min
 
 
 class PositionLeverage:
-    def __init__(self, tradingbot):
+    def __init__(self, tradingbot, position_management):
         self.tradingbot = tradingbot
+        self.position_management = position_management
+
         self.calculate_specific_leverage = self.tradingbot.calculate_specific_leverage
 
         self.random_forest_leverage_adjust = self.tradingbot.default_params[
