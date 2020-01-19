@@ -75,7 +75,7 @@ class PositionManagement:
 
     def execute_open_order(self, row):
         if self.tradingbot.is_backtest:
-            return self.position
+            self.position.open_position(row)
         else:
             self.tradingbot.exchange_client.client.private_post_position_leverage(
                 {"symbol": "XBTUSD", "leverage": str(self.position.leverage)})

@@ -5,6 +5,6 @@ class PositionLot:
 
     def calculate_lot(self, row):
         lot_proportion = self.tradingbot.calculate_specific_lot(row)
-        lot = (row.close_price *
-               self.position_management.current_balance) * lot_proportion
+        lot = (row.close * self.position_management.current_balance) * \
+            lot_proportion
         return lot

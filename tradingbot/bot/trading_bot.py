@@ -38,12 +38,6 @@ class TradingBot:
         self.set_helper_libs()
 
         self.random_leverage_only_backtest = False
-        self.initial_balance = None
-        self.account_currency = None
-
-        if is_backtest:
-            self.initial_balance = 0.085
-            self.account_currency = "BTC"
 
     def set_params(self, default_params, specific_params):
         self.default_params = default_params

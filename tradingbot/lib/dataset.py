@@ -105,8 +105,8 @@ class Dataset:
                 concatnated_df)
 
         elif self.db_client.is_mysql() and self.db_client.is_table_exist(self.original_ohlcv_1min_table):
+            ohlcv_df.set_index('timestamp', inplace=True)
             if padding_df is not None and not padding_df.empty:
-                ohlcv_df.set_index('timestamp', inplace=True)
 
                 concatnated_df = pd.concat(
                     [padding_df, ohlcv_df], axis=0, sort=False)
