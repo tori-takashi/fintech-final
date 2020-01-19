@@ -16,6 +16,12 @@ secret=
     password=
     db_name=tradingbot
 
+[twitter]
+    access_token=
+    access_token_secret=
+    consumer_key=
+    consumer_secret=
+
 [line_notification]
     token=
 
