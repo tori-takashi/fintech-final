@@ -20,7 +20,7 @@ class BitmexRealtimeDatafeeder:
         self.init_recent_trades()
 
         if performance_output:
-            self.second = 30
+            self.second = 60
             self.time_l1_list = []
             self.time_l2_list = []
             self.time_recent_trades_list = []
@@ -48,46 +48,41 @@ class BitmexRealtimeDatafeeder:
         ws = self.bitmex_wsclient.ws
         start_time = datetime.now()
 
-        self.fetch_recent_trade(ws)
-
-        # if self.performance_output:
-        #    loop_condition = (ws.ws.sock.connected) and (
-        #        datetime.now() - start_time < timedelta(seconds=1))
-        # else:
-        #    loop_condition = (ws.ws.sock.connected)
-
-        loop_condition = (ws.ws.sock.connected) and (
-            datetime.now() - start_time < timedelta(seconds=1))
-
-        # while loop_condition:
-        while (ws.ws.sock.connected) and (datetime.now() - start_time < timedelta(seconds=self.second)):
-            if self.performance_output:
-                loop_start_time = datetime.now()
-                checkpoint = datetime.now()
-
-            self.fetch_l1_orderbook(ws)
-            if self.performance_output:
-                self.time_l1_list.append(
-                    (datetime.now() - checkpoint).total_seconds())
-                checkpoint = datetime.now()
-
-            self.fetch_l2_orderbooks(ws)
-            if self.performance_output:
-                self.time_l2_list.append(
-                    (datetime.now() - checkpoint).total_seconds())
-                checkpoint = datetime.now()
-
-            self.fetch_recent_trade(ws)
-            if self.performance_output:
-                self.time_recent_trades_list.append(
-                    (datetime.now() - checkpoint).total_seconds())
-            self.oneloop_count_list.append(
-                (datetime.now() - loop_start_time).total_seconds())
-
-            sleep(0.01)
-
         if self.performance_output:
+            while (ws.ws.sock.connected) and (datetime.now() - start_time < timedelta(seconds=self.second)):
+                self.fetch_data(ws)
+                sleep(0.01)
             self.output_summary()
+
+        else:
+            while ws.ws.sock.connected:
+                self.fetch_data(ws)
+                sleep(0.01)
+
+    def fetch_data(self, ws):
+        # while loop_condition:
+        if self.performance_output:
+            loop_start_time = datetime.now()
+            checkpoint = datetime.now()
+
+        self.fetch_l1_orderbook(ws)
+        if self.performance_output:
+            self.time_l1_list.append(
+                (datetime.now() - checkpoint).total_seconds())
+            checkpoint = datetime.now()
+
+        self.fetch_l2_orderbooks(ws)
+        if self.performance_output:
+            self.time_l2_list.append(
+                (datetime.now() - checkpoint).total_seconds())
+            checkpoint = datetime.now()
+
+        self.fetch_recent_trade(ws)
+        if self.performance_output:
+            self.time_recent_trades_list.append(
+                (datetime.now() - checkpoint).total_seconds())
+        self.oneloop_count_list.append(
+            (datetime.now() - loop_start_time).total_seconds())
 
     def output_summary(self):
         # seems l2 is bottleneck
@@ -133,7 +128,7 @@ class BitmexRealtimeDatafeeder:
         self.latest_recent_trades_set |= set(
             [json.dumps(trade) for trade in ws.recent_trades()])
 
-        if len(self.latest_recent_trades_set) > 100:
+        if len(self.latest_recent_trades_set) > 10:
 
             temp_recent_trade = pd.DataFrame(
                 [json.loads(trade) for trade in self.latest_recent_trades_set])
@@ -157,7 +152,7 @@ class BitmexRealtimeDatafeeder:
             append_ticker["timestamp"] = str(datetime.now(timezone.utc))
             self.latest_l1_orderbook_set.add(json.dumps(append_ticker))
 
-        if len(self.latest_l1_orderbook_set) >= 100:
+        if len(self.latest_l1_orderbook_set) >= 2:
             temp_l1_orderbook = pd.DataFrame(
                 [json.loads(l1_orderbook) for l1_orderbook in self.latest_l1_orderbook_set])
             temp_l1_orderbook.timestamp = pd.to_datetime(
