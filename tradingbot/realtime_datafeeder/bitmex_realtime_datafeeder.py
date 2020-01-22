@@ -40,7 +40,9 @@ class BitmexRealtimeDatafeeder:
             columns=["symbol", "side", "size", "price", "timestamp"])
 
     def init_recent_trades(self):
-        self.latest_recent_trades_set = set()
+        self.latest_recent_trades = json.dumps(
+            self.bitmex_wsclient.ws.recent_trades())
+        self.latest_recent_trades_list = []
         self.latest_recent_trades_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "size", "price",
                                                              "tickDirection", "trdMatchID", "grossValue", "homeNotional", "foreignNotional"])
 
@@ -89,7 +91,10 @@ class BitmexRealtimeDatafeeder:
         print("total timeframes")
         print(len(self.latest_l2_orderbooks_df.timestamp.unique()))
         print("average downloading pace")
-        print(self.second/len(self.latest_l2_orderbooks_df.timestamp.unique()))
+        try:
+            print(self.second/len(self.latest_l2_orderbooks_df.timestamp.unique()))
+        except:
+            print("No L1 data")
 
         print("total l1 rows")
         print(self.latest_l1_orderbook_df.count())
@@ -119,29 +124,21 @@ class BitmexRealtimeDatafeeder:
         print("average processing time: " + str(oneloop_summary.mean()))
         print("max processing time: " + str(oneloop_summary.max()))
 
-        pd.DataFrame([l1_summary, l2_summary, recent_trades_summary, oneloop_summary]).T.to_csv(
-            "bitmex_realtime_ws_performance_log.csv")
+        self.latest_recent_trades_df.to_csv("latest_recent_trades.csv")
 
     def fetch_recent_trade(self, ws):
-        count_start = datetime.now()
+        recent_trades = json.dumps(ws.recent_trades())
+        if recent_trades != self.latest_recent_trades:
+            self.latest_recent_trades_list.extend(json.loads(recent_trades))
+            self.recent_trades = recent_trades
 
-        self.latest_recent_trades_set |= set(
-            [json.dumps(trade) for trade in ws.recent_trades()])
+        if len(self.latest_recent_trades_list) > 2000:
 
-        if len(self.latest_recent_trades_set) > 10:
-
-            temp_recent_trade = pd.DataFrame(
-                [json.loads(trade) for trade in self.latest_recent_trades_set])
-
-            temp_recent_trade.timestamp = pd.to_datetime(
-                temp_recent_trade.timestamp)
-
-            temp_recent_trade.sort_values("timestamp")
-
+            temp_recent_trade = pd.DataFrame(self.latest_recent_trades_list)
             self.latest_recent_trades_df = pd.concat(
                 [self.latest_recent_trades_df, temp_recent_trade], sort=False)
             self.latest_recent_trades_df.reset_index(inplace=True, drop=True)
-            self.latest_recent_trades_set = set()
+            self.latest_recent_trades_list = []
 
     def fetch_l1_orderbook(self, ws):
         current_ticker = ws.get_ticker()
@@ -164,13 +161,13 @@ class BitmexRealtimeDatafeeder:
             self.latest_l1_orderbook_df.reset_index(inplace=True, drop=True)
             self.latest_l1_orderbook_set = set()
 
-    def fetch_l2_orderbooks(self, ws, wide_limit=50):
+    def fetch_l2_orderbooks(self, ws, wide_limit=35):
         l2_orderbooks = json.dumps(ws.market_depth())
         if l2_orderbooks != self.latest_l2_orderbooks:
             self.latest_l2_orderbooks = l2_orderbooks
             timestamp = datetime.now(timezone.utc)
 
-            if wide_limit:
+            if True:
                 last_price = ws.get_instrument()["lastPrice"]
                 limit_range_top = last_price + wide_limit
                 limit_range_bottom = last_price - wide_limit
@@ -178,14 +175,17 @@ class BitmexRealtimeDatafeeder:
                     l2_orderbook, timestamp) for l2_orderbook in json.loads(l2_orderbooks)
                     if limit_range_bottom <= l2_orderbook["price"] <= limit_range_top])
             else:
+                # self.latest_l2_orderbooks_list.append(
+                #    [timestamp, l2_orderbooks])
                 self.latest_l2_orderbooks_list.extend([self.purify_l2_orderbook(
                     l2_orderbook, timestamp) for l2_orderbook in json.loads(l2_orderbooks)])
 
-        if len(self.latest_l2_orderbooks_list) > 10:
+        if len(self.latest_l2_orderbooks_list) > 2000:
             temp_l2_orderbooks = pd.DataFrame(self.latest_l2_orderbooks_list)
             self.latest_l2_orderbooks_df = pd.concat(
                 [self.latest_l2_orderbooks_df, temp_l2_orderbooks], sort=False)
             self.latest_l2_orderbooks_df.reset_index(inplace=True, drop=True)
+            self.latest_l2_orderbooks_list = []
 
     def purify_l2_orderbook(self, orderbook, timestamp):
         del orderbook["id"]
