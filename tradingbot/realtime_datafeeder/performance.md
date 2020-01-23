@@ -558,3 +558,67 @@ max processing time: 0.031019
 ===oneloop===
 average processing time: 0.025569946428571428
 max processing time: 0.106427
+
+# ver 12
+
+並列処理を入れた
+データ件数が 0 なのはメモリを共有していないからだが、DB に書き込むだけなので問題なく
+csv に書き出せている
+
+## log
+
+total timeframes
+0
+average downloading pace
+No L1 data
+total l1 rows
+last 16
+buy 16
+sell 16
+mid 16
+timestamp 16
+dtype: int64
+total l2 rows
+symbol 0
+side 0
+size 0
+price 0
+timestamp 0
+dtype: int64
+total recent trades rows
+timestamp 0
+symbol 0
+side 0
+size 0
+price 0
+tickDirection 0
+trdMatchID 0
+grossValue 0
+homeNotional 0
+foreignNotional 0
+dtype: int64
+=l1 orderbook=
+average processing time: 4.758732978093547e-05
+max processing time: 0.004958
+=l2 orderbook=
+average processing time: 0.02442763291888692
+max processing time: 0.057273
+=recent trades=
+average processing time: 0.0007279046773238602
+max processing time: 0.005609
+===oneloop===
+average processing time: 0.02522134103019538
+max processing time: 0.057404
+
+=l1 orderbook=
+average processing time: 7.657509157509156e-05
+max processing time: 0.009322
+=l2 orderbook=
+average processing time: 0.025476983516483517
+max processing time: 0.056518
+=recent trades=
+average processing time: 0.0007126434676434677
+max processing time: 0.010849
+===oneloop===
+average processing time: 0.026284813186813187
+max processing time: 0.056718
