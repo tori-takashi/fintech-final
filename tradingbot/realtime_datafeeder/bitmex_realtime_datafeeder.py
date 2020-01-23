@@ -1,4 +1,11 @@
 from client.exchange_ws_client import WSClient
+from client.db_client import DBClient
+
+from model.bitmex_l1_orderbook import BitmexL1OrderBook
+from model.bitmex_l2_orderbook import BitmexL2OrderBook
+from model.bitmex_recent_trades import BitmexRecentOrders
+
+from multiprocessing import Process
 
 import json
 import pandas as pd
@@ -10,10 +17,11 @@ from pprint import pprint
 
 
 class BitmexRealtimeDatafeeder:
-    def __init__(self, config_path, performance_output=False):
+    def __init__(self, db_client, performance_output=False):
         self.performance_output = performance_output
+        self.db_client = db_client
 
-        self.bitmex_wsclient = WSClient(config_path)
+        self.bitmex_wsclient = WSClient(self.db_client.config_path)
 
         self.init_l1_orderbook()
         self.init_l2_orderbooks()
@@ -132,13 +140,14 @@ class BitmexRealtimeDatafeeder:
             self.latest_recent_trades_list.extend(json.loads(recent_trades))
             self.recent_trades = recent_trades
 
-        if len(self.latest_recent_trades_list) > 2000:
-
-            temp_recent_trade = pd.DataFrame(self.latest_recent_trades_list)
-            self.latest_recent_trades_df = pd.concat(
-                [self.latest_recent_trades_df, temp_recent_trade], sort=False)
-            self.latest_recent_trades_df.reset_index(inplace=True, drop=True)
+        if len(self.latest_recent_trades_list) > 10000:
+            Process(target=self.write_recent_trades_to_db,
+                    args=(self.latest_recent_trades_list, self.db_client, )).start()
             self.latest_recent_trades_list = []
+
+    def write_recent_trades_to_db(self, recent_trades_list, db_client):
+        pd.DataFrame(recent_trades_list).to_csv(
+            "recent_trades.csv", mode="a", header=False)
 
     def fetch_l1_orderbook(self, ws):
         current_ticker = ws.get_ticker()
@@ -167,7 +176,7 @@ class BitmexRealtimeDatafeeder:
             self.latest_l2_orderbooks = l2_orderbooks
             timestamp = datetime.now(timezone.utc)
 
-            if True:
+            if wide_limit:
                 last_price = ws.get_instrument()["lastPrice"]
                 limit_range_top = last_price + wide_limit
                 limit_range_bottom = last_price - wide_limit
@@ -175,17 +184,17 @@ class BitmexRealtimeDatafeeder:
                     l2_orderbook, timestamp) for l2_orderbook in json.loads(l2_orderbooks)
                     if limit_range_bottom <= l2_orderbook["price"] <= limit_range_top])
             else:
-                # self.latest_l2_orderbooks_list.append(
-                #    [timestamp, l2_orderbooks])
                 self.latest_l2_orderbooks_list.extend([self.purify_l2_orderbook(
                     l2_orderbook, timestamp) for l2_orderbook in json.loads(l2_orderbooks)])
 
-        if len(self.latest_l2_orderbooks_list) > 2000:
-            temp_l2_orderbooks = pd.DataFrame(self.latest_l2_orderbooks_list)
-            self.latest_l2_orderbooks_df = pd.concat(
-                [self.latest_l2_orderbooks_df, temp_l2_orderbooks], sort=False)
-            self.latest_l2_orderbooks_df.reset_index(inplace=True, drop=True)
+        if len(self.latest_l2_orderbooks_list) > 40000:
+            Process(target=self.write_l2_orderbook_to_db,
+                    args=(self.latest_l2_orderbooks_list, self.db_client, )).start()
             self.latest_l2_orderbooks_list = []
+
+    def write_l2_orderbook_to_db(self, l2_orderbooks_list, db_client):
+        pd.DataFrame(l2_orderbooks_list).to_csv(
+            "l2_orderbook.csv", mode="a", header=False)
 
     def purify_l2_orderbook(self, orderbook, timestamp):
         del orderbook["id"]
