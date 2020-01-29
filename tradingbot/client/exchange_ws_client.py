@@ -13,3 +13,4 @@ class WSClient:
             api_secret=self.config['bitmex']['secret']
         )
         self.ws.get_instrument()
+        print("init completed")

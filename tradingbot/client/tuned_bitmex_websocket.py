@@ -9,7 +9,10 @@ import urllib
 import math
 import time
 
-import time, urllib, hmac, hashlib
+import time
+import urllib
+import hmac
+import hashlib
 
 # Naive implementation of connecting to BitMEX websocket for streaming realtime data.
 # The Marketmaker still interacts with this as if it were a REST Endpoint, but now it can get
@@ -19,6 +22,8 @@ import time, urllib, hmac, hashlib
 # On connect, it synchronously asks for a push of all this data then returns.
 # Right after, the MM can start using its data. It will be updated in realtime, so the MM can
 # poll really often if it wants.
+
+
 class BitMEXWebsocket:
 
     # Don't grow a table larger than this amount. Helps cap memory usage.
@@ -46,7 +51,7 @@ class BitMEXWebsocket:
 
         # findItemByKeys高速化のため、インデックスを作成・格納するための変数を作っておく
         self.itemIdxs = {}
-        
+
         # 高速化のため、各処理の処理時間を格納するtimearkを作成
         """
         self.timemark = {}
@@ -60,9 +65,9 @@ class BitMEXWebsocket:
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
         wsURL = self.__get_url()
-        self.logger.info("Connecting to %s" % wsURL)
+        print("Connecting to %s" % wsURL)
         self.__connect(wsURL, symbol)
-        self.logger.info('Connected to WS.')
+        print('Connected to WS.')
 
         # Connected. Wait for partials
         self.__wait_for_symbol(symbol)
@@ -71,8 +76,7 @@ class BitMEXWebsocket:
         self.logger.info('Got all market data. Starting.')
 
     def generate_nonce(self):
-        return int(round(time.time() * 1000))
-
+        return int(round(time.time() + 3000))
 
 # Generates an API signature.
 # A signature is HMAC_SHA256(secret, verb + path + nonce + data), hex encoded.
@@ -86,6 +90,7 @@ class BitMEXWebsocket:
 # nonce=1416993995705
 # data={"symbol":"XBTZ14","quantity":1,"price":395.01}
 # signature = HEX(HMAC_SHA256(secret, 'POST/api/v1/order1416993995705{"symbol":"XBTZ14","quantity":1,"price":395.01}'))
+
     def generate_signature(self, secret, verb, url, nonce, data):
         """Generate a request signature compatible with BitMEX."""
         # Parse the url so we can remove the base and extract just the path.
@@ -97,7 +102,8 @@ class BitMEXWebsocket:
         # print "Computing HMAC: %s" % verb + path + str(nonce) + data
         message = (verb + path + str(nonce) + data).encode('utf-8')
 
-        signature = hmac.new(secret.encode('utf-8'), message, digestmod=hashlib.sha256).hexdigest()
+        signature = hmac.new(secret.encode('utf-8'), message,
+                             digestmod=hashlib.sha256).hexdigest()
         return signature
 
     def exit(self):
@@ -109,7 +115,8 @@ class BitMEXWebsocket:
         '''Get the raw instrument data for this symbol.'''
         # Turn the 'tickSize' into 'tickLog' for use in rounding
         instrument = self.data['instrument'][0]
-        instrument['tickLog'] = int(math.fabs(math.log10(instrument['tickSize'])))
+        instrument['tickLog'] = int(
+            math.fabs(math.log10(instrument['tickSize'])))
         return instrument
 
     def get_ticker(self):
@@ -138,8 +145,8 @@ class BitMEXWebsocket:
     def open_orders(self, clOrdIDPrefix):
         '''Get all your open orders.'''
         orders = self.data['order']
-        # Filter to only open orders (leavesQty > 0) and those that we actually placed
-        return [o for o in orders if str(o['clOrdID']).startswith(clOrdIDPrefix) and o['leavesQty'] > 0]
+        # Filter to only open orders and those that we actually placed
+        return [o for o in orders if str(o['clOrdID']).startswith(clOrdIDPrefix) and self.order_leaves_quantity(o)]
 
     def recent_trades(self):
         '''Get recent trades.'''
@@ -167,13 +174,14 @@ class BitMEXWebsocket:
 
         # Wait for connect before continuing
         conn_timeout = 5
-        while not self.ws.sock or not self.ws.sock.connected and conn_timeout:
+        while (not self.ws.sock or not self.ws.sock.connected) and conn_timeout:
             sleep(1)
             conn_timeout -= 1
         if not conn_timeout:
             self.logger.error("Couldn't connect to WS! Exiting.")
             self.exit()
-            raise websocket.WebSocketTimeoutException('Couldn\'t connect to WS! Exiting.')
+            raise websocket.WebSocketTimeoutException(
+                'Couldn\'t connect to WS! Exiting.')
 
     def __get_auth(self):
         '''Return auth headers. Will use API time.time() if present in settings.'''
@@ -181,10 +189,12 @@ class BitMEXWebsocket:
             self.logger.info("Authenticating with API Key.")
             # To auth to the WS using an API key, we generate a signature of a nonce and
             # the WS API endpoint.
-            nonce = self.generate_nonce()
+            expires = self.generate_nonce()
             return [
-                "api-nonce: " + str(nonce),
-                "api-signature: " + self.generate_signature(self.api_secret, 'GET', '/realtime', nonce, ''),
+                "api-expires: " + str(expires),
+                "api-signature: " +
+                self.generate_signature(
+                    self.api_secret, 'GET', '/realtime', expires, ''),
                 "api-key:" + self.api_key
             ]
         else:
@@ -198,7 +208,8 @@ class BitMEXWebsocket:
         '''
 
         # You can sub to orderBookL2 for all levels, or orderBook10 for top 10 levels & save bandwidth
-        symbolSubs = ["execution", "instrument", "order", "orderBookL2", "position", "quote", "trade"]
+        symbolSubs = ["execution", "instrument", "order",
+                      "orderBookL2", "position", "quote", "trade"]
         genericSubs = ["margin"]
 
         subscriptions = [sub + ':' + self.symbol for sub in symbolSubs]
@@ -226,7 +237,7 @@ class BitMEXWebsocket:
             args = []
         self.ws.send(json.dumps({"op": command, "args": args}))
 
-    def __on_message(self, ws, message):
+    def __on_message(self, message):
         '''Handler for parsing WS messages.'''
         message = json.loads(message)
         self.logger.debug(json.dumps(message))
@@ -254,48 +265,52 @@ class BitMEXWebsocket:
                 # 'update'  - update row
                 # 'delete'  - delete row
                 if action == 'partial':
-                    #処理時間計測開始
+                    # 処理時間計測開始
                     #start = time.time()
-                    
+
                     self.logger.debug("%s: partial" % table)
-                    self.data[table] += message['data']
+                    self.data[table] = message['data']
                     # time.time() are communicated on partials to let you know how to uniquely identify
                     # an item. We use it for updates.
                     self.keys[table] = message['keys']
 
-                    #indexを作成します 
-                    # self.itemIdxs[table][keyvalue(kye1val-key2val-key3val)] に 
+                    # indexを作成します
+                    # self.itemIdxs[table][keyvalue(kye1val-key2val-key3val)] に
                     #  対象データのdata[table]上のインデックスが格納されます
                     for i in range(len(self.data[table])):
                         item = self.data[table][i]
-                        keyvalues = "-".join([str(v) for k,v in item.items() if k in self.keys[table]])
+                        keyvalues = "-".join([str(v)
+                                              for k, v in item.items() if k in self.keys[table]])
                         self.itemIdxs[table][keyvalues] = i
 
                     # 処理時間計測終了・登録
                     #end = time.time()
                     #self.timemark['partial'] += (end - start)
-                    
+
                 elif action == 'insert':
-                    #処理時間計測開始
+                    # 処理時間計測開始
                     #start = time.time()
 
-                    self.logger.debug('%s: inserting %s' % (table, message['data']))
+                    self.logger.debug('%s: inserting %s' %
+                                      (table, message['data']))
                     self.data[table] += message['data']
 
-                    #最後尾アイテムのindexを追加します
+                    # 最後尾アイテムのindexを追加します
                     item = self.data[table][-1]
-                    keyvalues = "-".join([str(v) for k,v in item.items() if k in self.keys[table]])
+                    keyvalues = "-".join([str(v)
+                                          for k, v in item.items() if k in self.keys[table]])
                     self.itemIdxs[table][keyvalues] = len(self.data[table])-1
-
 
                     # Limit the max length of the table to avoid excessive memory usage.
                     # Don't trim orders because we'll lose valuable state if we do.
                     if table not in ['order', 'orderBookL2'] and len(self.data[table]) > BitMEXWebsocket.MAX_TABLE_LEN:
-                        self.data[table] = self.data[table][int(BitMEXWebsocket.MAX_TABLE_LEN / 2):]
+                        self.data[table] = self.data[table][int(
+                            BitMEXWebsocket.MAX_TABLE_LEN / 2):]
                         # インデックスの再構築をします
                         for i in range(len(self.data[table])):
                             item = self.data[table][i]
-                            keyvalues = "-".join([str(v) for k,v in item.items() if k in self.keys[table]])
+                            keyvalues = "-".join([str(v)
+                                                  for k, v in item.items() if k in self.keys[table]])
                             self.itemIdxs[table][keyvalues] = i
 
                     # 処理時間計測終了・登録
@@ -304,62 +319,66 @@ class BitMEXWebsocket:
 
                 elif action == 'update':
 
-                    #処理時間計測開始
+                    # 処理時間計測開始
                     #start = time.time()
 
-                    self.logger.debug('%s: updating %s' % (table, message['data']))
+                    self.logger.debug('%s: updating %s' %
+                                      (table, message['data']))
                     # Locate the item in the collection and update it.
                     for updateData in message['data']:
                         # 高速化のため、itemIdxsを追加で引数指定
-                        item = self.findItemByKeys(self.keys[table], self.data[table], updateData, self.itemIdxs[table])
+                        item = self.findItemByKeys(
+                            self.keys[table], self.data[table], updateData, self.itemIdxs[table])
                         if not item:
                             return  # No item found to update. Could happen before push
                         item.update(updateData)
                         # Remove cancelled / filled orders
-                        if table == 'order' and item['leavesQty'] <= 0:
+                        if table == 'order' and not self.order_leaves_quantity(item):
                             self.data[table].remove(item)
-                    
+
                     # 処理時間計測終了・登録
                     #end = time.time()
                     #self.timemark['update'] += (end - start)
 
                 elif action == 'delete':
-                    #処理時間計測開始
+                    # 処理時間計測開始
                     #start = time.time()
 
-                    self.logger.debug('%s: deleting %s' % (table, message['data']))
+                    self.logger.debug('%s: deleting %s' %
+                                      (table, message['data']))
                     # Locate the item in the collection and remove it.
                     for deleteData in message['data']:
                         # 高速化のため、itemIdxsを追加で引数指定
-                        item = self.findItemByKeys(self.keys[table], self.data[table], deleteData, self.itemIdxs[table])
+                        item = self.findItemByKeys(
+                            self.keys[table], self.data[table], deleteData, self.itemIdxs[table])
                         self.data[table].remove(item)
                     # インデックスの再構築をします
                     for i in range(len(self.data[table])):
                         item = self.data[table][i]
-                        keyvalues = "-".join([str(v) for k,v in item.items() if k in self.keys[table]])
+                        keyvalues = "-".join([str(v)
+                                              for k, v in item.items() if k in self.keys[table]])
                         self.itemIdxs[table][keyvalues] = i
-                        
+
                     # 処理時間計測終了・登録
                     #end = time.time()
                     #self.timemark['delete'] += (end - start)
-                    
-                    
+
                 else:
                     raise Exception("Unknown action: %s" % action)
         except:
             self.logger.error(traceback.format_exc())
 
-    def __on_error(self, ws, error):
+    def __on_error(self, error):
         '''Called on fatal websocket errors. We exit on these.'''
         if not self.exited:
             self.logger.error("Error : %s" % error)
             raise websocket.WebSocketException(error)
 
-    def __on_open(self, ws):
+    def __on_open(self):
         '''Called when the WS opens.'''
         self.logger.debug("Websocket Opened.")
 
-    def __on_close(self, ws):
+    def __on_close(self):
         '''Called on websocket close.'''
         self.logger.info('Websocket Closed')
 
@@ -372,12 +391,13 @@ class BitMEXWebsocket:
     # fields we can use to uniquely identify an item. Sometimes there is more than one, so we iterate through all
     # provided keys.
     def findItemByKeys(self, keys, table, matchData, itemIdxs):
-        
-        #処理時間計測開始
+
+        # 処理時間計測開始
         #start = time.time()
-        
-        md_keyvalue = "-".join([str(v) for k,v in matchData.items() if k in keys]) 
-        if md_keyvalue in itemIdxs.keys() and len(table) > itemIdxs[md_keyvalue] :
+
+        md_keyvalue = "-".join([str(v)
+                                for k, v in matchData.items() if k in keys])
+        if md_keyvalue in itemIdxs.keys() and len(table) > itemIdxs[md_keyvalue]:
             # 処理時間計測終了・登録
             #end = time.time()
             #self.timemark['find'] += (end - start)
@@ -385,6 +405,11 @@ class BitMEXWebsocket:
 
         #end = time.time()
         #self.timemark['find'] += (end - start)
+
+    def order_leaves_quantity(self, o):
+        if o['leavesQty'] is None:
+            return True
+        return o['leavesQty'] > 0
 
         """ 旧ロジック
         for item in table:
