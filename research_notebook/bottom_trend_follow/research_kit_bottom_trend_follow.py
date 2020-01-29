@@ -54,7 +54,7 @@ bitmex_exchange_client = ExchangeClient(
     "bitmex", Path(config_ini))
 mysql_client = DBClient("mysql", Path(config_ini))
 dataset_manager = Dataset(mysql_client, bitmex_exchange_client, True)
-dataset_manager.update_ohlcv("bitmex",start_time=datetime.now() - timedelta(days=7), with_ta=True)
+dataset_manager.update_ohlcv("bitmex",start_time=datetime.now() - timedelta(days=365), with_ta=True)
 
 # manually added
 def get_joined_params_and_summary():
@@ -119,7 +119,8 @@ def f_and_t_test(column_1, column_2):
         
  # get data functions
 def get_params_summary_log_df_by_summary_id(summary_id):
-    summary_model_obj = mysql_client.session.query(BacktestSummary).filter(BacktestSummary.id==summary_id).all()[0]
+    #{FIXME} Don't use, the result is incorrect
+    summary_model_obj = mysql_client.session.query(BacktestSummary).filter(BacktestSummary.id==summary_id).all()[-1]
     
     summary_df = mysql_client.model_to_dataframe([summary_model_obj]).iloc[0,:]
     params_df = mysql_client.get_row_by_backtest_summary_id("bottom_trend_follow_backtest_management", summary_id).iloc[0,:]
@@ -178,49 +179,6 @@ def generate_asset_curve_by_summary_ids(summary_ids):
         graph.plot(log[1].close_time, log[1].current_balance, label=label)
         graph.legend()
 
-def add_technical_statistics_to_ohlcv_df(df):    
-    ta_ad = TechnicalAnalysisAD(df)
-    ad_df = ta_ad.get_ad()
-
-    ta_atr = TechnicalAnalysisATR(df)
-    atr_df = ta_atr.get_atr()
-
-    ta_sar = TechnicalAnalysisSAR(df)
-    sar_df = ta_sar.get_psar_trend()
-    # already append these cols
-
-    ta_macd = TechnicalAnalysisMACD(df)
-    macd_tick = [5,3,1]
-    # already append these 3 cols
-    ema_5 = ta_macd.append_ema_close(5)
-    ema_3 = ta_macd.append_ema_close(3)
-    ema_1 = ta_macd.append_ema_close(1)
-    
-    ta_obv = TechnicalAnalysisOBV(df)
-    obv_df = ta_obv.get_obv()
-    
-    ta_roc = TechnicalAnalysisROC(df)
-    roc_df = ta_roc.get_roc()
-    
-    ta_rsi = TechnicalAnalysisRSI(df)
-    rsi_df = ta_rsi.get_rsi()
-    
-    ta_so = TechnicalAnalysisSTOCH(df)
-    so_df = ta_so.get_so()
-    
-    ta_williamsr = TechnicalAnalysisWilliamsR(df)
-    williamsr_df = ta_williamsr.get_williams_r()
-    
-    ta_wma = TechnicalAnalysisWMA(df)
-    wma_df = ta_wma.get_wma()
-    pd.set_option('display.expand_frame_repr', True)
-    
-    ta_applied_df = pd.concat([df, ad_df, atr_df, obv_df, roc_df, rsi_df, so_df, williamsr_df, wma_df], axis=1)
-    # sar has already append on above
-    ta_applied_df.dropna(inplace=True)
-
-    return ta_applied_df
-
 def generate_transaction_snapshot_by_summary_id(summary_id, start_time, end_time):
     picked_ohlcv_df = dataset_manager.get_ohlcv(start_time=start_time, end_time=end_time, round=False)
     ta_ema = TechnicalAnalysisMACD(picked_ohlcv_df)
@@ -259,31 +217,37 @@ def generate_transaction_log_by_params_combination(tradingbot, timeframe_params,
     
     for timeframe in timeframe_params:
         print("timeframe=>" + str(timeframe))
-        for bottom_trend_tick in bottom_trend_tick_params:
-            for middle_trend_tick in middle_trend_tick_params:           
-                for top_trend_tick in top_trend_tick_params:
+        for bottom_trend_tick in bottom_params:
+            for middle_trend_tick in middle_params:           
+                for top_trend_tick in top_params:
                     if bottom_trend_tick <= middle_trend_tick or middle_trend_tick <= top_trend_tick:
                         continue
-                    generate_transaction_log_by_param(tradingbot, timeframe, bottom_trend_tick, middle_trend_tick, top_trend_tick,
-                                                     inverse_trading, close_position_on_do_nothing,
-                                                     random_forest_leverage_adjust,auto_bulk_insert=False)
-        tradingbot.bulk_insert()
+                    generate_transaction_log_by_param(tradingbot=tradingbot, timeframe_param=timeframe,backtest_start_time=backtest_start_time,
+                                                      backtest_end_time=backtest_end_time,
+                                                      bottom_trend_tick=bottom_trend_tick, middle_trend_tick=middle_trend_tick,
+                                                      top_trend_tick=top_trend_tick,
+                                                      inverse_trading=inverse_trading, close_position_on_do_nothing=close_position_on_do_nothing,
+                                                      random_forest_leverage_adjust=random_forest_leverage_adjust,auto_bulk_insert=False,
+                                                      ohlcv_df_1min=ohlcv_df_1min)
+        tradingbot.trading_bot_backtest.bulk_insert()
     print("total processing time:" + str(datetime.now() - calc_start_time))
     
 def generate_transaction_log_by_param(tradingbot, timeframe_param, backtest_start_time, backtest_end_time, bottom_trend_tick, 
                                       middle_trend_tick, top_trend_tick, inverse_trading, close_position_on_do_nothing,
-                                      random_forest_leverage_adjust, auto_bulk_insert=True, random_leverage_only_backtest=False):
+                                      random_forest_leverage_adjust, auto_bulk_insert=True, random_leverage=False, ohlcv_df_1min=None):
     
-    ohlcv_df_1min = dataset_manager.get_ohlcv(start_time=backtest_start_time, end_time=backtest_end_time)
-    print("dataset size: " + str(len(ohlcv_df_1min)))
+    if ohlcv_df_1min is None:
+        ohlcv_df_1min = dataset_manager.get_ohlcv(start_time=backtest_start_time, end_time=backtest_end_time)
+        print("dataset size: " + str(len(ohlcv_df_1min)))
     
     default_params = {
-        "bot_name": tradingbot.bot_name,
+        "bot_name": tradingbot.default_params["bot_name"],
         "version": "v1.0.0",
         "close_position_on_do_nothing": close_position_on_do_nothing,
         "inverse_trading": inverse_trading,
         "timeframe": int(timeframe_param),
-        "random_forest_leverage_adjust": random_forest_leverage_adjust
+        "random_forest_leverage_adjust": random_forest_leverage_adjust,
+        "random_leverage": random_leverage
     }
     specific_params = {
         "bottom_trend_tick": int(bottom_trend_tick),
@@ -291,9 +255,7 @@ def generate_transaction_log_by_param(tradingbot, timeframe_param, backtest_star
         "top_trend_tick": int(top_trend_tick)
     }
                     
-    tradingbot.reset_backtest_result_with_params(default_params, specific_params)
-    if random_leverage_only_backtest:
-        tradingbot.set_random_leverage_only_backtest(True)
+    tradingbot.set_params(default_params, specific_params)
             
     before_run = datetime.now()
     tradingbot.run(ohlcv_df=ohlcv_df_1min[::timeframe_param], ohlcv_start_time=backtest_start_time,
@@ -303,8 +265,8 @@ def generate_transaction_log_by_param(tradingbot, timeframe_param, backtest_star
           " top_trend_tick=>" + str(top_trend_tick) +\
           " time:" + str(datetime.now() - before_run))
     if auto_bulk_insert:
-        tradingbot.bulk_insert()
-    return tradingbot.summary_id
+        tradingbot.trading_bot_backtest.bulk_insert()
+    return tradingbot.trading_bot_backtest.summary_id
         
 def compare_summary_by_ids(ids):
     [1579,1580]
@@ -326,3 +288,119 @@ def compare_summary_by_ids(ids):
     
     print(params_df.T)
     print(summary_df.T)
+    
+def profit_factor_analysis(df, figure_title, timeframe_params):
+    columns_picked_up = df.sort_values("profit_factor", ascending=False).loc[:,[
+        "timeframe",
+        "bottom_trend_tick",
+        "middle_trend_tick",
+        "top_trend_tick",
+        "profit_factor"
+    ]]
+    
+    bins=100
+    
+    fig_profit_factor_histogram = plt.figure()
+    fig_profit_factor_histogram.suptitle(figure_title, fontsize=16, y=1.01)
+    #fig_profit_factor_histogram.subplots_adjust(wspace=0.4, hspace=0.6)
+    profit_factor_histogram_all = fig_profit_factor_histogram.add_subplot(len(timeframe_params)+1,1,1)
+    profit_factor_histogram_all.hist(df.profit_factor, bins=100)
+    profit_factor_histogram_all.set_title("profit factor distribution for all rows")
+    profit_factor_histogram_all.set_xlabel("profit factor")
+    profit_factor_histogram_all.set_ylabel("freq")
+    
+    for i, timeframe in enumerate(timeframe_params):
+        profit_factor_histogram = fig_profit_factor_histogram.add_subplot(len(timeframe_params) + 1,1, 2 + i)
+        profit_factor_histogram.hist(columns_picked_up.query("timeframe==" + str(timeframe)).profit_factor, bins=bins)
+        profit_factor_histogram.set_title("profit factor distribution for timeframe=" + str(timeframe))
+        profit_factor_histogram.set_xlabel("profit factor")
+        profit_factor_histogram.set_ylabel("freq")
+        
+    plt.rcParams['figure.figsize'] = (10.0, 10.0)
+    fig_profit_factor_histogram.tight_layout()
+    
+def visualize_timeframe_entry_profit_relation(df, figure_title, timeframe_params):
+    plt.rcParams['figure.figsize'] = (10.0, 10.0)
+    title = "timeframe entry and profit total profit"
+    
+    figure_timeframe_entry_profit = plt.figure()
+    figure_timeframe_entry_profit.suptitle(figure_title, fontsize=16, y=1.01)
+    graph1 = figure_timeframe_entry_profit.add_subplot(1,1,1)
+    graph1.set_title(title)
+    graph1.set_xlabel("total_entry")
+    graph1.set_ylabel("total return")
+
+    for t in timeframe_params:
+        graph1.scatter(df[df.timeframe == t].total_entry,
+                       df[df.timeframe == t].total_return,
+                   alpha=0.5,linewidths="1", label="timeframe:" + str(t))
+        graph1.legend()
+    
+    figure_timeframe_entry_profit.tight_layout()
+    
+def find_best_ranking_parameter(sorted_df_in_need_with_timeframe, tick_params,
+                                bottom_trend_tick=None, middle_trend_tick=None, verbose=False):
+    optimal_tick = 0
+    max_tick_ranking = 0
+    
+    # tick optimize detection
+    if bottom_trend_tick is None and middle_trend_tick is None:
+        base_query = "bottom_trend_tick == "        
+                
+    elif bottom_trend_tick is not None and middle_trend_tick is None:
+        base_query = "bottom_trend_tick == " + str(bottom_trend_tick) + " and middle_trend_tick == "
+            
+    elif bottom_trend_tick is not None and middle_trend_tick is not None:
+        base_query = "bottom_trend_tick == " + str(bottom_trend_tick) + " and middle_trend_tick ==" +\
+                    str(middle_trend_tick) + " and top_trend_tick == "
+        
+    return get_max_ranking_tick(sorted_df_in_need_with_timeframe, base_query, tick_params, verbose=verbose)
+
+def get_max_ranking_tick(sorted_df_in_need_with_timeframe, base_query, tick_params, verbose=False):
+    max_tick_ranking = 0
+    optimal_tick = 0
+    
+    for tick in tick_params:
+        df = sorted_df_in_need_with_timeframe.query(base_query + str(tick))
+                    
+        denominator = len(df)
+        numerator = df.index.values.sum()
+            
+        average_ranking = numerator/denominator
+        if verbose is True:
+            print("denominator => " + str(denominator) + " numerator => " + str(numerator) + " tick => " + str(tick) +\
+              " average ranking => " + str(average_ranking))
+            
+        if average_ranking < max_tick_ranking or max_tick_ranking == 0:
+            max_tick_ranking = average_ranking
+            optimal_tick = tick
+            
+    return optimal_tick
+
+def find_optimal_parameters_by_ranking(df,timeframe_params, bottom_trend_tick_params, middle_trend_tick_params, top_trend_tick_params, verbose=False):
+    sorted_df_in_need = df[[
+        "timeframe",
+        "bottom_trend_tick",
+        "middle_trend_tick",
+        "top_trend_tick",
+        "profit_factor"]
+    ].sort_values("profit_factor", ascending=False)
+    
+    for timeframe in timeframe_params:
+        print("calc optimal parameters for timeframe:" + str(timeframe))
+        sorted_df_in_need_with_timeframe = sorted_df_in_need.query("timeframe ==" + str(timeframe))
+        if verbose:
+            print("bottom")
+        optimal_bottom = find_best_ranking_parameter(sorted_df_in_need_with_timeframe,
+            bottom_trend_tick_params, verbose=verbose)
+        if verbose:
+            print("middle with bottom => " + str(optimal_bottom) )
+        optimal_middle = find_best_ranking_parameter(sorted_df_in_need_with_timeframe,
+            middle_trend_tick_params, bottom_trend_tick=optimal_bottom, verbose=verbose)
+        if verbose:
+            print("top with bottom => " + str(optimal_bottom) + " middle => " + str(optimal_middle))
+        optimal_top = find_best_ranking_parameter(sorted_df_in_need_with_timeframe,
+            top_trend_tick_params, bottom_trend_tick=optimal_bottom, middle_trend_tick=optimal_middle, verbose=verbose)
+        
+        print("optimal bottom => " + str(optimal_bottom) + " middle => " +\
+              str(optimal_middle) + "top => " + str(optimal_top))
