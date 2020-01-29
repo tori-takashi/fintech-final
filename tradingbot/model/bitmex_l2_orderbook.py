@@ -8,7 +8,7 @@ class BitmexL2OrderBook(Base):
     __tablename__ = "bitmex_l2_orderbook"
     id = Column(Integer, primary_key=True)
 
-    timestamp = Column(DateTime)
+    timestamp = Column(String(100))
     symbol = Column(String(20))
     side = Column(String(40))
     size = Column(Float)
