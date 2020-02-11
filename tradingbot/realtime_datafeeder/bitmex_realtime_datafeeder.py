@@ -30,16 +30,108 @@ class BitmexRealtimeDatafeeder:
         self.latest_recent_trades = json.dumps(
             self.bitmex_wsclient.ws.recent_trades())
 
+        self.init_for_bars()
+
+    def init_for_bars(self):
+        self.l1_tick_data = []
+        self.recent_trades_tick_data = []
+
+        self.time_bar_tick_data = []
+
+        self.time_bar_generated = False
+
     def run(self):
         ws = self.bitmex_wsclient.ws
         start_time = datetime.now()
         self.updated_at = datetime.now()
 
         while (ws.ws.sock.connected) and (datetime.now() - start_time < timedelta(seconds=self.second)):
-            self.fetch_data(ws)
-            sleep(0.01)
+            try:
+                self.fetch_data(ws)
+                sleep(0.001)
+            except:
+                continue
 
         print("done")
+
+    def run_with_tib(self):
+        ws = self.bitmex_wsclient.ws
+        self.tick_start_time = datetime.now()
+
+        while (ws.ws.sock.connected):
+            try:
+                self.fetch_tib_base_data(ws)
+                self.generate_bars()
+                sleep(0.001)
+            except:
+                continue
+
+    def generate_bars(self):
+        self.calc_tick_bar()
+        self.calc_volume_bar()
+        self.calc_dollar_bar()
+
+        # information driven bars
+        self.calc_tick_imbalanced_bar()
+        self.calc_volume_immbalanced_bar()
+        self.calc_dollar_imbalanced_bar
+
+        # runs bar
+        self.calc_tick_runs_bar()
+        self.calc_volume_runs_bar()
+
+    def calc_tick_bar(self):
+        pass
+
+    def calc_volume_bar(self):
+        pass
+
+    def calc_dollar_bar(self):
+        pass
+
+    def calc_tick_imbalanced_bar(self):
+        pass
+
+    def calc_volume_immbalanced_bar(self):
+        pass
+
+    def calc_dollar_imbalanced_bar(self):
+        pass
+
+    def calc_tick_runs_bar(self):
+        pass
+
+    def calc_volume_runs_bar(self):
+        pass
+
+    def fetch_tib_base_data(self, ws):
+        l1_parent, l1_child = Pipe()
+        recent_trades_parent, recent_trades_child = Pipe()
+
+        p_l1_orderbook = Process(
+            target=self.fetch_l1_orderbook,  args=(ws, l1_child, ))
+        p_recent_trades = Process(
+            target=self.fetch_recent_trade, args=(ws, recent_trades_child, ))
+
+        p_l1_orderbook.start()
+        p_recent_trades.start()
+
+        l1_orderbook_list = l1_parent.recv()
+        recent_trades_list = recent_trades_parent.recv()
+
+        self.l1_tick_data.extend(l1_orderbook_list)
+        self.recent_trades_tick_data.extend(recent_trades_list)
+
+        self.db_client.session.execute(
+            BitmexL1OrderBook.__table__.insert(), l1_orderbook_list)
+        self.db_client.session.execute(
+            BitmexRecentOrders.__table__.insert(), recent_trades_list)
+
+        p_l1_orderbook.join()
+        p_recent_trades.join()
+
+    def set_bar_tick_data(self):
+        pass
 
     def fetch_data(self, ws):
         loop_start_time = datetime.now()
@@ -76,6 +168,9 @@ class BitmexRealtimeDatafeeder:
         p_l2_orderbook.join()
         p_recent_trades.join()
 
+        self.continuous_insert(loop_start_time)
+
+    def continuous_insert(self, loop_start_time):
         if (datetime.now() - self.updated_at).total_seconds() > 5:
             self.updated_at = datetime.now()
             Process(target=self.write_to_db, args=(self.db_client, )).start()
