@@ -14,7 +14,7 @@ import csv
 
 class TechnicalAnalysisSAR:
     def __init__(self, df):
-        self.df = df
+        self.df = df.copy()
         self.high = df['high']
         self.low = df['low']
 
