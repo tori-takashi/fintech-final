@@ -3,6 +3,8 @@ import pathlib
 from datetime import datetime, timedelta
 from sqlalchemy import Column, Integer
 
+import talib as ta
+
 from bot.trading_bot import TradingBot
 
 
@@ -18,12 +20,12 @@ class BasicBreakout():
             "random_forest_leverage_adjust": False
         }
 
-        self.system1_entry_atr_timeperiod = 10
-        self.system1_exit_atr_timeperiod = 20
+        self.system1_entry_timeperiod = 10
+        self.system1_exit_timeperiod = 20
 
         self.specific_params = {
-            "system1_entry_atr_timeperiod": self.system1_entry_atr_timeperiod,
-            "system1_exit_atr_timeperiod": self.system1_exit_atr_timeperiod
+            "system1_entry_timeperiod": self.system1_entry_timeperiod,
+            "system1_exit_timeperiod": self.system1_exit_timeperiod
         }
 
         if default_params is not None and specific_params is not None:
@@ -43,13 +45,28 @@ class BasicBreakout():
         # return table def_keys
         # {"<column name>" : sqlalchemy column type (like Integer, String, Float....) }
         table_def_keys = {
-            "system1_entry_atr_timeperiod": Integer,
-            "system1_exit_atr_timeperiod": Integer,
+            "system1_entry_timeperiod": Integer,
+            "system1_exit_timeperiod": Integer,
         }
         return table_def_keys
 
     def calculate_metrics(self, df):
         ohlcv_with_metrics = df
+
+        ohlcv_with_metrics["system1_entry_atr"] = ta.ATR(
+            df["high"], df["low"], df["close"], timeperiod=self.system1_entry_timeperiod)
+        ohlcv_with_metrics["system1_exit_atr"] = ta.ATR(
+            df["high"], df["low"], df["close"], timeperiod=self.system1_exit_timeperiod)
+
+        ohlcv_with_metrics["system1_entry_high"] = ohlcv_with_metrics["high"].rolling(
+            self.system1_entry_timeperiod).max()
+        ohlcv_with_metrics["system1_entry_low"] = ohlcv_with_metrics["low"].rolling(
+            self.system1_entry_timeperiod).min()
+        ohlcv_with_metrics["system1_exit_from_long"] = ohlcv_with_metrics["low"].rolling(
+            self.system1_exit_timeperiod).min()
+        ohlcv_with_metrics["system1_exit_from_short"] = ohlcv_with_metrics["high"].rolling(
+            self.system1_exit_timeperiod).max()
+
         return ohlcv_with_metrics
 
     def calculate_signals(self, df):
