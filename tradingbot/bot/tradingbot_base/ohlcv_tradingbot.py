@@ -18,8 +18,8 @@ class OHLCV_tradingbot:
             if datetime.now() - download_start < timedelta(seconds=29):
                 break
 
-    def get_ohlcv(self):
-        return self.dataset_manipulator.get_ohlcv(self.default_params["timeframe"], self.ohlcv_start_time, self.ohlcv_end_time)
+    def get_ohlcv(self, round):
+        return self.dataset_manipulator.get_ohlcv(self.default_params["timeframe"], self.ohlcv_start_time, self.ohlcv_end_time, round=round)
 
     def generate_latest_row(self, calculate_metrics, calculate_signals, round):
         self.update_ohlcv()

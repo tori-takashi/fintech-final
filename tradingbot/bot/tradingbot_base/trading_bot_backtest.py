@@ -22,13 +22,11 @@ class TradingBotBacktest():
 
     def run(self, ohlcv_df, ohlcv_start_time, ohlcv_end_time, floor_time):
         # for summary
-        if floor_time:
-            self.ohlcv_tradingbot.ohlcv_start_time = self.tradingbot.dataset_manipulator.floor_datetime_to_ohlcv(
-                ohlcv_start_time, "up")
-            self.ohlcv_tradingbot.ohlcv_end_time = self.tradingbot.dataset_manipulator.floor_datetime_to_ohlcv(
-                ohlcv_end_time, "down")
+        self.ohlcv_tradingbot.ohlcv_start_time = ohlcv_start_time
+        self.ohlcv_tradingbot.ohlcv_end_time = ohlcv_end_time
 
-        ohlcv_df = self.ohlcv_tradingbot.get_ohlcv() if ohlcv_df is None else ohlcv_df
+        ohlcv_df = self.ohlcv_tradingbot.get_ohlcv(
+            round=floor_time) if ohlcv_df is None else ohlcv_df
         ohlcv_with_metrics = self.tradingbot.calculate_metrics(ohlcv_df)
         self.ohlcv_with_signals = self.tradingbot.calculate_signals(
             ohlcv_with_metrics).dropna()
