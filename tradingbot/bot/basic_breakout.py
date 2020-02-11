@@ -32,3 +32,28 @@ class BasicBreakout():
 
         super().__init__(exchange_client=exchange_client, db_client=db_client, default_params=self.default_params,
                          specific_params=self.specific_params, is_backtest=is_backtest)
+
+    def calculate_specific_lot(self, row):
+        return 1  # USD
+
+    def calculate_specific_leverage(self, row):
+        return 1  # x
+
+    def append_specific_param_columns(self):
+        # return table def_keys
+        # {"<column name>" : sqlalchemy column type (like Integer, String, Float....) }
+        table_def_keys = {
+            "system1_entry_atr_timeperiod": Integer,
+            "system1_exit_atr_timeperiod": Integer,
+        }
+        return table_def_keys
+
+    def calculate_metrics(self, df):
+        ohlcv_with_metrics = df
+        return ohlcv_with_metrics
+
+    def calculate_signals(self, df):
+        #df.loc[None, "signal"] = "buy"
+        #df.loc[None, "signal"] = "sell"
+        #df["signal"].fillna("do_nothing", inplace=True)
+        return df
