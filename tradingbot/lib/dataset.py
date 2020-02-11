@@ -50,7 +50,7 @@ class Dataset:
 
         return pd.concat(ohlcv_df_list)
 
-    def update_ohlcv(self, data_provider_name, start_time=None, asset_name=None, with_ta=False):
+    def update_ohlcv(self, data_provider_name, start_time=None, asset_name=None):
         while True:
             download_start = datetime.now()
 
@@ -63,15 +63,9 @@ class Dataset:
                 ohlcv_df = self.download_ohlcv_data_from_bitmex(
                     "1m", start_time, end_time=datetime.now())
 
-            if with_ta and ohlcv_df.empty is not True:
-                ohlcv_df = self.attach_technical_indicators_for_update_data(
-                    ohlcv_df, start_time)
-                if self.is_backtest:
-                    ohlcv_df.reset_index(inplace=True)
-
             self.append_update_data(ohlcv_df)
 
-            if datetime.now() - download_start < timedelta(seconds=29) or not latest_row:
+            if datetime.now() - download_start < timedelta(seconds=29):
                 break
 
     def append_update_data(self, ohlcv_df):
@@ -86,37 +80,6 @@ class Dataset:
             self.db_client.append_to_table(
                 "OHLCV_data", ohlcv_df
             )
-
-    def attach_technical_indicators_for_update_data(self, ohlcv_df, start_time):
-        padding_df = self.get_ohlcv(timeframe=1, start_time=datetime.now() - timedelta(minutes=200),
-                                    end_time=datetime.now(), round=False)
-
-        if self.db_client.is_influxdb() and self.db_client.is_table_exist("OHLCV_data"):
-            ohlcv_df["timestamp"] = ohlcv_df["timestamp"].dt.tz_localize(
-                timezone.utc)
-            ohlcv_df.set_index('timestamp', inplace=True)
-
-            concatnated_df = pd.concat(
-                [padding_df, ohlcv_df], axis=0, sort=False)
-            concatnated_df.index = concatnated_df.index.map(
-                np.datetime64)
-
-            return self.add_technical_statistics_to_ohlcv_df(
-                concatnated_df)
-
-        elif self.db_client.is_mysql() and self.db_client.is_table_exist(self.original_ohlcv_1min_table):
-            ohlcv_df.set_index('timestamp', inplace=True)
-            if padding_df is not None and not padding_df.empty:
-
-                concatnated_df = pd.concat(
-                    [padding_df, ohlcv_df], axis=0, sort=False)
-
-                ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
-                    concatnated_df)
-            else:
-                ohlcv_df = self.add_technical_statistics_to_ohlcv_df(
-                    ohlcv_df)
-            return ohlcv_df[start_time:]
 
     def get_latest_row(self):
         if self.db_client.is_mysql():
@@ -134,41 +97,6 @@ class Dataset:
                 latest_row = self.db_client.get_last_row_with_tags(
                     "OHLCV_data", {"exchange_name": "bitmex", "asset_name": "BTC/USD"})
                 return latest_row
-
-    def add_technical_statistics_to_ohlcv_df(self, df):
-        ta_ad = TechnicalAnalysisAD(df)
-        ad_df = ta_ad.get_ad()
-
-        ta_atr = TechnicalAnalysisATR(df)
-        atr_df = ta_atr.get_atr()
-
-        ta_sar = TechnicalAnalysisSAR(df)
-        ta_sar.get_psar_trend()
-        # already append these cols
-
-        ta_obv = TechnicalAnalysisOBV(df)
-        obv_df = ta_obv.get_obv()
-
-        ta_roc = TechnicalAnalysisROC(df)
-        roc_df = ta_roc.get_roc()
-
-        ta_rsi = TechnicalAnalysisRSI(df)
-        rsi_df = ta_rsi.get_rsi()
-
-        ta_so = TechnicalAnalysisSTOCH(df)
-        so_df = ta_so.get_so()
-
-        ta_williamsr = TechnicalAnalysisWilliamsR(df)
-        williamsr_df = ta_williamsr.get_williams_r()
-
-        if self.is_backtest:
-            tas = pd.concat([df, ad_df, atr_df, obv_df, roc_df,
-                             rsi_df, so_df, williamsr_df], axis=1)
-            tas.dropna(inplace=True)
-            return tas
-        else:
-            # return df
-            return pd.concat([df, ad_df, atr_df, obv_df, roc_df, rsi_df, so_df, williamsr_df], sort=False)
 
     def build_ohlcv_1min_table(self):
         ohlcv_1min_table = OHLCV_1min.__table__
@@ -202,7 +130,7 @@ class Dataset:
             ohlcv_1min_model.__table__.name = self.original_ohlcv_1min_table
 
             all_data_models = self.db_client.session.query(OHLCV_1min).filter(
-                start_time < ohlcv_1min_model.timestamp).filter(
+                start_time - timedelta(minutes=15*timeframe) - timedelta(minutes=timeframe*14) < ohlcv_1min_model.timestamp).filter(
                     ohlcv_1min_model.timestamp < end_time).all()
             if not all_data_models:
                 return None
@@ -220,59 +148,72 @@ class Dataset:
             print("Done")
 
         if round:
-            rounded_start_time = self.floor_datetime_to_ohlcv(start_time, "up")
-            rounded_end_time = self.floor_datetime_to_ohlcv(end_time, "down")
-            return all_data[rounded_start_time:rounded_end_time + timedelta(minutes=1):timeframe]
-        else:
-            return all_data[start_time:end_time + timedelta(minutes=1):timeframe]
+            all_data = self.round_time_for_all_data(
+                all_data, timeframe, start_time - timedelta(minutes=15*timeframe), end_time)
 
-    def floor_datetime_to_ohlcv(self, start_or_end_time, round_up_or_down):
+        all_data = self.recalculate_ohlv_for_all_data(
+            all_data, timeframe)[::timeframe]
+
+        all_data = self.add_technical_statistics_to_ohlcv_df(all_data)
+
+        return all_data
+
+    def recalculate_ohlv_for_all_data(self, all_data, timeframe):
+        all_data["open"] = all_data["open"].shift(periods=timeframe-1, axis=0)
+        all_data["high"] = all_data["high"].rolling(window=timeframe).max()
+        all_data["low"] = all_data["low"].rolling(window=timeframe).min()
+        all_data["volume"] = all_data["volume"].rolling(window=timeframe).sum()
+        return all_data
+
+    def round_time_for_all_data(self, all_data, timeframe, start_time, end_time):
+        rounded_start_time = self.floor_datetime_to_ohlcv(
+            timeframe, start_time, "up")
+        rounded_end_time = self.floor_datetime_to_ohlcv(
+            timeframe, end_time, "down")
+        return all_data[rounded_start_time:rounded_end_time]
+
+    def floor_datetime_to_ohlcv(self, timeframe, start_or_end_time, round_up_or_down):
         if round_up_or_down == "up":
             return (start_or_end_time.replace(second=0, microsecond=0, minute=0, hour=start_or_end_time.hour)
                     + timedelta(hours=1))
         elif round_up_or_down == "down":
             return start_or_end_time.replace(second=0, microsecond=0, minute=0, hour=start_or_end_time.hour)
 
-    def attach_past_futures_to_ohlcv_df(self, ohlcv_df, append_past=False, append_past_mins=None,
-                                        append_future=False, append_future_mins=None):
+    def add_technical_statistics_to_ohlcv_df(self, df):
+        # need to be considered timeperipd of each TAs
+        df = df[["open", "high", "low", "close", "volume",
+                 "id", "exchange_name", "asset_name"]]
 
-        # assign timestamp to ohlcv
-        ohlcv_df = PandaMex.to_timestamp(ohlcv_df)
+        ta_ad = TechnicalAnalysisAD(df)
+        ad_df = ta_ad.get_ad()
 
-        if append_past:
-            ohlcv_df = self.append_past(ohlcv_df, append_past_mins)
-            ohlcv_df = self.cut_empty_row(ohlcv_df, "past", append_past_mins)
+        ta_atr = TechnicalAnalysisATR(df)
+        atr_df = ta_atr.get_atr()
 
-        if append_future:
-            ohlcv_df = self.append_future(ohlcv_df, append_future_mins)
-            ohlcv_df = self.cut_empty_row(
-                ohlcv_df, "future", append_future_mins)
+        ta_sar = TechnicalAnalysisSAR(df)
+        ta_sar.get_psar_trend()
+        # already append these cols
 
-        return ohlcv_df
+        ta_obv = TechnicalAnalysisOBV(df)
+        obv_df = ta_obv.get_obv()
 
-    def append_past(self, ohlcv_df, past_mins=[1, 5, 10]):
-        for min in past_mins:
-            column_name = "past_" + str(min) + "min"
-            ohlcv_df[column_name] = ohlcv_df["close"].shift(min)
-        return ohlcv_df
+        ta_roc = TechnicalAnalysisROC(df)
+        roc_df = ta_roc.get_roc()
 
-    def append_future(self, ohlcv_df, future_mins=[1, 5, 10]):
-        for min in future_mins:
-            column_name = "after_" + str(min) + "min"
-            ohlcv_df[column_name] = ohlcv_df["close"].shift(-min)
-        return ohlcv_df
+        ta_rsi = TechnicalAnalysisRSI(df)
+        rsi_df = ta_rsi.get_rsi()
 
-    def cut_empty_row(self, ohlcv_df, mode, mins=[1, 5, 10]):
-        cut_num = max(mins)
+        ta_so = TechnicalAnalysisSTOCH(df)
+        so_df = ta_so.get_so()
 
-        ohlcv_df.reset_index(inplace=True, drop=True)
+        ta_williamsr = TechnicalAnalysisWilliamsR(df)
+        williamsr_df = ta_williamsr.get_williams_r()
 
-        if mode == "past":
-            ohlcv_df.drop(
-                ohlcv_df.index[[i for i in range(cut_num)]], inplace=True)
-        elif mode == "future":
-            ohlcv_df.drop(ohlcv_df.index[[-(i + 1)
-                                          for i in range(cut_num)]], inplace=True)
-
-        ohlcv_df.reset_index(inplace=True, drop=True)
-        return ohlcv_df
+        if self.is_backtest:
+            tas = pd.concat([df, ad_df, atr_df, obv_df, roc_df,
+                             rsi_df, so_df, williamsr_df], axis=1)
+            tas.dropna(inplace=True)
+            return tas
+        else:
+            # return df
+            return pd.concat([df, ad_df, atr_df, obv_df, roc_df, rsi_df, so_df, williamsr_df], sort=False)
